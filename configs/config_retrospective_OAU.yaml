@@ -6,9 +6,9 @@
 # Only use absolute paths!
 
 preprocessing:
-  output_dir: /lab/barcheese01/mdiberna/msi/retrospective_oau/processed
-  wsi_dir: /lab/barcheese01/mdiberna/msi/retrospective_oau/raw
-  cache_dir: /lab/barcheese01/mdiberna/msi/retrospective_oau/cache
+  output_dir: data/retrospective_oau/processed
+  wsi_dir: data/retrospective_oau/raw
+  cache_dir: data/retrospective_oau/cache
   microns: 256 # Edge length in microns for each patch (default is 256, with pixel size 224, 256/224 = ~1.14MPP = ~9x magnification)
   norm: true # Perform Macenko normalisation
   normalization_template: ${oc.env:STAMP_RESOURCES_DIR}/normalization_template.jpg # Path to normalization template
