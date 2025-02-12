@@ -37,10 +37,14 @@ python src/collect_redcap.py
 # Configure AWS CLI if not already done
 aws configure
 
+# Create data directories
+mkdir -p data/{OAUTHC,LUTH,UITH,LASUTH}/{raw,processed,cache}
+
 # Download slides for each institution
-aws s3 cp s3://bucket-name/slides/oauthc/ /lab/barcheese01/mdiberna/msi/OAUTHC/raw/
-aws s3 cp s3://bucket-name/slides/luth/ /lab/barcheese01/mdiberna/msi/LUTH/raw/
-aws s3 cp s3://bucket-name/slides/uith/ /lab/barcheese01/mdiberna/msi/UITH/raw/
+aws s3 cp s3://bucket-name/slides/oauthc/ data/OAUTHC/raw/
+aws s3 cp s3://bucket-name/slides/luth/ data/LUTH/raw/
+aws s3 cp s3://bucket-name/slides/uith/ data/UITH/raw/
+aws s3 cp s3://bucket-name/slides/lasuth/ data/LASUTH/raw/
 ```
 
 ### Step 3: STAMP Processing
@@ -75,17 +79,35 @@ python src/validate_processing.py
 
 ## Project Structure
 ```
-argo-deepmsi/
+ARGO-DeepMSI/
 ├── src/
 │   ├── collect_redcap.py      # REDCap data collection
 │   └── validate_processing.py  # Processing validation
+├── data/                      # All slide data (gitignored)
+│   ├── OAUTHC/
+│   │   ├── raw/              # Original SVS files
+│   │   ├── processed/        # STAMP output
+│   │   └── cache/           # STAMP cache
+│   ├── LUTH/
+│   │   ├── raw/
+│   │   ├── processed/
+│   │   └── cache/
+│   ├── UITH/
+│   │   ├── raw/
+│   │   ├── processed/
+│   │   └── cache/
+│   └── LASUTH/
+│       ├── raw/
+│       ├── processed/
+│       └── cache/
 ├── tables/                    # Generated CSV tables
 ├── configs/                   # STAMP configuration files
 │   ├── config_OAUTHC.yaml
 │   ├── config_LUTH.yaml
-│   └── config_UITH.yaml
+│   ├── config_UITH.yaml
+│   └── config_LASUTH.yaml
 ├── argo-env.yml              # Conda environment specification
-└── redcap.env                # Environment variables
+└── .env                      # Environment variables
 ```
 
 ## Notes
