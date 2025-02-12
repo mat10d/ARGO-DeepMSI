@@ -38,13 +38,15 @@ python src/collect_redcap.py
 aws configure
 
 # Create data directories
-mkdir -p data/{OAUTHC,LUTH,UITH,LASUTH}/{raw,processed,cache}
+mkdir -p data/{OAUTHC,LUTH,UITH,LASUTH,retrospective_msk,retrospective_oau}/{raw,processed,cache}
 
 # Download slides for each institution
 aws s3 cp s3://bucket-name/slides/oauthc/ data/OAUTHC/raw/
 aws s3 cp s3://bucket-name/slides/luth/ data/LUTH/raw/
 aws s3 cp s3://bucket-name/slides/uith/ data/UITH/raw/
 aws s3 cp s3://bucket-name/slides/lasuth/ data/LASUTH/raw/
+aws s3 cp s3://bucket-name/slides/retrospective_msk/ data/retrospective_msk/raw/
+aws s3 cp s3://bucket-name/slides/retrospective_oau/ data/retrospective_oau/raw/
 ```
 
 ### Step 3: STAMP Processing
@@ -58,14 +60,20 @@ source .venv-stamp/bin/activate
 stamp init --config configs/config_OAUTHC.yaml
 stamp init --config configs/config_LUTH.yaml
 stamp init --config configs/config_UITH.yaml
+stamp init --config configs/config_LASUTH.yaml
+stamp init --config configs/config_retrospective_MSK.yaml
+stamp init --config configs/config_retrospective_OAU.yaml
 ```
 
 2. Run preprocessing:
 ```bash
-# Run for each institution
+# Run preprocessing
 stamp preprocess --config configs/config_OAUTHC.yaml
 stamp preprocess --config configs/config_LUTH.yaml
 stamp preprocess --config configs/config_UITH.yaml
+stamp preprocess --config configs/config_LASUTH.yaml
+stamp preprocess --config configs/config_retrospective_MSK.yaml
+stamp preprocess --config configs/config_retrospective_OAU.yaml
 ```
 
 ### Step 4: Validation
@@ -79,7 +87,9 @@ python src/validate_processing.py
 
 ## Project Structure
 ```
-ARGO-DeepMSI/
+# Project Structure
+```
+argo-deepmsi/
 ├── src/
 │   ├── collect_redcap.py      # REDCap data collection
 │   └── validate_processing.py  # Processing validation
@@ -96,18 +106,36 @@ ARGO-DeepMSI/
 │   │   ├── raw/
 │   │   ├── processed/
 │   │   └── cache/
-│   └── LASUTH/
+│   ├── LASUTH/
+│   │   ├── raw/
+│   │   ├── processed/
+│   │   └── cache/
+│   ├── retrospective_msk/
+│   │   ├── raw/
+│   │   ├── processed/
+│   │   └── cache/
+│   └── retrospective_oau/
 │       ├── raw/
 │       ├── processed/
 │       └── cache/
 ├── tables/                    # Generated CSV tables
+│   ├── prospective_clinical_table.csv
+│   ├── prospective_slide_table.csv
+│   ├── retrospective_msk_clinical_table.csv
+│   ├── retrospective_msk_slide_table.csv
+│   ├── retrospective_oau_clinical_table.csv
+│   └── retrospective_oau_slide_table.csv
 ├── configs/                   # STAMP configuration files
-│   ├── config_OAUTHC.yaml
 │   ├── config_LUTH.yaml
+│   ├── config_OAUTHC.yaml
 │   ├── config_UITH.yaml
-│   └── config_LASUTH.yaml
+│   ├── config_LASUTH.yaml
+│   ├── config_retrospective_MSK.yaml
+│   └── config_retrospective_OAU.yaml
+├── .env                      # Environment variables 
+├── .gitignore                # Git ignore file
 ├── argo-env.yml              # Conda environment specification
-└── .env                      # Environment variables
+└── README.md                 # Project documentation
 ```
 
 ## Notes
