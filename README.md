@@ -33,21 +33,8 @@ python src/collect_redcap.py
 ```
 
 ### Step 2: AWS Slide Download
-```bash
-# Configure AWS CLI if not already done
-aws configure
 
-# Create data directories
-mkdir -p data/{OAUTHC,LUTH,UITH,LASUTH,retrospective_msk,retrospective_oau}/{raw,processed,cache}
-
-# Download slides for each institution
-aws s3 cp s3://bucket-name/slides/oauthc/ data/OAUTHC/raw/
-aws s3 cp s3://bucket-name/slides/luth/ data/LUTH/raw/
-aws s3 cp s3://bucket-name/slides/uith/ data/UITH/raw/
-aws s3 cp s3://bucket-name/slides/lasuth/ data/LASUTH/raw/
-aws s3 cp s3://bucket-name/slides/retrospective_msk/ data/retrospective_msk/raw/
-aws s3 cp s3://bucket-name/slides/retrospective_oau/ data/retrospective_oau/raw/
-```
+See `AWS.md`.
 
 ### Step 3: STAMP Processing
 
