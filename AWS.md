@@ -93,6 +93,21 @@ scp -r username@your-instance-ip:/E:/data/* /path/to/local/destination/
 
 # List contents recursively to verify directory structure
 ls -R /path/to/local/destination/
+
+# Navigate to your data directory
+cd /path/to/downloaded/msi-data
+
+# Create raw subfolder in each dataset directory and move files
+for dataset in */; do
+  # Create raw directory if it doesn't exist
+  mkdir -p "${dataset}raw"
+  
+  # Find all files (not directories) in the dataset folder and move them to raw/
+  find "${dataset}" -maxdepth 1 -type f -exec mv {} "${dataset}raw/" \;
+done
+
+# Verify the structure
+ls -la */raw/
 ```
 
 ### Important Notes
@@ -104,7 +119,35 @@ ls -R /path/to/local/destination/
 - Large files may take significant time to transfer
 - The EBS volume is typically mounted as `E:` drive, but verify this on your instance
 
-## 4. Best Practices
+## 4. Download Slide Tables from Halo
+
+To export slide tables from Halo:
+
+1. Log in to your Halo account
+
+2. Navigate to the study:
+   * Select the appropriate study from your dashboard
+
+3. Export slide data:
+   * Click on the study name
+   * Click "File export" in the menu options
+   * Select CSV format for the export
+   * Choose the data fields you want to include
+   * Click "Export" to generate the file
+   * Download the exported CSV file to your local machine
+
+4. Organize the exported CSV files:
+   * Name the files consistently (e.g., `halo_link_[CENTER]_export.csv`)
+   * Store these files in a location where they can be easily referenced alongside your image data
+
+5. Verify the slide tables contain the necessary information:
+   * Check that slide IDs match your image files
+   * Ensure all required metadata fields are present
+   * Validate that the data is complete for all centers
+
+These slide tables will provide essential metadata linking your image files to clinical information needed for your analysis.
+
+## 5. Best Practices
 
 - Use a stable internet connection for large file transfers
 - Consider using AWS CLI for bulk transfers
@@ -112,7 +155,7 @@ ls -R /path/to/local/destination/
 - Keep your instance's security group rules as restrictive as possible
 - Regularly backup important data
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 
 ### Common Issues and Solutions
 
@@ -131,14 +174,14 @@ ls -R /path/to/local/destination/
    - Check volume permissions in Windows
    - Ensure volume is initialized and formatted
 
-## 6. Additional Resources
+## 7. Additional Resources
 
 - [Original SSH Setup Guide by Emmanuel Tsouris](https://www.emmanueltsouris.com/posts/enable-ssh-server-windows-server-2022/)
 - [AWS Documentation - Connect to Windows Instance](https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/connecting_to_windows_instance.html)
 - [AWS Documentation - EBS Volumes](https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ebs-volumes.html)
 - [OpenSSH Documentation](https://docs.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse)
 
-## 7. Alternative Transfer Methods
+## 8. Alternative Transfer Methods
 
 If SFTP isn't suitable, consider these alternatives:
 

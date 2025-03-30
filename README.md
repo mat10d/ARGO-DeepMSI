@@ -5,36 +5,59 @@
 ### 1. ARGO Environment
 ```bash
 # Create and activate environment for data collection/processing
-conda env create -f argo-env.yml
+conda env create -f argo_env.yml
 conda activate argo
 ```
 
 ### 2. STAMP Environment
 ```bash
-# Create and activate environment for STAMP
-python -m venv .venv-stamp
-source .venv-stamp/bin/activate
+# Create and activate conda environment for STAMP with python 3.11
+conda create -n stamp-env python=3.11
+conda activate stamp-env
+
 pip install "stamp[all] @ git+https://github.com/KatherLab/STAMP"
+```
+
+### 3. TRIDENT Environment
+
+```bash
+# Create and activate conda environment for TRIDENT with python 3.10
+conda create -n trident-env python=3.10
+conda activate trident-env
+
+pip install git+https://github.com/mahmoodlab/trident.git
 ```
 
 ## Workflow Steps
 
-### Step 1: REDCap Data Collection
-1. Create `.env` file with REDCap credentials:
+### Step 1: AWS Slide Download
+
+See `AWS.md`.
+
+### Step 2: Collect and Process MSI Data
+
+1. Create a `.env` file in the project root directory with your REDCap credentials:
 ```
 REDCAP_API_TOKEN=your_token_here
 REDCAP_API_URL=https://redcap.oauife.edu.ng/api/
 ```
 
-2. Run REDCap data collection script:
+2. Run the data processing script to:
+   - Fetch patient data from REDCap using environment variables
+   - Extract MSI status information 
+   - Load and standardize Halo Link data files
+   - Create clinical and slide tables
+   - Verify slide existence and generate file paths
+   - Clean and merge tables for consistency
+   - Generate visualizations of MSI distribution by site
+   - Split data by site for further analysis
+
 ```bash
 conda activate argo
-python src/collect_redcap.py
+python src/process.py
 ```
 
-### Step 2: AWS Slide Download
-
-See `AWS.md`.
+The script will create organized data tables in the `tables` directory and visualizations in the `visualizations` directory, with detailed console output showing the data processing steps.
 
 ### Step 3: STAMP Processing
 
