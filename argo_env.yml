@@ -14,5 +14,4 @@ dependencies:
   - ipykernel
   - boto3
   - pip:
-    - pandas-redcap
     - awscli
