@@ -4,7 +4,7 @@ preprocessing:
   extractor: "ctranspath"
   device: "cuda:0"
   cache_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/.cache"
-  max_workers: 32
+  max_workers: 16
   default_slide_mpp: 0.259965
 
 crossval:

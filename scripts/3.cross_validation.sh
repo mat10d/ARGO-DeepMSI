@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=stamp_preprocess
+#SBATCH --job-name=stamp_crossval
 #SBATCH --partition=nvidia-2080ti-20             
-#SBATCH --output=out/stamp_preprocess_%A_%a.out
+#SBATCH --output=out/stamp_crossval_%A_%a.out
 #SBATCH --array=0-5
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -48,6 +48,6 @@ if [ ! -f "$CONFIG_FILE" ]; then
     exit 1
 fi
 
-# Step 1: Feature extraction
-echo "Running preprocessing for $SITE..."
-stamp --config "$CONFIG_FILE" preprocess
+# Step 2: Cross-validation
+echo "Running cross-validation for $SITE..."
+stamp --config "$CONFIG_FILE" crossval
