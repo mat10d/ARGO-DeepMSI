@@ -87,6 +87,7 @@ def add_feature_paths(slide_table, features_base_dir):
     
     return result
 
+
 def generate_processing_histograms(clinical_table, slide_table, features_base_dir):
     """Generate histograms showing processed vs. total slides by site and MSI status.
     
@@ -152,6 +153,13 @@ def generate_processing_histograms(clinical_table, slide_table, features_base_di
                 processed_count += 1
     
     print(f"Processing status: {processed_count} of {len(merged_data)} slides processed ({processed_count/len(merged_data)*100:.1f}%)")
+    
+    # Create missing slides list
+    missing_slides = merged_data[merged_data['processed'] == False].copy()
+    missing_slides = missing_slides[['PATIENT', 'SITE', 'FILENAME', 'isMSIH']]
+    missing_slides.columns = ['PATIENT', 'SITE', 'FILENAME', 'MSI_STATUS']
+    missing_slides.to_csv('../visualizations/2/missing_slides.csv', index=False)
+    print(f"Saved list of {len(missing_slides)} missing slides to ../visualizations/2/missing_slides.csv")
     
     # Set up the visualization style
     plt.style.use('seaborn-v0_8-whitegrid')
@@ -366,14 +374,17 @@ def generate_processing_histograms(clinical_table, slide_table, features_base_di
     plt.savefig('../visualizations/2/patients_with_processed_slides.png', dpi=300, bbox_inches='tight')
     print("Saved patient processing status to ../visualizations/2/patients_with_processed_slides.png")
     
-    # Save patient-level stats for further analysis
-    patient_stats.to_csv('../visualizations/2/patient_processing_stats.csv', index=False)
-    print("Saved patient-level processing stats to ../visualizations/2/patient_processing_stats.csv")
-    
     # Create and save missing patient stats
     missing_patient_stats = patient_stats[patient_stats['processed_any'] == False].copy()
+    missing_patient_stats = missing_patient_stats[['PATIENT', 'isMSIH', 'site', 'total_slides']]
+    missing_patient_stats.columns = ['PATIENT', 'MSI_STATUS', 'SITE', 'SLIDE_COUNT']
     missing_patient_stats.to_csv('../visualizations/2/missing_patient_processing_stats.csv', index=False)
     print("Saved missing patient stats to ../visualizations/2/missing_patient_processing_stats.csv")
+    
+    # Calculate the number of missing patients by site and MSI status
+    missing_by_site_msi = missing_patient_stats.groupby(['SITE', 'MSI_STATUS']).size().reset_index(name='MISSING_PATIENT_COUNT')
+    missing_by_site_msi.to_csv('../visualizations/2/missing_patients_by_site.csv', index=False)
+    print("Saved missing patients by site to ../visualizations/2/missing_patients_by_site.csv")
     
     # Print detailed summary
     print("\nProcessing Status Summary by Site:")
@@ -411,70 +422,6 @@ def generate_processing_histograms(clinical_table, slide_table, features_base_di
     overall_pct = (total_processed / total_slides * 100) if total_slides > 0 else 0
     print(f"Overall: {total_processed}/{total_slides} ({overall_pct:.1f}%)")
     print("-" * 60)
-    
-    # Create a detailed summary CSV
-    summary_rows = []
-    
-    # Overall stats
-    summary_rows.append({
-        'Site': 'ALL SITES',
-        'MSI Status': 'Total',
-        'Processed Slides': total_processed,
-        'Total Slides': total_slides,
-        'Processing %': overall_pct
-    })
-    
-    # Add overall stats by MSI status
-    for msi_status in merged_data['isMSIH'].unique():
-        msi_data = merged_data[merged_data['isMSIH'] == msi_status]
-        msi_processed = msi_data['processed'].sum()
-        msi_total = len(msi_data)
-        msi_pct = (msi_processed / msi_total * 100) if msi_total > 0 else 0
-        
-        summary_rows.append({
-            'Site': 'ALL SITES',
-            'MSI Status': msi_status,
-            'Processed Slides': msi_processed,
-            'Total Slides': msi_total,
-            'Processing %': msi_pct
-        })
-    
-    # Add individual site stats
-    for site in sorted(merged_data['SITE'].unique()):
-        site_data = merged_data[merged_data['SITE'] == site]
-        
-        # Total site stats
-        site_processed = site_data['processed'].sum()
-        site_total = len(site_data)
-        site_pct = (site_processed / site_total * 100) if site_total > 0 else 0
-        
-        summary_rows.append({
-            'Site': site,
-            'MSI Status': 'Total',
-            'Processed Slides': site_processed,
-            'Total Slides': site_total,
-            'Processing %': site_pct
-        })
-        
-        # Add site stats by MSI status
-        for msi_status in site_data['isMSIH'].unique():
-            msi_site_data = site_data[site_data['isMSIH'] == msi_status]
-            msi_site_processed = msi_site_data['processed'].sum()
-            msi_site_total = len(msi_site_data)
-            msi_site_pct = (msi_site_processed / msi_site_total * 100) if msi_site_total > 0 else 0
-            
-            summary_rows.append({
-                'Site': site,
-                'MSI Status': msi_status,
-                'Processed Slides': msi_site_processed,
-                'Total Slides': msi_site_total,
-                'Processing %': msi_site_pct
-            })
-    
-    # Create and save summary DataFrame
-    summary_df = pd.DataFrame(summary_rows)
-    summary_df.to_csv('../visualizations/2/processing_summary.csv', index=False)
-    print("Saved detailed summary to ../visualizations/2/processing_summary.csv")
     
     # Return the merged data with processing information
     return merged_data
@@ -527,6 +474,7 @@ def split_tables_by_site(clinical_table, slide_table):
     
     return split_tables, sites
 
+
 if __name__ == "__main__":
     # Set base paths
     tables_dir = '../tables'  
@@ -567,25 +515,38 @@ if __name__ == "__main__":
     print(f"Found {len(full_clinical_table)} patients and {len(full_slide_table)} slides in full tables")
         
     # Step 2: Add feature paths to slide table
-    print("\nAdding feature paths to slide table...")
+    print("\nStep 2: Adding feature paths to slide table...")
     slide_table_with_features = add_feature_paths(slide_table, base_dir)
     
     # Step 3: Generate processing status visualizations
-    print("\nGenerating processing status visualizations...")
+    print("\nStep 3: Generating processing status visualizations...")
     merged_data = generate_processing_histograms(clinical_table, slide_table_with_features, base_dir)
     
     # Step 4: Split tables by site
-    print("\nSplitting tables by site...")
+    print("\nStep 4: Splitting tables by site...")
     split_tables, sites = split_tables_by_site(clinical_table, slide_table_with_features)
     
     # Step 5: Save processed data    
+    print("\nStep 5: Saving processed data...")
+    # Save the updated slide table with feature paths
+    updated_slide_path = os.path.join(tables_dir, '2/slide_table_with_features.csv')
+    slide_table_with_features.to_csv(updated_slide_path, index=False)
+    print(f"Saved updated slide table with feature paths to {updated_slide_path}")
+        
     for site, (site_clinical, site_slides) in split_tables.items():
         # Save clinical table
         site_clinical_path = os.path.join(tables_dir, f'2/{site}_clinical_table.csv')
         site_clinical.to_csv(site_clinical_path, index=False)
         
+        # Prepare slide table by directly replacing FILENAME with FEATURE_PATH
+        site_slides_with_features = site_slides.copy()
+        site_slides_with_features['FILENAME'] = site_slides_with_features['FEATURE_PATH']
+        site_slides_with_features = site_slides_with_features.drop(columns=['FEATURE_PATH'])
+        
         # Save slide table
         site_slide_path = os.path.join(tables_dir, f'2/{site}_slide_table.csv')
-        site_slides.to_csv(site_slide_path, index=False)
+        site_slides_with_features.to_csv(site_slide_path, index=False)
         
         print(f"Saved {site} tables with {len(site_clinical)} patients and {len(site_slides)} slides")
+            
+    print("\nProcessing analysis complete!")
