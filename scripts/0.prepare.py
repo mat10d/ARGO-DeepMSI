@@ -312,10 +312,7 @@ def generate_histograms(clinical_table, slide_table):
     Args:
         clinical_table: DataFrame with PATIENT and isMSIH columns
         slide_table: DataFrame with PATIENT, FILENAME, and SITE columns
-    """
-    # Create directory for visualizations
-    os.makedirs('../visualizations', exist_ok=True)
-    
+    """    
     # Make sure we have the SITE column in the slide table
     if 'SITE' not in slide_table.columns:
         print("ERROR: SITE column not found in slide_table. Cannot generate site-based histograms.")
@@ -340,8 +337,29 @@ def generate_histograms(clinical_table, slide_table):
     # Create a pivot table for easier plotting
     patient_pivot = patient_counts.pivot(index='SITE', columns='isMSIH', values='Count').fillna(0)
     
+    # Sort by total count descending
+    patient_pivot['Total'] = patient_pivot.sum(axis=1)
+    patient_pivot = patient_pivot.sort_values('Total', ascending=False)
+    patient_pivot = patient_pivot.drop(columns=['Total'])
+    
     # Plot the stacked bar chart
-    patient_pivot.plot(kind='bar', stacked=True, color=colors, ax=plt.gca())
+    ax = patient_pivot.plot(kind='bar', stacked=True, color=colors, figsize=(12, 6))
+    
+    # Add count labels on bars
+    for i, (site, row) in enumerate(patient_pivot.iterrows()):
+        total = row.sum()
+        cumulative = 0
+        for status, count in row.items():
+            if count > 0:
+                # Position label in the middle of each segment
+                label_pos = cumulative + (count / 2)
+                ax.text(i, label_pos, f"{int(count)}", 
+                        ha='center', va='center', 
+                        color='white' if status == 'MSI-H' else 'white')
+                cumulative += count
+        
+        # Add total on top
+        ax.text(i, total + 0.5, f"Total: {int(total)}", ha='center', va='bottom')
     
     plt.title('Patient Count by Site and MSI Status', fontsize=16)
     plt.xlabel('Site', fontsize=14)
@@ -351,8 +369,8 @@ def generate_histograms(clinical_table, slide_table):
     plt.tight_layout()
     
     # Save the figure
-    plt.savefig('../visualizations/patient_count_by_site.png', dpi=300, bbox_inches='tight')
-    print("Saved patient count histogram to ../visualizations/patient_count_by_site.png")
+    plt.savefig('../visualizations/0/patient_count_by_site.png', dpi=300, bbox_inches='tight')
+    print("Saved patient count histogram to ../visualizations/0/patient_count_by_site.png")
     
     # Plot 2: Slide count by site and MSI status
     plt.figure(figsize=(12, 6))
@@ -363,8 +381,29 @@ def generate_histograms(clinical_table, slide_table):
     # Create a pivot table for easier plotting
     slide_pivot = slide_counts.pivot(index='SITE', columns='isMSIH', values='Count').fillna(0)
     
+    # Sort by total count descending
+    slide_pivot['Total'] = slide_pivot.sum(axis=1)
+    slide_pivot = slide_pivot.sort_values('Total', ascending=False)
+    slide_pivot = slide_pivot.drop(columns=['Total'])
+    
     # Plot the stacked bar chart
-    slide_pivot.plot(kind='bar', stacked=True, color=colors, ax=plt.gca())
+    ax = slide_pivot.plot(kind='bar', stacked=True, color=colors, figsize=(12, 6))
+    
+    # Add count labels on bars
+    for i, (site, row) in enumerate(slide_pivot.iterrows()):
+        total = row.sum()
+        cumulative = 0
+        for status, count in row.items():
+            if count > 0:
+                # Position label in the middle of each segment
+                label_pos = cumulative + (count / 2)
+                ax.text(i, label_pos, f"{int(count)}", 
+                        ha='center', va='center', 
+                        color='white' if status == 'MSI-H' else 'white')
+                cumulative += count
+        
+        # Add total on top
+        ax.text(i, total + 0.5, f"Total: {int(total)}", ha='center', va='bottom')
     
     plt.title('Slide Count by Site and MSI Status', fontsize=16)
     plt.xlabel('Site', fontsize=14)
@@ -374,8 +413,8 @@ def generate_histograms(clinical_table, slide_table):
     plt.tight_layout()
     
     # Save the figure
-    plt.savefig('../visualizations/slide_count_by_site.png', dpi=300, bbox_inches='tight')
-    print("Saved slide count histogram to ../visualizations/slide_count_by_site.png")
+    plt.savefig('../visualizations/0/slide_count_by_site.png', dpi=300, bbox_inches='tight')
+    print("Saved slide count histogram to ../visualizations/0/slide_count_by_site.png")
     
     # Plot 3: Distribution of slides per patient, grouped by MSI status
     plt.figure(figsize=(12, 6))
@@ -396,8 +435,8 @@ def generate_histograms(clinical_table, slide_table):
     plt.tight_layout()
     
     # Save the figure
-    plt.savefig('../visualizations/slides_per_patient.png', dpi=300, bbox_inches='tight')
-    print("Saved slides per patient distribution to ../visualizations/slides_per_patient.png")
+    plt.savefig('../visualizations/0/slides_per_patient.png', dpi=300, bbox_inches='tight')
+    print("Saved slides per patient distribution to ../visualizations/0/slides_per_patient.png")
     
     # Plot 4: MSI status distribution across all sites
     plt.figure(figsize=(10, 6))
@@ -406,7 +445,7 @@ def generate_histograms(clinical_table, slide_table):
     msi_distribution = clinical_table['isMSIH'].value_counts()
     
     # Create a pie chart
-    plt.pie(msi_distribution, labels=msi_distribution.index, autopct='%1.1f%%', 
+    ax = plt.pie(msi_distribution, labels=msi_distribution.index, autopct='%1.1f%%', 
             colors=[colors.get(status, '#999999') for status in msi_distribution.index], 
             startangle=90, explode=[0.05] * len(msi_distribution))
     
@@ -414,62 +453,55 @@ def generate_histograms(clinical_table, slide_table):
     plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle
     
     # Save the figure
-    plt.savefig('../visualizations/overall_msi_distribution.png', dpi=300, bbox_inches='tight')
-    print("Saved overall MSI distribution to ../visualizations/overall_msi_distribution.png")
+    plt.savefig('../visualizations/0/overall_msi_distribution.png', dpi=300, bbox_inches='tight')
+    print("Saved overall MSI distribution to ../visualizations/0/overall_msi_distribution.png")
+    
+    # Generate patient-level summary by site
+    patient_summary = []
+    for site in merged_data['SITE'].unique():
+        site_data = merged_data[merged_data['SITE'] == site]
+        site_patients = site_data['PATIENT'].nunique()
+        
+        # MSI-H stats
+        msih_patients = site_data[site_data['isMSIH'] == 'MSI-H']['PATIENT'].nunique()
+        msih_pct = (msih_patients / site_patients * 100) if site_patients > 0 else 0
+        
+        # MSS stats
+        mss_patients = site_data[site_data['isMSIH'] == 'MSS']['PATIENT'].nunique()
+        mss_pct = (mss_patients / site_patients * 100) if site_patients > 0 else 0
+        
+        # Slide counts
+        site_slides = len(site_data)
+        msih_slides = len(site_data[site_data['isMSIH'] == 'MSI-H'])
+        mss_slides = len(site_data[site_data['isMSIH'] == 'MSS'])
+        
+        # Average slides per patient
+        avg_slides = site_slides / site_patients if site_patients > 0 else 0
+        
+        patient_summary.append({
+            'Site': site,
+            'Total Patients': site_patients,
+            'MSI-H Patients': msih_patients,
+            'MSI-H %': msih_pct,
+            'MSS Patients': mss_patients,
+            'MSS %': mss_pct,
+            'Total Slides': site_slides,
+            'MSI-H Slides': msih_slides,
+            'MSS Slides': mss_slides,
+            'Avg Slides/Patient': avg_slides
+        })
+    
+    # Create and save patient summary DataFrame
+    patient_summary_df = pd.DataFrame(patient_summary)
+    patient_summary_df.to_csv('../visualizations/0/patient_summary_by_site.csv', index=False)
+    print("Saved patient summary to ../visualizations/0/patient_summary_by_site.csv")
     
     print("\nAll visualizations generated successfully.")
     print("Files are saved in the 'visualizations' directory.")
 
-def split_tables_by_site(clinical_table, slide_table):
-    """Split clinical and slide tables by site.
-    
-    Args:
-        clinical_table: DataFrame with PATIENT and isMSIH columns
-        slide_table: DataFrame with PATIENT, FILENAME, and SITE columns
-    
-    Returns:
-        Dictionary with site names as keys and tuples of (clinical_table, slide_table) as values
-    """
-    # Make sure we have the SITE column in the slide table
-    if 'SITE' not in slide_table.columns:
-        print("ERROR: SITE column not found in slide_table. Cannot split tables by site.")
-        return {}, []
-    
-    # Get list of unique sites
-    sites = slide_table['SITE'].unique()
-    print(f"Found {len(sites)} unique sites: {', '.join(sites)}")
-    
-    # Dictionary to store split tables
-    split_tables = {}
-    
-    # Process each site
-    for site in sites:
-        # Filter slides for this site
-        site_slides = slide_table[slide_table['SITE'] == site].copy()
-        
-        # Get unique patients at this site
-        site_patients = set(site_slides['PATIENT'].unique())
-        
-        # Filter clinical data for patients at this site
-        site_clinical = clinical_table[clinical_table['PATIENT'].isin(site_patients)].copy()
-        
-        # Store in dictionary
-        split_tables[site] = (site_clinical, site_slides)
-        
-        # Generate MSI distribution for this site
-        msi_counts = site_clinical['isMSIH'].value_counts()
-        
-        print(f"\nSite: {site}")
-        print(f"  - Patients: {len(site_clinical)}")
-        print(f"  - Slides: {len(site_slides)}")
-        for status, count in msi_counts.items():
-            print(f"  - {status}: {count} patients ({count/len(site_clinical)*100:.1f}%)")
-    
-    return split_tables, sites
-
 # Create a main function to run the script
 if __name__ == "__main__":
-    os.makedirs('../tables', exist_ok=True)
+    os.makedirs('../tables/0', exist_ok=True)
     
     # Step 1: Fetch MSI data from REDCap
     print("Fetching data from REDCap...")
@@ -478,7 +510,7 @@ if __name__ == "__main__":
     # Step 2: Extract clinical information (MSI status)
     print("Extracting clinical information...")
     clinical_table = create_cinical_table(redcap_data)
-    clinical_table.to_csv("../tables/clini_table_full.csv", index=False)
+    clinical_table.to_csv("../tables/0/clinical_table_full.csv", index=False)
     print(f"Saved clinical table with {len(clinical_table)} patients")
     
     # Step 3: Load Halo Link data
@@ -494,7 +526,7 @@ if __name__ == "__main__":
     slide_table = verify_slides_exist(slide_table)
     slide_table['FILENAME'] = slide_table['slide_path']
     slide_table.drop(columns=['slide_path', 'slide_exists'], inplace=True)
-    slide_table.to_csv("../tables/slide_table_full.csv", index=False)
+    slide_table.to_csv("../tables/0/slide_table_full.csv", index=False)
     print(f"Saved slide table with {len(slide_table)} slides")
     
     print("\nSummary Report:")
@@ -504,19 +536,12 @@ if __name__ == "__main__":
     # Step 6: Clean tables to ensure consistency
     print("Cleaning tables...")
     clinical_table, slide_table = clean_tables(clinical_table, slide_table)
-    slide_table.to_csv("../tables/slide_table.csv", index=False)
-    clinical_table.to_csv("../tables/clini_table.csv", index=False)
+    slide_table.to_csv("../tables/0/slide_table.csv", index=False)
+    clinical_table.to_csv("../tables/0/clinical_table.csv", index=False)
     
     # Step 7: Generate histograms and visualizations
+    os.makedirs('../visualizations/0', exist_ok=True)
     print("Generating histograms and visualizations...")
     generate_histograms(clinical_table, slide_table)
     
-    # Step 8: Split tables by site
-    print("Splitting tables by site...")
-    split_tables, site = split_tables_by_site(clinical_table, slide_table)
-    for site, (clinical, slides) in split_tables.items():
-        clinical.to_csv(f"../tables/{site}_clinical_table.csv", index=False)
-        slides.to_csv(f"../tables/{site}_slide_table.csv", index=False)
-        print(f"Saved {site} tables with {len(clinical)} patients and {len(slides)} slides")
-
     print("Data processing and visualization complete.")

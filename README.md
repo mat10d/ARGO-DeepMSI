@@ -64,26 +64,33 @@ The script will create organized data tables in the `tables` directory and visua
 1. Initialize STAMP configs:
 ```bash
 # Activate STAMP environment
-source .venv-stamp/bin/activate
+conda activate stamp-env
+
+# Make a directory to store configs
+mkdir configs
 
 # Initialize configs
-stamp init --config configs/config_OAUTHC.yaml
-stamp init --config configs/config_LUTH.yaml
-stamp init --config configs/config_UITH.yaml
-stamp init --config configs/config_LASUTH.yaml
-stamp init --config configs/config_retrospective_MSK.yaml
-stamp init --config configs/config_retrospective_OAU.yaml
+stamp --config configs/config_OAUTHC.yaml init
+stamp --config configs/config_LUTH.yaml init
+stamp --config configs/config_UITH.yaml init
+stamp --config configs/config_LASUTH.yaml init
+stamp --config configs/config_retrospective_MSK.yaml init
+stamp --config configs/config_retrospective_OAU.yaml init
 ```
 
-2. Run preprocessing:
+2. Edit STAMP configs
+
+3. Run preprocessing:
 ```bash
+# Get a 
+
 # Run preprocessing
-stamp preprocess --config configs/config_OAUTHC.yaml
-stamp preprocess --config configs/config_LUTH.yaml
-stamp preprocess --config configs/config_UITH.yaml
-stamp preprocess --config configs/config_LASUTH.yaml
-stamp preprocess --config configs/config_retrospective_MSK.yaml
-stamp preprocess --config configs/config_retrospective_OAU.yaml
+stamp --config configs/config_OAUTHC.yaml preprocess
+stamp --config configs/config_LUTH.yaml preprocess
+stamp --config configs/config_UITH.yaml preprocess
+stamp --config configs/config_LASUTH.yaml preprocess
+stamp --config configs/config_retrospective_MSK.yaml preprocess
+stamp --config configs/config_retrospective_OAU.yaml preprocess
 ```
 
 ### Step 4: Validation

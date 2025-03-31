@@ -1,0 +1,59 @@
+preprocessing:
+  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/features"
+  wsi_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/raw"
+  extractor: "ctranspath"
+  device: "cuda:0"
+  cache_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/.cache"
+  max_workers: 32
+  default_slide_mpp: 0.259965
+
+crossval:
+  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/crossval"
+  clini_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LASUTH_clinical_table.csv"
+  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/features"
+  slide_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LASUTH_slide_table.csv"
+  ground_truth_label: "isMSIH"
+  patient_label: "PATIENT"
+  filename_label: "FILENAME"
+  categories: ["MSI-H", "MSS"]
+  n_splits: 5
+
+training:
+  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/training"
+  clini_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LASUTH_clinical_table.csv"
+  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/features"
+  slide_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LASUTH_slide_table.csv"
+  ground_truth_label: "isMSIH"
+  patient_label: "PATIENT"
+  filename_label: "FILENAME"
+  categories: ["MSI-H", "MSS"]
+
+deployment:
+  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/deployment"
+  clini_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LASUTH_clinical_table.csv"
+  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/features"
+  slide_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LASUTH_slide_table.csv"
+  ground_truth_label: "isMSIH"
+  patient_label: "PATIENT"
+  filename_label: "FILENAME"
+  checkpoint_paths:
+  - "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/training/model.ckpt"
+
+statistics:
+  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/statistics"
+  ground_truth_label: "isMSIH"
+  true_class: "MSI-H"
+  pred_csvs:
+  - "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/crossval/split-0/patient-preds.csv"
+  - "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/crossval/split-1/patient-preds.csv"
+  - "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/crossval/split-2/patient-preds.csv"
+  - "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/crossval/split-3/patient-preds.csv"
+  - "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/crossval/split-4/patient-preds.csv"
+
+heatmaps:
+  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/heatmaps"
+  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/features"
+  wsi_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/raw"
+  checkpoint_path: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/results/training/model.ckpt"
+  topk: 10
+  bottomk: 10
