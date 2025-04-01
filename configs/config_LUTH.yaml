@@ -1,5 +1,5 @@
 preprocessing:
-  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/features"
+  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/features/xiyuewang-ctranspath-7c998680-02627079/"
   wsi_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/raw"
   extractor: "ctranspath"
   device: "cuda:0"
@@ -9,20 +9,20 @@ preprocessing:
 
 crossval:
   output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/results/crossval"
-  clini_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LUTH_clinical_table.csv"
-  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/features"
-  slide_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LUTH_slide_table.csv"
+  clini_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/2/LUTH_clinical_table.csv"
+  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/features/xiyuewang-ctranspath-7c998680-02627079/"
+  slide_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/2/LUTH_slide_table.csv"
   ground_truth_label: "isMSIH"
   patient_label: "PATIENT"
   filename_label: "FILENAME"
   categories: ["MSI-H", "MSS"]
-  n_splits: 5
+  n_splits: 3
 
 training:
   output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/results/training"
-  clini_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LUTH_clinical_table.csv"
-  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/features"
-  slide_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LUTH_slide_table.csv"
+  clini_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/2/LUTH_clinical_table.csv"
+  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/features/xiyuewang-ctranspath-7c998680-02627079/"
+  slide_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/2/LUTH_slide_table.csv"
   ground_truth_label: "isMSIH"
   patient_label: "PATIENT"
   filename_label: "FILENAME"
@@ -30,9 +30,9 @@ training:
 
 deployment:
   output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/results/deployment"
-  clini_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LUTH_clinical_table.csv"
-  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/features"
-  slide_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/LUTH_slide_table.csv"
+  clini_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/2/LUTH_clinical_table.csv"
+  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/features/xiyuewang-ctranspath-7c998680-02627079/"
+  slide_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/2/LUTH_slide_table.csv"
   ground_truth_label: "isMSIH"
   patient_label: "PATIENT"
   filename_label: "FILENAME"
@@ -52,7 +52,7 @@ statistics:
 
 heatmaps:
   output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/results/heatmaps"
-  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/features"
+  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/features/xiyuewang-ctranspath-7c998680-02627079/"
   wsi_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/raw"
   checkpoint_path: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/results/training/model.ckpt"
   topk: 10

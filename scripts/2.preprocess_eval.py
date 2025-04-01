@@ -526,13 +526,27 @@ if __name__ == "__main__":
     print("\nStep 4: Splitting tables by site...")
     split_tables, sites = split_tables_by_site(clinical_table, slide_table_with_features)
     
-    # Step 5: Save processed data    
+   # Step 5: Save processed data    
     print("\nStep 5: Saving processed data...")
+    # Save the clinical table to tables/2/ folder first
+    clinical_table_path = os.path.join(tables_dir, '2/all_clinical_table.csv')
+    clinical_table.to_csv(clinical_table_path, index=False)
+    print(f"Saved clinical table to {clinical_table_path}")
+
+    # For the all_slide_table, swap FILENAME and FEATURE_PATH
+    all_slide_table = slide_table_with_features.copy()
+    # First, ensure there are no NaN values in FEATURE_PATH
+    all_slide_table = all_slide_table.dropna(subset=['FEATURE_PATH'])
+    # Now, replace FILENAME with FEATURE_PATH
+    all_slide_table['FILENAME'] = all_slide_table['FEATURE_PATH']
+    all_slide_table = all_slide_table.drop(columns=['FEATURE_PATH'])
+
     # Save the updated slide table with feature paths
-    updated_slide_path = os.path.join(tables_dir, '2/slide_table_with_features.csv')
-    slide_table_with_features.to_csv(updated_slide_path, index=False)
+    updated_slide_path = os.path.join(tables_dir, '2/all_slide_table.csv')
+    all_slide_table.to_csv(updated_slide_path, index=False)
     print(f"Saved updated slide table with feature paths to {updated_slide_path}")
-        
+
+    # Now handle the site-specific tables
     for site, (site_clinical, site_slides) in split_tables.items():
         # Save clinical table
         site_clinical_path = os.path.join(tables_dir, f'2/{site}_clinical_table.csv')
@@ -540,6 +554,9 @@ if __name__ == "__main__":
         
         # Prepare slide table by directly replacing FILENAME with FEATURE_PATH
         site_slides_with_features = site_slides.copy()
+        # First, ensure there are no NaN values in FEATURE_PATH
+        site_slides_with_features = site_slides_with_features.dropna(subset=['FEATURE_PATH'])
+        # Now, replace FILENAME with FEATURE_PATH
         site_slides_with_features['FILENAME'] = site_slides_with_features['FEATURE_PATH']
         site_slides_with_features = site_slides_with_features.drop(columns=['FEATURE_PATH'])
         
@@ -547,6 +564,6 @@ if __name__ == "__main__":
         site_slide_path = os.path.join(tables_dir, f'2/{site}_slide_table.csv')
         site_slides_with_features.to_csv(site_slide_path, index=False)
         
-        print(f"Saved {site} tables with {len(site_clinical)} patients and {len(site_slides)} slides")
+        print(f"Saved {site} tables with {len(site_clinical)} patients and {len(site_slides_with_features)} slides")
             
     print("\nProcessing analysis complete!")

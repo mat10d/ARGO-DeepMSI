@@ -1,21 +1,29 @@
 #!/bin/bash
 #SBATCH --job-name=stamp_crossval
-#SBATCH --partition=nvidia-2080ti-20             
-#SBATCH --output=out/stamp_crossval_%A_%a.out
-#SBATCH --array=0-5
+#SBATCH --partition=nvidia-A100-20          
+#SBATCH --output=out/stamp_crossval_%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=128G          
+#SBATCH --mem=80G          
 #SBATCH --gres=gpu:1
 #SBATCH --time=12:00:00
 
-# Define sites array
-sites=("OAUTHC" "LUTH" "LASUTH" "UITH" "retrospective_msk" "retrospective_oau")
+# Define target directory where all features will be consolidated
+TARGET_DIR="/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/features/xiyuewang-ctranspath-7c998680-02627079/"
 
-# Get the current site based on array index
-SITE=${sites[$SLURM_ARRAY_TASK_ID]}
-echo "Processing site: $SITE"
+# Create target directory if it doesn't exist
+mkdir -p "$TARGET_DIR"
+
+# Copy all feature data from individual repos to the consolidated directory
+for dir in ../data/*/features/xiyuewang-ctranspath-7c998680-02627079/; do
+    # Skip the target directory itself to avoid copying a directory into itself
+    if [[ "$dir" != "../data/all/features/xiyuewang-ctranspath-7c998680-02627079/" ]]; then
+        echo "Copying files from $dir to $TARGET_DIR"
+        rsync -av "$dir"/* "$TARGET_DIR"
+    fi
+done
+echo "All files have been consolidated to $TARGET_DIR"
 
 # Load conda environment
 source ~/.bashrc
@@ -40,14 +48,14 @@ echo "=========================="
 
 # Define base directory and config path
 BASE_DIR="/lab/barcheese01/mdiberna/ARGO-DeepMSI"
-CONFIG_FILE="$BASE_DIR/configs/config_$SITE.yaml"
+CONFIG_FILE="$BASE_DIR/configs/config_all.yaml"  # Use a unified config for consolidated data
 
 # Check if config exists
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Error: Config file for $SITE not found at $CONFIG_FILE"
+    echo "Error: Config file not found at $CONFIG_FILE"
     exit 1
 fi
 
-# Step 2: Cross-validation
-echo "Running cross-validation for $SITE..."
+# Run cross-validation
+echo "Running cross-validation..."
 stamp --config "$CONFIG_FILE" crossval

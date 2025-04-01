@@ -1,21 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=stamp_preprocess
-#SBATCH --partition=nvidia-2080ti-20             
-#SBATCH --output=out/stamp_preprocess_%A_%a.out
-#SBATCH --array=0-5
+#SBATCH --job-name=stamp_statistics
+#SBATCH --partition=20       
+#SBATCH --output=out/stamp_statistics_%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
-#SBATCH --mem=128G          
-#SBATCH --gres=gpu:1
-#SBATCH --time=12:00:00
-
-# Define sites array
-sites=("OAUTHC" "LUTH" "LASUTH" "UITH" "retrospective_msk" "retrospective_oau")
-
-# Get the current site based on array index
-SITE=${sites[$SLURM_ARRAY_TASK_ID]}
-echo "Processing site: $SITE"
+#SBATCH --mem=10G          
+#SBATCH --time=1:00:00
 
 # Load conda environment
 source ~/.bashrc
@@ -40,14 +31,14 @@ echo "=========================="
 
 # Define base directory and config path
 BASE_DIR="/lab/barcheese01/mdiberna/ARGO-DeepMSI"
-CONFIG_FILE="$BASE_DIR/configs/config_$SITE.yaml"
+CONFIG_FILE="$BASE_DIR/configs/config_all.yaml"  # Use a unified config for consolidated data
 
 # Check if config exists
 if [ ! -f "$CONFIG_FILE" ]; then
-    echo "Error: Config file for $SITE not found at $CONFIG_FILE"
+    echo "Error: Config file not found at $CONFIG_FILE"
     exit 1
 fi
 
-# Run preprocessing
-echo "Running preprocessing for $SITE..."
-stamp --config "$CONFIG_FILE" preprocess
+# Generate statistics
+echo "Generating statistics"
+stamp --config "$CONFIG_FILE" statistics
