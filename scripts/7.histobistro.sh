@@ -10,7 +10,7 @@
 
 # Load conda environment
 source ~/.bashrc
-conda activate stamp-env
+conda activate histobistro
 
 # Switch to the directory where the script is located
 cd ../HistoBistro
