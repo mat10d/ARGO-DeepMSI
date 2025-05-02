@@ -1,9 +1,14 @@
-data/
+# Admin login
 admin.txt
 
+# Ignore everything in these folders
+data/
 tables/
 visualizations/
-
 scripts/out
 
-HistoBistro/
+# Ignore everything in HistoBistro except specific files
+HistoBistro/*
+!HistoBistro/test.py
+!HistoBistro/config.yaml
+!HistoBistro/data_config.yaml

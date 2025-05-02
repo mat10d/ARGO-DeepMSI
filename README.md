@@ -16,6 +16,7 @@ conda create -n stamp-env python=3.11
 conda activate stamp-env
 
 pip install "stamp[all] @ git+https://github.com/KatherLab/STAMP"
+pip install seaborn wandb dgl torchdata==0.9.0 # for HistoBistro
 ```
 
 ### 3. TRIDENT Environment
@@ -33,6 +34,12 @@ pip install git+https://github.com/mahmoodlab/trident.git
 ```bash
 # Install directoy into ARGO-DeepMSI
 git clone https://github.com/peng-lab/HistoBistro.git
+
+cd HistoBistro
+
+# Create and activate conda environment for HistoBistro
+conda env create --file environment.yaml
+conda activate histobistro
 ```
 
 ## Workflow Steps
@@ -157,6 +164,9 @@ This will generate:
 ### Step 8: Using Pre-trained HistoBistro Models (Optional)
 
 If you want to use pre-trained models from HistoBistro:
+
+python test.py --model_path <path/to/model.ckpt> --name <custom-name> --config_file <path/to/config.yaml> --data_config <path/to/data_config.yaml>
+
 
 
 ## Project Structure
