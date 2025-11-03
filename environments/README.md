@@ -6,7 +6,7 @@ This directory contains environment configurations for the three separate enviro
 
 ### 1. ARGO Environment (Main Pipeline)
 - **File**: `argo.yml`
-- **Python**: 3.9 (consider upgrading to 3.10)
+- **Python**: 3.11
 - **Manager**: conda
 - **Purpose**: Data ingestion, QC, feature validation, baseline testing, statistics, visualization
 - **Used in**: Stages 1, 2, 4, 5, 7, 8

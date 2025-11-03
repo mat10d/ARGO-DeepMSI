@@ -20,9 +20,9 @@ ARGO-DeepMSI is an end-to-end pipeline for predicting MSI status from H&E-staine
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/YOUR_ORG/ARGO-DeepMSI.git
+git clone <your-repo-url>
 cd ARGO-DeepMSI
-git checkout overhaul  # Use refactored branch
+git checkout overhaul  # Development branch with clean structure
 ```
 
 ### 2. Clone External Dependencies

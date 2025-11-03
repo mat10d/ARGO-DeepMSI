@@ -1,17 +1,124 @@
-# Admin login
-admin.txt
+# ============================================
+# ARGO-DeepMSI .gitignore
+# ============================================
 
-# Ignore everything in these folders
+# ============================================
+# External Repositories (Never track)
+# ============================================
+STAMP/
+HistoBistro/
+HistoBistro_deprecated/
+
+# ============================================
+# Data Directories (gitignored, too large)
+# ============================================
 data/
 tables/
+results/
+logs/
+
+# ============================================
+# Cache & Temporary Files
+# ============================================
+.huggingface_cache/
+.cache/
+*.pyc
+__pycache__/
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# ============================================
+# Environment Files (keep configs, ignore installs)
+# ============================================
+.venv/
+venv/
+env/
+*.egg
+
+# ============================================
+# Credentials & Secrets
+# ============================================
+.env
+admin.txt
+*.key
+*.pem
+credentials.json
+
+# ============================================
+# IDE & Editor Files
+# ============================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ============================================
+# SLURM Output Files
+# ============================================
+scripts/out/
+*.out
+slurm-*.out
+
+# ============================================
+# Visualization & Plots (keep in results/)
+# ============================================
 visualizations/
-scripts/out
+*.png
+*.jpg
+*.jpeg
+*.pdf
+!docs/**/*.png
+!docs/**/*.jpg
+!docs/**/*.pdf
 
-# Ignore everything in HistoBistro except specific files
-HistoBistro/*
-!HistoBistro/test.py
-!HistoBistro/config.yaml
-!HistoBistro/data_config.yaml
+# ============================================
+# Model Checkpoints & Weights (too large)
+# ============================================
+*.pth
+*.ckpt
+*.pt
+*.safetensors
+*.h5
+*.pkl
 
-# Ignore STAMP_v2
-STAMP/
+# ============================================
+# Jupyter Notebook Outputs
+# ============================================
+*.ipynb_checkpoints/
+
+# ============================================
+# OS Generated Files
+# ============================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ============================================
+# Keep These Files (exceptions)
+# ============================================
+# Keep README and documentation
+!README.md
+!TODO.md
+!CLAUDE.md
+!PIPELINE.md
+
+# Keep config files
+!configs/**/*.yaml
+!configs/**/*.yml
+!environments/**/*.yml
+!environments/**/*.yaml
+
+# Keep utils and scripts (source code)
+!utils/**/*.py
+!scripts/**/*.py
+!scripts/**/*.sh
+
+# Keep example notebooks
+!examples/**/*.ipynb
