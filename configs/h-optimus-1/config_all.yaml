@@ -1,0 +1,27 @@
+crossval:
+  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/results/crossval"
+  clini_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/2/all_clinical_table.csv"
+  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/features/xiyuewang-ctranspath-7c998680-02627079/"
+  slide_table: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/tables/2/all_slide_table.csv"
+  ground_truth_label: "isMSIH"
+  patient_label: "PATIENT"
+  filename_label: "FILENAME"
+  categories: ["MSI-H", "MSS"]
+  n_splits: 3
+
+statistics:
+  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/results/statistics"
+  ground_truth_label: "isMSIH"
+  true_class: "MSI-H"
+  pred_csvs:
+  - "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/results/crossval/split-0/patient-preds.csv"
+  - "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/results/crossval/split-1/patient-preds.csv"
+  - "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/results/crossval/split-2/patient-preds.csv"
+
+heatmaps:
+  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/results/heatmaps"
+  feature_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/features/xiyuewang-ctranspath-7c998680-02627079/"
+  wsi_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/raw"
+  checkpoint_path: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/all/results/training/model.ckpt"
+  topk: 10
+  bottomk: 10

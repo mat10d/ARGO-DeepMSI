@@ -12,3 +12,6 @@ HistoBistro/*
 !HistoBistro/test.py
 !HistoBistro/config.yaml
 !HistoBistro/data_config.yaml
+
+# Ignore STAMP_v2
+STAMP/
