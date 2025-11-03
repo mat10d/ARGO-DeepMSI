@@ -1,4 +1,13 @@
 #!/bin/bash
+#SBATCH --job-name=stamp_all_features
+#SBATCH --partition=nvidia-2080ti-20
+#SBATCH --output=logs/feature_extraction_all/stamp_all_%j.out
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=32G
+#SBATCH --gres=gpu:1
+#SBATCH --time=72:00:00
 #
 # Master script: Extract features using ALL available STAMP models
 #
@@ -6,7 +15,10 @@
 # Each model processes 6 sites in parallel (via SLURM array job).
 # Models are tested for accessibility before submission.
 #
-# Usage:
+# Usage (as SLURM job - recommended):
+#   sbatch scripts/3_feature_extraction_all.sh
+#
+# Usage (local submission - alternative):
 #   bash scripts/3_feature_extraction_all.sh
 #
 # Features:
@@ -15,6 +27,7 @@
 # - Runs models sequentially (each model waits for previous to finish)
 # - Each model processes all 6 sites in parallel
 # - Logs results and skips inaccessible models
+# - Can run as SLURM job (recommended) or local submission script
 #
 
 set -e  # Exit on error
@@ -26,17 +39,29 @@ RESULT_LOG="$LOG_DIR/extraction_results_$(date +%Y%m%d_%H%M%S).log"
 # Create log directory
 mkdir -p "$LOG_DIR"
 
-# Set HF cache location
-export HF_HOME="/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache"
-export HF_DATASETS_CACHE="$HF_HOME/datasets"
-export TRANSFORMERS_CACHE="$HF_HOME/transformers"
-mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE"
-
 echo "=========================================="
 echo "ARGO-DeepMSI: Feature Extraction (All Models)"
 echo "=========================================="
 echo "Start time: $(date)"
+echo "Job ID: $SLURM_JOB_ID"
+echo "Node: $SLURM_NODELIST"
 echo "Log: $RESULT_LOG"
+echo ""
+
+# Load environment
+echo "Loading environment..."
+source ~/.bashrc
+
+# Set environment variables
+export HF_HOME="/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache"
+export HF_DATASETS_CACHE="$HF_HOME/datasets"
+export TRANSFORMERS_CACHE="$HF_HOME/transformers"
+export CUDA_HOME=/usr/local/cuda-12.6
+export PATH=$CUDA_HOME/bin:$PATH
+
+# Create cache directories
+mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE"
+echo "✓ Environment variables set"
 echo ""
 
 # List of models to process (prefer newer versions)
