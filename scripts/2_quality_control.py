@@ -8,10 +8,13 @@ before feature extraction.
 NOTE: This is a placeholder script. QC functionality to be implemented.
 
 Usage:
-    python scripts/2_quality_control.py --slides tables/0/slide_table.csv \
-                                        [--output-dir results/qc]
+    python scripts/2_quality_control.py \
+        --slides results/stage1_data_ingestion/slide_table.csv
 
 Environment: ARGO (conda activate argo)
+
+Outputs:
+    results/stage2_qc/qc_report.csv
 """
 
 import argparse
@@ -34,7 +37,7 @@ def main():
         "--output-dir",
         type=str,
         default=None,
-        help="Output directory for QC results (default: results/qc/)"
+        help="Output directory for QC results (default: results/stage2_qc/)"
     )
 
     args = parser.parse_args()
@@ -69,7 +72,7 @@ def main():
         logger.info("All slides will pass QC by default")
 
         # For now, just create a simple report
-        output_dir = args.output_dir or io_utils.get_results_dir("qc")
+        output_dir = args.output_dir or io_utils.get_stage_dir(2)
         io_utils.ensure_dir(output_dir)
 
         qc_report = slide_table.copy()

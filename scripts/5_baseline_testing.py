@@ -7,11 +7,17 @@ HistoBistro achieves 0.99 NPV on published data, so similar performance validate
 that our data and features are of good quality.
 
 Usage:
-    python scripts/5_baseline_testing.py --clinical tables/2/all_clinical_table.csv \
-                                          --slides tables/2/all_slide_table.csv \
-                                          [--output-dir results/baseline]
+    python scripts/5_baseline_testing.py \
+        --clinical results/stage4_feature_validation/tables/all_clinical_table.csv \
+        --slides results/stage4_feature_validation/tables/all_slide_table.csv
 
-Environment: HistoBistro (conda activate histobistro)
+Environment: ARGO (conda activate argo)
+
+Note: This prepares tables for HistoBistro. After running, switch to histobistro env to run inference.
+
+Outputs:
+    results/stage5_baseline/clinical_table_histobistro.xlsx
+    results/stage5_baseline/slide_table_histobistro.xlsx
 """
 
 import argparse
@@ -76,7 +82,7 @@ def main():
         "--output-dir",
         type=str,
         default=None,
-        help="Output directory for baseline results (default: results/baseline/)"
+        help="Output directory for baseline results (default: results/stage5_baseline/)"
     )
 
     args = parser.parse_args()
@@ -106,7 +112,7 @@ def main():
         logger.info(f"Loaded {len(slide_table)} slides")
 
         # Set output directory
-        output_dir = Path(args.output_dir) if args.output_dir else io_utils.get_results_dir("baseline")
+        output_dir = Path(args.output_dir) if args.output_dir else io_utils.get_stage_dir(5)
 
         # Prepare tables in HistoBistro format
         logger.info("Preparing tables in HistoBistro format...")

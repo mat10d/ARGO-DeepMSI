@@ -6,9 +6,13 @@ Fetches patient data from REDCap, loads Halo Link slide exports,
 and creates clinical and slide tables.
 
 Usage:
-    python scripts/1_data_ingestion.py [--output-dir tables/0]
+    python scripts/1_data_ingestion.py
 
 Environment: ARGO (conda activate argo)
+
+Outputs:
+    results/stage1_data_ingestion/clinical_table.csv
+    results/stage1_data_ingestion/slide_table.csv
 """
 
 import argparse
@@ -24,7 +28,7 @@ def main():
         "--output-dir",
         type=str,
         default=None,
-        help="Output directory for tables (default: tables/0/)"
+        help="Output directory for tables (default: results/stage1_data_ingestion/)"
     )
     parser.add_argument(
         "--api-url",
@@ -42,7 +46,7 @@ def main():
         "--halo-dir",
         type=str,
         default=None,
-        help="Directory containing Halo Link CSV files (default: data/)"
+        help="Directory containing Halo Link CSV files (default: data/metadata/)"
     )
 
     args = parser.parse_args()

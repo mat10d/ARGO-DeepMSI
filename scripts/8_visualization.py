@@ -10,17 +10,20 @@ Generates visualizations for pipeline stages:
 Usage:
     # For data ingestion visualizations
     python scripts/8_visualization.py stage1 \
-        --clinical tables/0/clinical_table.csv \
-        --slides tables/0/slide_table.csv \
-        --output-dir results/figures/stage1
+        --clinical results/stage1_data_ingestion/clinical_table.csv \
+        --slides results/stage1_data_ingestion/slide_table.csv
 
     # For feature validation visualizations
     python scripts/8_visualization.py stage4 \
-        --clinical tables/0/clinical_table.csv \
-        --slides tables/2/all_slide_table.csv \
-        --output-dir results/figures/stage4
+        --clinical results/stage1_data_ingestion/clinical_table.csv \
+        --slides results/stage1_data_ingestion/slide_table.csv \
+        --extractor ctranspath
 
 Environment: ARGO (conda activate argo)
+
+Outputs:
+    results/stage1_data_ingestion/figures/*.png (for stage1)
+    results/stage4_feature_validation/figures/*.png (for stage4)
 """
 
 import argparse
@@ -43,7 +46,7 @@ def visualize_stage1(args, logger):
     slide_table = pd.read_csv(slide_path)
 
     # Set output directory
-    output_dir = Path(args.output_dir) if args.output_dir else io_utils.get_results_dir("figures/stage1")
+    output_dir = Path(args.output_dir) if args.output_dir else io_utils.get_stage_dir(1) / "figures"
 
     # Generate visualizations
     visualization.generate_data_ingestion_visualizations(
@@ -78,7 +81,7 @@ def visualize_stage4(args, logger):
     )
 
     # Set output directory
-    output_dir = Path(args.output_dir) if args.output_dir else io_utils.get_results_dir("figures/stage4")
+    output_dir = Path(args.output_dir) if args.output_dir else io_utils.get_stage_dir(4) / "figures"
 
     # Generate visualizations
     visualization.generate_feature_validation_visualizations(
@@ -106,7 +109,7 @@ def main():
     parser_stage1.add_argument("--slides", type=str, required=True,
                               help="Path to slide table CSV")
     parser_stage1.add_argument("--output-dir", type=str, default=None,
-                              help="Output directory (default: results/figures/stage1/)")
+                              help="Output directory (default: results/stage1_data_ingestion/figures/)")
 
     # Stage 4: Feature Validation
     parser_stage4 = subparsers.add_parser("stage4", help="Feature validation visualizations")
@@ -119,7 +122,7 @@ def main():
     parser_stage4.add_argument("--features-dir", type=str, default=None,
                               help="Base directory for features (default: data/)")
     parser_stage4.add_argument("--output-dir", type=str, default=None,
-                              help="Output directory (default: results/figures/stage4/)")
+                              help="Output directory (default: results/stage4_feature_validation/figures/)")
 
     args = parser.parse_args()
 

@@ -6,12 +6,18 @@ Validates feature extraction results, identifies which slides passed/failed extr
 and prepares tables for MIL training.
 
 Usage:
-    python scripts/4_feature_validation.py --clinical tables/0/clinical_table.csv \
-                                            --slides tables/0/slide_table.csv \
-                                            [--extractor ctranspath] \
-                                            [--output-dir tables/2]
+    python scripts/4_feature_validation.py \
+        --clinical results/stage1_data_ingestion/clinical_table.csv \
+        --slides results/stage1_data_ingestion/slide_table.csv \
+        --extractor ctranspath
 
 Environment: ARGO (conda activate argo)
+
+Outputs:
+    results/stage4_feature_validation/tables/all_clinical_table.csv
+    results/stage4_feature_validation/tables/all_slide_table.csv
+    results/stage4_feature_validation/reports/missing_slides.csv
+    results/stage4_feature_validation/reports/extraction_summary_by_site.csv
 """
 
 import argparse
@@ -46,13 +52,13 @@ def main():
         "--features-dir",
         type=str,
         default=None,
-        help="Base directory for features (default: data/)"
+        help="Base directory for features (default: results/stage3_features/)"
     )
     parser.add_argument(
         "--output-dir",
         type=str,
         default=None,
-        help="Output directory for processed tables (default: tables/2/)"
+        help="Output directory for processed tables (default: results/stage4_feature_validation/tables/)"
     )
     parser.add_argument(
         "--no-split-by-site",
