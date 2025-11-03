@@ -27,17 +27,31 @@ git checkout overhaul  # Development branch with clean structure
 
 ### 2. Clone External Dependencies
 
+**IMPORTANT**: STAMP and HistoBistro are NOT included in this repo. You must clone them separately:
+
 **STAMP** (Feature extraction + MIL training):
 ```bash
+# From ARGO-DeepMSI root directory
 git clone https://github.com/KatherLab/STAMP.git
 ```
 
 **HistoBistro** (Baseline validation):
 ```bash
+# From ARGO-DeepMSI root directory
 git clone https://github.com/peng-lab/HistoBistro.git
 ```
 
-**Note**: We keep STAMP and HistoBistro as-is (never modify) to stay up-to-date with upstream changes.
+Your directory should look like:
+```
+ARGO-DeepMSI/
+├── STAMP/              ← Cloned separately
+├── HistoBistro/        ← Cloned separately
+├── utils/
+├── scripts/
+└── ...
+```
+
+**Note**: We keep STAMP and HistoBistro as external dependencies (never tracked in git, never modified) to stay up-to-date with upstream changes.
 
 ### 3. Set Up Environments
 
