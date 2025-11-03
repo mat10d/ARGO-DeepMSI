@@ -1,264 +1,371 @@
-# ARGO-DeepMSI: MSI Status Prediction from Histopathology
+# ARGO-DeepMSI: Multi-Model MSI Prediction Pipeline
 
-A deep learning framework for microsatellite instability (MSI) prediction from whole slide images of colorectal cancer.
+A clean, modular pipeline for microsatellite instability (MSI) prediction from whole slide images using multiple foundation models.
 
-## Project Overview
+## Overview
 
-ARGO-DeepMSI implements a multi-stage pipeline to process whole slide images, extract features, and train deep learning models to predict MSI status. The workflow integrates REDCap data collection, multi-site processing, and cross-validation using multiple specialized environments.
+ARGO-DeepMSI is an end-to-end pipeline for predicting MSI status from H&E-stained colorectal cancer slides. The pipeline:
+- Processes slides from multiple sites (6 cohorts)
+- Extracts features using 18+ foundation models (via STAMP)
+- Validates data quality with pre-trained models (HistoBistro baseline)
+- Trains MIL classifiers with k-fold cross-validation
+- Generates comprehensive statistics and visualizations
 
-## Environment Setup
+**Branch**: Currently on `overhaul` - clean refactor with modular `utils/` structure
 
-### 1. ARGO Environment
+---
 
-The base environment used for data collection, processing, and validation:
+## Quick Start
+
+### 1. Clone Repository
 
 ```bash
-# Create and activate environment for data collection/processing
-conda env create -f argo_env.yml
-conda activate argo
+git clone https://github.com/YOUR_ORG/ARGO-DeepMSI.git
+cd ARGO-DeepMSI
+git checkout overhaul  # Use refactored branch
 ```
 
-### 2. STAMP Environment
+### 2. Clone External Dependencies
 
-Used for feature extraction and model training:
-
+**STAMP** (Feature extraction + MIL training):
 ```bash
-# Create and activate conda environment for STAMP with Python 3.11
-conda create -n stamp-env python=3.11
-conda activate stamp-env
-
-pip install "stamp[all] @ git+https://github.com/KatherLab/STAMP"
-pip install seaborn wandb dgl torchdata==0.9.0 # for HistoBistro
+git clone https://github.com/KatherLab/STAMP.git
 ```
 
-### 3. TRIDENT Environment
-
-For alternative feature extraction:
-
+**HistoBistro** (Baseline validation):
 ```bash
-# Create and activate conda environment for TRIDENT with Python 3.10
-conda create -n trident-env python=3.10
-conda activate trident-env
-
-pip install git+https://github.com/mahmoodlab/trident.git
-```
-
-### 4. HistoBistro Repository
-
-For model comparison and benchmarking:
-
-```bash
-# Install directly into ARGO-DeepMSI
 git clone https://github.com/peng-lab/HistoBistro.git
-
-cd HistoBistro
-
-# Create and activate conda environment for HistoBistro
-conda env create --file environment_simple.yaml
-conda activate histobistro
 ```
 
-## Workflow Steps
+**Note**: We keep STAMP and HistoBistro as-is (never modify) to stay up-to-date with upstream changes.
 
-### Step 0: AWS Slide Download and Data Collection
+### 3. Set Up Environments
 
-1. For AWS slide download and data transfer instructions, refer to `AWS.md`.
-
-2. Create a `.env` file in the project root with your REDCap credentials:
-   ```
-   REDCAP_API_TOKEN=your_token_here
-   REDCAP_API_URL=https://redcap.oauife.edu.ng/api/
-   ```
-
-3. Process the raw data to create standardized tables:
-   ```bash
-   # Activate ARGO environment
-   conda activate argo
-   
-   # Run the data processing script
-   python scripts/0.prepare.py
-   ```
-
-   This script will:
-   - Fetch patient data from REDCap
-   - Extract MSI status information
-   - Load and standardize Halo Link data files
-   - Create clinical and slide tables
-   - Verify slide existence and generate file paths
-   - Clean and merge tables for consistency
-   - Generate visualizations of MSI distribution by site
-
-### Step 1: STAMP Processing
-
-1. Initialize STAMP configs for each site:
-   ```bash
-   # Activate STAMP environment
-   conda activate stamp-env
-   
-   # Make a directory for configs (if needed)
-   mkdir -p configs
-   
-   # Initialize configs for each site
-   stamp --config configs/config_OAUTHC.yaml init
-   stamp --config configs/config_LUTH.yaml init
-   stamp --config configs/config_UITH.yaml init
-   stamp --config configs/config_LASUTH.yaml init
-   stamp --config configs/config_retrospective_msk.yaml init
-   stamp --config configs/config_retrospective_oau.yaml init
-   ```
-
-2. Edit the configuration files in the `configs/` directory to match your data paths
-
-3. Run preprocessing using the SLURM job scheduler:
-   ```bash
-   cd scripts
-   sbatch 1.preprocess.sh
-   ```
-
-### Step 2: Validation of Preprocessing
-
-Verify that all slides were processed correctly:
-
+Run the automated setup script:
 ```bash
-# Switch to ARGO environment
+bash environments/setup.sh
+```
+
+Or manually:
+```bash
+# ARGO environment (main pipeline)
+conda env create -f environments/argo.yml
 conda activate argo
 
-# Run validation script
-python scripts/2.preprocess_eval.py
+# STAMP environment (feature extraction)
+cd STAMP
+rm -rf ~/.triton  # Clear cache
+uv sync --extra build --extra gpu
+cd ..
+
+# HistoBistro environment (baseline)
+conda env create -f HistoBistro/environment_simple.yaml
 ```
 
-This script will:
-- Validate processing status of all slides
-- Generate visualizations of processing completion
-- Create split tables by site
-- Prepare tables for the next steps
+### 4. Configure Credentials
 
-### Step 3: Consolidating Features for Cross-Validation
+Create `.env` file:
+```bash
+# Hugging Face cache
+export HF_HOME=/path/to/ARGO-DeepMSI/.huggingface_cache
 
-To prepare for cross-validation, we consolidate features from all sites into a single directory:
+# REDCap API (update with your credentials)
+export REDCAP_API_URL=https://redcap.oauife.edu.ng/api/
+export REDCAP_API_TOKEN=your_token_here
+```
+
+Login to Hugging Face (required for gated models):
+```bash
+huggingface-cli login
+```
+
+### 5. Run Pipeline
 
 ```bash
-cd scripts
-sbatch 3.cross_validation.sh
+# Stage 1: Data Ingestion
+conda activate argo
+python scripts/1_data_ingestion.py
+
+# Stage 2: Quality Control
+python scripts/2_quality_control.py
+
+# Stage 3: Feature Extraction
+source STAMP/.venv/bin/activate
+sbatch scripts/slurm/3_extract_features.sh ctranspath
+
+# Stage 4: Feature Validation
+conda activate argo
+python scripts/4_feature_validation.py
+
+# Stage 5: Baseline Testing
+conda activate histobistro
+python scripts/5_baseline_testing.py
+
+# Stage 6: MIL Training
+source STAMP/.venv/bin/activate
+sbatch scripts/slurm/6_mil_training.sh ctranspath
+
+# Stage 7-8: Statistics & Visualization
+conda activate argo
+python scripts/7_statistics.py
+python scripts/8_visualization.py
 ```
 
-This script includes the following consolidation code:
+---
 
-```bash
-# Create a target directory for consolidated features
-mkdir -p "$TARGET_DIR"
+## Pipeline Stages
 
-# Copy all feature data from individual repos to the consolidated directory
-for dir in ../data/*/features/xiyuewang-ctranspath-7c998680-02627079/; do
-    # Skip the target directory itself to avoid copying a directory into itself
-    if [[ "$dir" != "../data/all/features/xiyuewang-ctranspath-7c998680-02627079/" ]]; then
-        echo "Copying files from $dir to $TARGET_DIR"
-        rsync -av "$dir"/* "$TARGET_DIR"
-    fi
-done
+### Stage 1: Data Ingestion
+- **Input**: SVS files, REDCap metadata
+- **Output**: `tables/clinical_table.csv`, `tables/slide_table.csv`
+- **Environment**: ARGO
+
+### Stage 2: Quality Control
+- **Input**: WSI files, slide table
+- **Output**: `results/qc/qc_report.csv`
+- **Environment**: ARGO
+- **Purpose**: Filter low-quality slides before feature extraction
+
+### Stage 3: Feature Extraction
+- **Input**: QC-passed slides
+- **Output**: `data/{SITE}/features/{MODEL}/`
+- **Environment**: STAMP
+- **Models**: 18+ foundation models (CTransPath, Virchow2, UNI2, CONCH, etc.)
+
+### Stage 4: Feature Validation
+- **Input**: Extracted features
+- **Output**: `results/feature_validation/extraction_report.csv`
+- **Environment**: ARGO
+- **Purpose**: Identify which slides passed/failed extraction and why
+
+### Stage 5: Baseline Testing
+- **Input**: CTransPath features
+- **Output**: `results/baseline/predictions.csv`
+- **Environment**: HistoBistro
+- **Purpose**: Validate data quality with pre-trained model (published 0.99 NPV)
+
+### Stage 6: MIL Training
+- **Input**: Features from any model
+- **Output**: `data/all/results/crossval/split-{0,1,2}/`
+- **Environment**: STAMP
+- **Purpose**: Train MIL classifiers with 3-fold cross-validation
+
+### Stage 7: Statistics
+- **Input**: Cross-validation predictions
+- **Output**: `results/statistics/metrics.csv`
+- **Environment**: ARGO
+- **Purpose**: Calculate AUROC, AUPRC, sensitivity, NPV with 95% CI
+
+### Stage 8: Visualization
+- **Input**: Statistics, trained models
+- **Output**: `results/figures/`
+- **Environment**: ARGO
+- **Purpose**: ROC curves, heatmaps, embeddings, top tiles
+
+---
+
+## Directory Structure
+
 ```
-
-After consolidation, the script runs cross-validation on the consolidated dataset.
-
-### Step 4: Statistical Analysis
-
-Generate performance statistics with:
-
-```bash
-cd scripts
-sbatch 4.statistics.sh
-```
-
-This will create:
-- ROC curves with confidence intervals
-- Precision-recall curves
-- AUROC, AUPRC with 95% confidence intervals
-- Performance metrics by split and aggregated
-- All outputs saved in `results/statistics`
-
-### Step 6-7: Using HistoBistro Models (Optional)
-
-If you want to compare with or use HistoBistro models:
-
-1. Prepare data for HistoBistro format (script 6):
-   ```bash
-   # Switch to ARGO environment
-   conda activate argo
-   python scripts/6.prepare_histobistro.py
-   ```
-
-2. Run HistoBistro evaluation (script 7):
-   ```bash
-   sbatch scripts/7.histobistro.sh
-   ```
-
-## Project Structure
-
-```
-argo-deepmsi/
-├── scripts/
-│   ├── 0.prepare.py         # REDCap data collection
-│   ├── 1.preprocess.sh      # STAMP feature extraction
-│   ├── 2.preprocess_eval.py # Processing validation
-│   ├── 3.cross_validation.sh # Consolidation and cross-validation
-│   ├── 4.statistics.sh      # Generate performance metrics
-│   ├── 6.prepare_histobistro.py # Format data for HistoBistro
-│   └── 7.histobistro.sh     # Run HistoBistro comparison
-├── data/                    # All slide data (gitignored)
+ARGO-DeepMSI/
+├── README.md                    # This file
+├── TODO.md                      # Development roadmap
+├── CLAUDE.md                    # AI assistant instructions
+│
+├── utils/                       # Core Python utilities
+│   ├── data_ingestion.py
+│   ├── quality_control.py
+│   ├── feature_extraction.py
+│   ├── feature_validation.py
+│   ├── baseline_testing.py
+│   ├── training.py
+│   ├── statistics.py
+│   ├── visualization.py
+│   ├── config_utils.py
+│   └── io_utils.py
+│
+├── scripts/                     # Executable scripts
+│   ├── 1_data_ingestion.py
+│   ├── 2_quality_control.py
+│   ├── 3_feature_extraction.py
+│   ├── 4_feature_validation.py
+│   ├── 5_baseline_testing.py
+│   ├── 6_mil_training.py
+│   ├── 7_statistics.py
+│   ├── 8_visualization.py
+│   └── slurm/                   # SLURM batch scripts
+│
+├── environments/                # Environment configs
+│   ├── argo.yml
+│   ├── setup.sh
+│   └── README.md
+│
+├── configs/                     # STAMP model configs
+│   ├── ctranspath/
+│   ├── virchow2/
+│   └── ...
+│
+├── data/                        # Processed data (gitignored)
 │   ├── OAUTHC/
-│   │   ├── raw/             # Original SVS files
-│   │   ├── features/        # Extracted features
-│   │   ├── results/         # Model results
-│   │   └── .cache/          # STAMP cache
 │   ├── LUTH/
-│   │   └── ...
-│   ├── UITH/
-│   │   └── ...
 │   ├── LASUTH/
-│   │   └── ...
+│   ├── UITH/
 │   ├── retrospective_msk/
-│   │   └── ...
 │   ├── retrospective_oau/
-│   │   └── ...
-│   └── all/                 # Consolidated data
-│       ├── features/        # Combined features
-│       └── results/         # Combined results
-├── tables/                  # Generated CSV tables
-│   ├── 0/                   # Initial tables
-│   │   ├── clinical_table.csv
-│   │   └── slide_table.csv
-│   └── 2/                   # Post-processing tables
-│       ├── all_clinical_table.csv
-│       ├── all_slide_table.csv
-│       ├── OAUTHC_clinical_table.csv
-│       └── ...
-├── configs/                 # STAMP configuration files
-│   ├── config_LUTH.yaml
-│   ├── config_OAUTHC.yaml
-│   ├── config_UITH.yaml
-│   ├── config_LASUTH.yaml
-│   ├── config_retrospective_msk.yaml
-│   ├── config_retrospective_oau.yaml
-│   └── config_all.yaml      # Config for consolidated data
-├── HistoBistro/             # Optional comparison framework -- contains updated: config.yaml, data_config.yaml, environment_simple.yaml
-├── .env                     # Environment variables (gitignored) 
-├── .gitignore               # Git ignore file
-├── AWS.md                   # AWS data transfer guide
-├── argo_env.yml             # ARGO conda environment specification
-└── README.md                # Project documentation
+│   └── all/
+│
+├── tables/                      # Clinical/slide metadata
+├── results/                     # Pipeline outputs
+├── logs/                        # Execution logs
+│
+├── STAMP/                       # External: git clone
+└── HistoBistro/                 # External: git clone
 ```
 
-## Notes
+---
 
-- ARGO environment (conda) is used for data collection and validation
-- STAMP environment (venv) is used only for STAMP processing
-- STAMP configurations are institution-specific and stored in `configs/`
-- AWS credentials should be configured system-wide using `aws configure`
-- All generated tables are stored in `tables/` directory
-- The script numbering (0, 1, 2, 3, 4, 6, 7) directly corresponds to the workflow steps
+## Available Feature Extractors (STAMP v2.3)
 
-## References
+### Priority Tier 1 (Clinical-grade)
+- **Virchow2** - Microsoft 2024, best general performance
+- **UNI2** - Mahmood Lab 2024, widely validated
+- **CONCHv1.5** - Vision-language model
+- **Gigapath** - Large-scale pathology FM
 
-- [STAMP](https://github.com/KatherLab/STAMP): Slide-level Transformer with Attention Multiple-instance learning for Pathology
-- [HistoBistro](https://github.com/peng-lab/HistoBistro): Benchmarking platform for histopathology AI models
-- [TRIDENT](https://github.com/mahmoodlab/trident): Tool for Rapid and Integrated Development Environment
+### Priority Tier 2 (Specialized)
+- **MUSK** - Multi-scale understanding
+- **mSTAR** - Multi-task pre-training
+- **DinoBloom** - Self-supervised DINO
+- **PLIP** - Pathology-language integration
+
+### Currently Available
+- **CTransPath** ✓ (baseline features exist)
+- **H-optimus-0** ✓
+- **H-optimus-1** ✓
+
+**Total**: 18 extractors available in STAMP v2.3
+
+---
+
+## Environment Activation Quick Reference
+
+| Stage | Environment | Command |
+|-------|-------------|---------|
+| 1. Data Ingestion | ARGO | `conda activate argo` |
+| 2. Quality Control | ARGO | `conda activate argo` |
+| 3. Feature Extraction | STAMP | `source STAMP/.venv/bin/activate` |
+| 4. Feature Validation | ARGO | `conda activate argo` |
+| 5. Baseline Testing | HistoBistro | `conda activate histobistro` |
+| 6. MIL Training | STAMP | `source STAMP/.venv/bin/activate` |
+| 7. Statistics | ARGO | `conda activate argo` |
+| 8. Visualization | ARGO | `conda activate argo` |
+
+---
+
+## Key Design Principles
+
+1. **Modular Structure**: Core logic in `utils/`, orchestration in `scripts/`
+2. **External Dependencies**: STAMP and HistoBistro cloned locally, never modified
+3. **Clean Environments**: Three separate environments for different stages
+4. **Reproducibility**: Config-driven, no hardcoded paths
+5. **Documentation First**: Update README as changes are made
+
+---
+
+## Development Workflow
+
+### Current Branch: `overhaul`
+
+This branch contains the cleaned, refactored pipeline. **Do not merge to `main` until**:
+- ✅ All 8 stages implemented
+- ✅ End-to-end test passes
+- ✅ Feature validation works
+- ✅ HistoBistro baseline validates data (close to 0.99 NPV)
+- ✅ Documentation complete
+
+### Making Changes
+
+1. All custom code goes in `utils/` or `scripts/`
+2. Never modify `STAMP/` or `HistoBistro/` directories
+3. Update this README when adding features
+4. Test changes on small subset before full run
+
+### Updating External Dependencies
+
+```bash
+# Update STAMP
+cd STAMP && git pull && uv sync --extra build --extra gpu && cd ..
+
+# Update HistoBistro
+cd HistoBistro && git pull && cd ..
+```
+
+---
+
+## Troubleshooting
+
+### STAMP Installation Issues
+
+```bash
+# Clear caches and reinstall
+rm -rf ~/.triton
+cd STAMP
+uv cache clean flash_attn mamba-ssm causal_conv1d
+uv sync --extra build
+uv sync --extra build --extra gpu
+```
+
+### GPU Not Detected
+
+```bash
+# Check CUDA
+nvidia-smi
+python -c "import torch; print(torch.cuda.is_available())"
+
+# Set CUDA path if needed
+export CUDA_HOME=/usr/local/cuda-12.6
+```
+
+### Feature Extraction Fails
+
+1. Check Stage 4 (Feature Validation) output
+2. Review logs in `logs/feature_extraction/`
+3. Verify slide quality in Stage 2 (QC)
+4. Check STAMP preprocessing cache: `data/{SITE}/.cache/`
+
+---
+
+## Citation
+
+If you use this pipeline, please cite:
+
+```bibtex
+@article{your_paper,
+  title={ARGO-DeepMSI: Multi-Model MSI Prediction from Histopathology},
+  author={Your Name et al.},
+  journal={Journal Name},
+  year={2025}
+}
+```
+
+Also cite STAMP and HistoBistro:
+- STAMP: https://github.com/KatherLab/STAMP
+- HistoBistro: https://github.com/peng-lab/HistoBistro
+
+---
+
+## License
+
+[Specify your license]
+
+---
+
+## Contact
+
+For questions or issues:
+- Open an issue on GitHub
+- Contact: [your email]
+
+---
+
+**Last Updated**: 2025-11-03 (overhaul branch)
