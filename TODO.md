@@ -23,19 +23,25 @@ Create a **clean, modular, reproducible** MSI prediction pipeline:
 
 ### Code Organization
 ```
-utils/              # Core functions and utilities
-scripts/            # Executable scripts that call utils
+argo_deepmsi/       # Installable Python package (core logic)
+scripts/            # Thin CLI wrappers (call package functions)
 configs/            # YAML configurations per model
 ```
 
-**Principle**: Scripts orchestrate, utils implement
+**Principle**: Heavy logic in package, thin scripts for CLI
 
-**Critical Design Principle:**
-- **NEVER modify STAMP or HistoBistro repositories**
-- Keep them as-is, treat as external dependencies
-- All custom code goes in `utils/` and `scripts/`
-- This allows easy updates: `cd STAMP && git pull`
-- We call STAMP/HistoBistro as tools, not modify them
+**Critical Design Principles:**
+1. **NEVER modify STAMP or HistoBistro repositories**
+   - Keep them as-is, treat as external dependencies
+   - All custom code goes in `argo_deepmsi/` package and `scripts/`
+   - This allows easy updates: `cd STAMP && git pull`
+   - We call STAMP/HistoBistro as tools, not modify them
+
+2. **argo-deepmsi is an installable package**
+   - Heavy logic in `argo_deepmsi/` module
+   - Scripts are thin wrappers calling package functions
+   - Installed via: `pip install -e .` (editable mode)
+   - Allows future expansion (models, layers, etc.)
 
 ---
 
@@ -153,15 +159,37 @@ def main():
     # etc.
 ```
 
-**Refactoring Tasks:**
-- [ ] `scripts/1_data_ingestion.py` → calls `utils.data_ingestion`
-- [ ] `scripts/2_quality_control.py` → calls `utils.quality_control`
-- [ ] `scripts/3_feature_extraction.py` → calls `utils.feature_extraction`
-- [ ] `scripts/4_feature_validation.py` → calls `utils.feature_validation`
-- [ ] `scripts/5_baseline_testing.py` → calls `utils.baseline_testing`
-- [ ] `scripts/6_mil_training.py` → calls `utils.training`
-- [ ] `scripts/7_statistics.py` → calls `utils.statistics`
-- [ ] `scripts/8_visualization.py` → calls `utils.visualization`
+**Script Implementation (Thin Wrappers):**
+- [ ] `scripts/1_data_ingestion.py` → calls `argo_deepmsi.data_ingestion`
+- [ ] `scripts/2_quality_control.py` → calls `argo_deepmsi.quality_control`
+- [ ] `scripts/3_feature_extraction.py` → calls `argo_deepmsi.feature_extraction`
+- [ ] `scripts/4_feature_validation.py` → calls `argo_deepmsi.feature_validation`
+- [ ] `scripts/5_baseline_testing.py` → calls `argo_deepmsi.baseline_testing`
+- [ ] `scripts/6_mil_training.py` → calls `argo_deepmsi.training`
+- [ ] `scripts/7_statistics.py` → calls `argo_deepmsi.statistics`
+- [ ] `scripts/8_visualization.py` → calls `argo_deepmsi.visualization`
+
+**Example Script Structure:**
+```python
+# scripts/4_feature_validation.py
+import argparse
+from argo_deepmsi import feature_validation, io_utils
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--slide-table", required=True)
+    parser.add_argument("--feature-dir", required=True)
+    args = parser.parse_args()
+
+    # All logic in package
+    report = feature_validation.generate_extraction_report(
+        args.slide_table, args.feature_dir
+    )
+    report.save("results/feature_validation/")
+
+if __name__ == "__main__":
+    main()
+```
 
 ### 1.3 Standardize SLURM Scripts
 
@@ -191,9 +219,11 @@ ARGO-DeepMSI/
 ├── TODO.md                      # This file
 ├── CLAUDE.md                    # AI assistant guide
 ├── PIPELINE.md                  # Technical pipeline details
+├── pyproject.toml               # Package definition
+├── setup.py                     # Package installation
 │
-├── utils/                       # Core Python utilities
-│   ├── __init__.py
+├── argo_deepmsi/                # Installable Python package
+│   ├── __init__.py              # Package init, version
 │   ├── data_ingestion.py        # Stage 1
 │   ├── quality_control.py       # Stage 2
 │   ├── feature_extraction.py    # Stage 3

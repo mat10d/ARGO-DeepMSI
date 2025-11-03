@@ -4,15 +4,8 @@ channels:
   - defaults
 dependencies:
   - python=3.11
-  - pandas
-  - seaborn
-  - matplotlib
-  - requests
-  - python-dotenv
   - pip
-  - jupyter
-  - ipykernel
-  - boto3
-  - scikit-learn
   - pip:
-    - awscli
+    # Install argo-deepmsi package in editable mode
+    # This allows development while having the package importable
+    - -e ..

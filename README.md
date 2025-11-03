@@ -55,6 +55,8 @@ ARGO-DeepMSI/
 
 ### 3. Set Up Environments
 
+**IMPORTANT**: The ARGO environment installs the `argo-deepmsi` package in editable mode.
+
 Run the automated setup script:
 ```bash
 bash environments/setup.sh
@@ -62,9 +64,13 @@ bash environments/setup.sh
 
 Or manually:
 ```bash
-# ARGO environment (main pipeline)
-conda env create -f environments/argo.yml
+# ARGO environment (installs argo-deepmsi package)
+cd environments
+conda env create -f argo.yml
 conda activate argo
+
+# Verify installation
+python -c "import argo_deepmsi; print(argo_deepmsi.__version__)"
 
 # STAMP environment (feature extraction)
 cd STAMP
@@ -178,6 +184,12 @@ python scripts/8_visualization.py
 
 ---
 
+## Architecture
+
+**argo-deepmsi** is an installable Python package. The `argo_deepmsi/` module contains all core logic, and `scripts/` are thin CLI wrappers.
+
+**Key Principle**: Heavy logic in package, thin scripts for execution.
+
 ## Directory Structure
 
 ```
@@ -185,20 +197,23 @@ ARGO-DeepMSI/
 ├── README.md                    # This file
 ├── TODO.md                      # Development roadmap
 ├── CLAUDE.md                    # AI assistant instructions
+├── pyproject.toml               # Package definition
+├── setup.py                     # Package installation
 │
-├── utils/                       # Core Python utilities
-│   ├── data_ingestion.py
-│   ├── quality_control.py
-│   ├── feature_extraction.py
-│   ├── feature_validation.py
-│   ├── baseline_testing.py
-│   ├── training.py
-│   ├── statistics.py
-│   ├── visualization.py
-│   ├── config_utils.py
-│   └── io_utils.py
+├── argo_deepmsi/                # Python package (installed via pip)
+│   ├── __init__.py
+│   ├── data_ingestion.py        # REDCap, SVS discovery, table creation
+│   ├── quality_control.py       # Slide QC functions
+│   ├── feature_extraction.py    # STAMP preprocessing wrappers
+│   ├── feature_validation.py    # Feature QC and validation
+│   ├── baseline_testing.py      # HistoBistro inference
+│   ├── training.py              # STAMP MIL training wrappers
+│   ├── statistics.py            # Metrics calculation
+│   ├── visualization.py         # Plotting, heatmaps
+│   ├── config_utils.py          # Config generation
+│   └── io_utils.py              # File I/O, logging, paths
 │
-├── scripts/                     # Executable scripts
+├── scripts/                     # Thin CLI scripts (call argo_deepmsi functions)
 │   ├── 1_data_ingestion.py
 │   ├── 2_quality_control.py
 │   ├── 3_feature_extraction.py
@@ -278,11 +293,35 @@ ARGO-DeepMSI/
 
 ## Key Design Principles
 
-1. **Modular Structure**: Core logic in `utils/`, orchestration in `scripts/`
+1. **Installable Package**: `argo_deepmsi/` is an installable Python package
+   - Heavy logic lives in the package
+   - Scripts are thin wrappers calling package functions
+   - Allows future expansion (e.g., custom models on top of embeddings)
 2. **External Dependencies**: STAMP and HistoBistro cloned locally, never modified
 3. **Clean Environments**: Three separate environments for different stages
 4. **Reproducibility**: Config-driven, no hardcoded paths
 5. **Documentation First**: Update README as changes are made
+
+### Package vs Scripts
+
+**argo_deepmsi/** (the package):
+- Contains ALL core logic and functions
+- Can be imported: `from argo_deepmsi import feature_validation`
+- Installed in editable mode: `pip install -e .`
+- Future: Can add models, custom layers, etc.
+
+**scripts/** (CLI entry points):
+- Thin wrappers that call package functions
+- Handle argument parsing and orchestration
+- Example:
+  ```python
+  # scripts/4_feature_validation.py
+  from argo_deepmsi import feature_validation
+
+  def main():
+      report = feature_validation.generate_extraction_report(...)
+      report.save(...)
+  ```
 
 ---
 
