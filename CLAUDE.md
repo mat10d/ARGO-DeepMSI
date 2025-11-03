@@ -25,7 +25,7 @@ This project uses **multiple separate environments** for different stages of the
 - **Setup**: Run `stamp_v2_setup.sh` which clones STAMP repo and installs via `uv sync --all-extras`
 - **Used in**: Scripts 1, 3, 4
 - **Critical**: Requires `export HF_HOME=/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache` before use
-- **Hugging Face models**: Requires `huggingface-cli login` for gated models (H-optimus)
+- **Hugging Face models**: Requires `hf auth login` for gated models (H-optimus)
 
 ### 3. TRIDENT Environment (Conda)
 - **Purpose**: Alternative feature extraction using TRIDENT

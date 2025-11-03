@@ -117,26 +117,23 @@ def create_clinical_table(redcap_data: pd.DataFrame) -> pd.DataFrame:
 
 
 def load_halo_link_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
-    """Load all Halo Link CSV export files from data/metadata directory.
+    """Load all Halo Link CSV export files from site directories.
 
     Args:
         base_dir: Base directory to search for halo_link_*.csv files
-                 (if None, uses data/metadata/, falls back to data/)
+                 (if None, searches data/*/halo_link_*.csv in all site directories)
 
     Returns:
         Combined DataFrame from all Halo Link files with standardized columns.
     """
     if base_dir is None:
-        # New structure: data/metadata/
-        base_dir = get_project_root() / "data" / "metadata"
-        if not base_dir.exists():
-            # Backward compatibility: check data/ root
-            logger.warning("data/metadata/ not found, checking data/ root (legacy)")
-            base_dir = get_project_root() / "data"
+        # Search in all site directories: data/*/halo_link_*.csv
+        base_dir = get_project_root() / "data"
     else:
         base_dir = Path(base_dir)
 
-    halo_files = list(base_dir.glob('halo_link_*.csv'))
+    # Search recursively for halo_link_*.csv in site subdirectories
+    halo_files = list(base_dir.glob('*/halo_link_*.csv'))
 
     if not halo_files:
         logger.warning(f"No Halo Link files found in {base_dir}")
@@ -233,7 +230,7 @@ def verify_slides_exist(
     Args:
         slide_table: DataFrame with PATIENT and FILENAME columns
         slide_dirs: List of directories to search
-                   (if None, searches data/raw/ and data/ for backward compat)
+                   (if None, searches data/*/raw/ in all site directories)
 
     Returns:
         Updated DataFrame with slide_exists and slide_path columns.
@@ -246,12 +243,16 @@ def verify_slides_exist(
 
     # Default directories if not specified
     if not slide_dirs:
-        # New structure: data/raw/
-        slide_dirs = [get_project_root() / "data" / "raw"]
-        # Backward compatibility: also check data/ root
+        # Search in all site-specific raw directories: data/*/raw/
         data_root = get_project_root() / "data"
+        slide_dirs = []
         if data_root.exists():
-            slide_dirs.append(data_root)
+            # Find all site directories with raw/ subdirectories
+            for site_dir in data_root.iterdir():
+                if site_dir.is_dir():
+                    raw_dir = site_dir / "raw"
+                    if raw_dir.exists():
+                        slide_dirs.append(raw_dir)
     else:
         slide_dirs = [Path(d) for d in slide_dirs]
 

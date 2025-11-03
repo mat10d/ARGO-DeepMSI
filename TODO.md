@@ -1,9 +1,42 @@
 # ARGO-DeepMSI Repository Cleanup & Standardization
 
-## Current Status
-- **Branch**: `overhaul` (development branch)
+## Current Status (Updated 2025-11-03)
+- **Branch**: `stamp_v2` (active development)
 - **Goal**: Clean, standardized, end-to-end MSI prediction pipeline
 - **Strategy**: Refactor → Test → Merge → Expand
+- **Latest Session**: Folder structure refactor completed (see SESSION_NOTES.md)
+
+## Recent Progress ✅
+
+### Completed (2025-11-03)
+- ✅ Implemented installable `argo-deepmsi` package with `pyproject.toml`
+- ✅ Refactored all scripts to use package functions (thin CLI wrappers)
+- ✅ **NEW FOLDER STRUCTURE IMPLEMENTED**:
+  - `data/` - Input data only (raw WSI files, metadata)
+  - `results/` - All pipeline outputs (stage-based naming)
+  - Replaced `tables/0/` → `results/stage1_data_ingestion/`
+  - Replaced `tables/2/` → `results/stage4_feature_validation/`
+  - Moved features: `data/{site}/features/` → `results/stage3_features/{model}/{site}/`
+- ✅ Updated `io_utils.py` with new path helpers (`get_stage_dir()`, `get_features_dir()`, etc.)
+- ✅ Updated all modules (data_ingestion, feature_validation) to use new paths
+- ✅ Updated all scripts (1-8) to use new structure
+- ✅ Removed all deprecated function calls
+- ✅ Upgraded environment to Python 3.11 (was 3.9)
+- ✅ Environment files organized in `environments/argo.yml`
+
+### Next Immediate Steps 🔄
+1. ⏳ **Create new argo conda environment** (Python 3.11)
+   ```bash
+   conda env create -f environments/argo.yml
+   ```
+2. ⏳ **Test Stage 1 data ingestion** with new folder structure
+3. ⏳ **Verify outputs** in `results/stage1_data_ingestion/`
+4. ⏳ **Generate visualizations** to confirm pipeline works
+
+### Architecture Changes Summary
+- **Before**: Mixed data/outputs, cryptic numbered folders, monolithic scripts
+- **After**: Clean separation (data/ vs results/), descriptive stage names, modular package
+- **Backward Compatibility**: Old paths still work with deprecation warnings
 
 ---
 

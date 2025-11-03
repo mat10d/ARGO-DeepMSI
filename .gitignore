@@ -122,3 +122,4 @@ Thumbs.db
 
 # Keep example notebooks
 !examples/**/*.ipynb
+.temp_configs/

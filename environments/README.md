@@ -1,173 +1,341 @@
-# ARGO-DeepMSI Environments
+# Environment Setup Guide
 
-This directory contains environment configurations for the three separate environments used in the pipeline.
+## Overview
 
-## Environment Overview
+ARGO-DeepMSI uses **multiple separate environments** for different pipeline stages:
 
-### 1. ARGO Environment (Main Pipeline)
-- **File**: `argo.yml`
-- **Python**: 3.11
-- **Manager**: conda
-- **Purpose**: Data ingestion, QC, feature validation, baseline testing, statistics, visualization
-- **Used in**: Stages 1, 2, 4, 5, 7, 8
+| Environment | Manager | Python | Purpose | Stages |
+|-------------|---------|--------|---------|--------|
+| **ARGO** | conda | 3.11 | Data processing, validation, analysis | 1, 2, 4, 7, 8 |
+| **STAMP** | uv/venv | 3.11+ | Feature extraction, MIL training | 3, 6 |
+| **HistoBistro** | conda | 3.10 | Baseline testing | 5 |
 
-### 2. STAMP Environment (Feature Extraction & Training)
-- **Location**: `../STAMP/.venv/`
-- **Python**: 3.12
-- **Manager**: uv (per STAMP requirements)
-- **Purpose**: Feature extraction and MIL training
-- **Used in**: Stages 3, 6
+---
 
-### 3. HistoBistro Environment (Baseline Validation)
-- **File**: `../HistoBistro/environment_simple.yaml`
-- **Python**: 3.10.9
-- **Manager**: conda
-- **Purpose**: Pre-trained model inference for baseline validation
-- **Used in**: Stage 5 (baseline testing)
+## 1. ARGO Environment (Main)
 
-## Quick Setup
+**Purpose:** Data ingestion, QC, feature validation, statistics, visualization
+
+### Installation
 
 ```bash
-# From the ARGO-DeepMSI root directory
-
-# 1. Create ARGO environment
+# Create environment from file
 conda env create -f environments/argo.yml
+
+# Activate
 conda activate argo
 
-# 2. Setup STAMP environment
-cd STAMP
-rm -r ~/.triton  # Clear triton cache (important!)
-uv sync --extra build --extra gpu
-source .venv/bin/activate
-cd ..
+# Install argo-deepmsi package (editable mode)
+pip install -e .
+```
 
-# 3. Setup HistoBistro environment
+### Verify Installation
+
+```bash
+conda activate argo
+python -c "from argo_deepmsi import data_ingestion; print('✓ ARGO environment ready')"
+```
+
+### Used For
+
+- Stage 1: Data ingestion (REDCap, Halo data)
+- Stage 2: Quality control
+- Stage 4: Feature validation
+- Stage 7: Statistics
+- Stage 8: Visualization
+
+---
+
+## 2. STAMP Environment (Feature Extraction)
+
+**Purpose:** Feature extraction and MIL training using STAMP framework
+
+### Installation
+
+The STAMP environment should **already exist** at `STAMP/.venv/` (installed via `uv`).
+
+If it doesn't exist, install it:
+
+**IMPORTANT:** Install STAMP on a **compute node**, not the head/login node. The head node doesn't have CUDA development tools needed for GPU packages.
+
+```bash
+# Step 1: Request an interactive GPU node
+srun --partition=nvidia-2080ti-20 \
+     --gres=gpu:1 \
+     --mem=64G \
+     --cpus-per-task=8 \
+     --time=2:00:00 \
+     --pty bash
+
+# Step 2: Once on compute node, install STAMP
+cd /lab/barcheese01/mdiberna/ARGO-DeepMSI/STAMP
+
+# Install uv (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install STAMP with GPU support
+MAX_JOBS=4 uv sync --extra build --extra gpu
+
+# Step 3: Activate and verify
+source .venv/bin/activate
+stamp --version
+
+# Step 4: Exit compute node
+exit
+```
+
+**Why compute node?** Packages like `causal-conv1d` (used by Gigapath) require CUDA compilation tools (`nvcc`) which are only available on compute nodes.
+
+### Configure Hugging Face Cache
+
+**IMPORTANT:** STAMP models are large and should use a shared cache:
+
+```bash
+# This is already set in .env file
+export HF_HOME="/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache"
+export HF_DATASETS_CACHE="$HF_HOME/datasets"
+export TRANSFORMERS_CACHE="$HF_HOME/transformers"
+
+# Create cache directories
+mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE"
+```
+
+### Authenticate with Hugging Face
+
+Many STAMP models (virchow2, uni2, h-optimus-0, etc.) are **gated** and require authentication:
+
+```bash
+# Activate STAMP environment first
+source STAMP/.venv/bin/activate
+
+# Login to Hugging Face (do this ONCE)
+hf auth login
+
+# You'll be prompted for your HF token
+# Get token from: https://huggingface.co/settings/tokens
+```
+
+### Verify Installation
+
+```bash
+source STAMP/.venv/bin/activate
+stamp --version
+python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+```
+
+### Request Access to Gated Models
+
+Before using gated models, request access on Hugging Face:
+
+- **Virchow2**: https://huggingface.co/paige-ai/Virchow2
+- **UNI2**: https://huggingface.co/MahmoodLab/UNI2-h
+- **H-optimus-0**: https://huggingface.co/bioptimus/H-optimus-0
+- **H-optimus-1**: https://huggingface.co/bioptimus/H-optimus-1
+- **CONCHv1.5**: https://huggingface.co/MahmoodLab/conchv1_5
+- **Gigapath**: https://huggingface.co/prov-gigapath/prov-gigapath
+
+After requesting access and being approved, run `hf auth login` to authenticate.
+
+### Used For
+
+- Stage 3: Feature extraction (preprocessing)
+- Stage 6: MIL training (cross-validation)
+
+---
+
+## 3. HistoBistro Environment (Baseline Testing)
+
+**Purpose:** Pre-trained model inference for baseline validation
+
+### Installation
+
+```bash
+# Create environment
 conda env create -f HistoBistro/environment_simple.yaml
+
+# Activate
 conda activate histobistro
 ```
 
-## Environment Usage by Stage
+### Verify Installation
 
-| Stage | Environment | Activation Command |
-|-------|-------------|-------------------|
-| 1. Data Ingestion | ARGO | `conda activate argo` |
-| 2. Quality Control | ARGO | `conda activate argo` |
-| 3. Feature Extraction | STAMP | `source STAMP/.venv/bin/activate` |
-| 4. Feature Validation | ARGO | `conda activate argo` |
-| 5. Baseline Testing | HistoBistro | `conda activate histobistro` |
-| 6. MIL Training | STAMP | `source STAMP/.venv/bin/activate` |
-| 7. Statistics | ARGO | `conda activate argo` |
-| 8. Visualization | ARGO | `conda activate argo` |
+```bash
+conda activate histobistro
+python -c "import torch; print('✓ HistoBistro environment ready')"
+```
+
+### Used For
+
+- Stage 5: Baseline testing with pre-trained HistoBistro model
+
+---
+
+## Quick Reference
+
+### Environment Activation
+
+```bash
+# For data ingestion, validation, stats, viz
+conda activate argo
+
+# For feature extraction and training
+source STAMP/.venv/bin/activate
+
+# For baseline testing
+conda activate histobistro
+```
+
+### Check Current Environment
+
+```bash
+# Conda environments
+conda env list
+
+# Active Python environment
+which python
+python --version
+```
+
+---
+
+## Complete Setup (First Time)
+
+Run these steps **once** when setting up the project:
+
+```bash
+# 1. Clone repository (if not already done)
+cd /lab/barcheese01/mdiberna/ARGO-DeepMSI
+
+# 2. Create ARGO environment
+conda env create -f environments/argo.yml
+conda activate argo
+pip install -e .
+
+# 3. Verify STAMP environment exists
+source STAMP/.venv/bin/activate
+stamp --version
+
+# If STAMP not installed, install it:
+# cd STAMP && uv sync --extra build --extra gpu && cd ..
+
+# 4. Configure HF cache (already in .env)
+export HF_HOME="/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache"
+mkdir -p "$HF_HOME"
+
+# 5. Authenticate with Hugging Face
+hf auth login
+# Enter token from: https://huggingface.co/settings/tokens
+
+# 6. Create HistoBistro environment (if using baseline testing)
+conda env create -f HistoBistro/environment_simple.yaml
+
+# 7. Verify setup
+conda activate argo
+python -c "from argo_deepmsi import data_ingestion; print('✓ ARGO OK')"
+
+source STAMP/.venv/bin/activate
+python scripts/test_model_access.py ctranspath
+# Should print: ✓ Model ctranspath is accessible and ready to use
+
+conda activate histobistro
+python -c "import torch; print('✓ HistoBistro OK')"
+```
+
+---
 
 ## Environment Variables
 
-Set these in your `~/.bashrc` or `.env` file:
+Key environment variables (already set in `.env` and scripts):
 
 ```bash
-# Hugging Face cache (required for STAMP)
-export HF_HOME=/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache
+# Hugging Face cache (for STAMP models)
+export HF_HOME="/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache"
+export HF_DATASETS_CACHE="$HF_HOME/datasets"
+export TRANSFORMERS_CACHE="$HF_HOME/transformers"
 
-# REDCap credentials (create .env file in root)
-export REDCAP_API_URL=https://redcap.oauife.edu.ng/api/
-export REDCAP_API_TOKEN=your_token_here
+# CUDA (for GPU support)
+export CUDA_HOME=/usr/local/cuda-12.6
+export PATH=$CUDA_HOME/bin:$PATH
 ```
 
-## Automated Setup Script
+These are automatically set by SLURM scripts - no manual action needed.
 
-Use the automated setup script (recommended):
-
-```bash
-bash environments/setup.sh
-```
-
-This will:
-1. Check for existing environments
-2. Create all three environments
-3. Verify installations
-4. Test environment switching
+---
 
 ## Troubleshooting
 
-### STAMP Installation Issues
+### STAMP installation fails with "nvcc not found" or causal-conv1d build error
 
-If you encounter errors during STAMP installation:
+**Problem:** You're trying to install on the head/login node which doesn't have CUDA development tools.
+
+**Solution:** Install on a compute node using an interactive job (see Installation section above).
+
+### STAMP environment not found
 
 ```bash
-# Clear caches
-rm -r ~/.triton
-uv cache clean flash_attn
-uv cache clean mamba-ssm
-uv cache clean causal_conv1d
+# Request compute node first
+srun --partition=nvidia-2080ti-20 --gres=gpu:1 --mem=64G --time=2:00:00 --pty bash
 
-# Reinstall
+# Then install
 cd STAMP
-uv sync --extra build
-uv sync --extra build --extra gpu
+MAX_JOBS=4 uv sync --extra build --extra gpu
+source .venv/bin/activate
+exit
 ```
 
-### CUDA Issues
-
-If PyTorch doesn't detect GPU:
+### HF authentication fails
 
 ```bash
-# Check CUDA availability
+# Make sure you're in STAMP environment
+source STAMP/.venv/bin/activate
+
+# Login with your token
+hf auth login
+
+# Test access
+python scripts/test_model_access.py virchow2
+```
+
+### GPU not available
+
+```bash
+# Check CUDA
+nvidia-smi
+
+# Check PyTorch
 python -c "import torch; print(torch.cuda.is_available())"
 
-# If False, check CUDA installation
-nvidia-smi
-echo $CUDA_HOME
+# If false, reinstall PyTorch with CUDA support
 ```
 
-### HistoBistro Environment
+### Models too large / disk space issues
 
-If HistoBistro environment fails:
+Models are cached in `$HF_HOME`. Check disk usage:
 
 ```bash
-# Try the simpler environment file
-conda env create -f HistoBistro/environment_simple.yaml
-
-# Or manually install key packages
-conda create -n histobistro python=3.10.9
-conda activate histobistro
-conda install pytorch=2.0.0 pytorch-cuda=11.8 -c pytorch -c nvidia
-conda install pytorch-lightning=2.0.1 -c conda-forge
+du -sh /lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache
 ```
 
-## Updating Environments
-
-To update environments as dependencies change:
+To clear cache (if needed):
 
 ```bash
-# ARGO environment
-conda env update -f environments/argo.yml --prune
-
-# STAMP environment
-cd STAMP
-git pull
-uv sync --extra build --extra gpu
-cd ..
-
-# HistoBistro environment
-cd HistoBistro
-git pull
-conda env update -f environment_simple.yaml --prune
-cd ..
+rm -rf /lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache/*
+# You'll need to re-download models
 ```
 
-## Testing Environments
+---
 
-Test each environment after setup:
+## Pipeline Stage → Environment Mapping
 
-```bash
-# Test ARGO
-conda activate argo
-python -c "import pandas, numpy, sklearn, matplotlib, seaborn, requests; print('ARGO OK')"
+| Stage | Script | Environment | Activation |
+|-------|--------|-------------|------------|
+| 1. Data Ingestion | `1_data_ingestion.py` | ARGO | `conda activate argo` |
+| 2. Quality Control | `2_quality_control.py` | ARGO | `conda activate argo` |
+| 3. Feature Extraction | `3_feature_extraction.sh` | STAMP | `source STAMP/.venv/bin/activate` |
+| 4. Feature Validation | `4_feature_validation.py` | ARGO | `conda activate argo` |
+| 5. Baseline Testing | `5_baseline_testing.py` | HistoBistro | `conda activate histobistro` |
+| 6. MIL Training | `6_mil_training.sh` | STAMP | `source STAMP/.venv/bin/activate` |
+| 7. Statistics | `7_statistics.py` | ARGO | `conda activate argo` |
+| 8. Visualization | `8_visualization.py` | ARGO | `conda activate argo` |
 
-# Test STAMP
-source STAMP/.venv/bin/activate
-python -c "import torch, transformers, timm, lightning; print('STAMP OK'); print(f'CUDA: {torch.cuda.is_available()}')"
-
-# Test HistoBistro
-conda activate histobistro
-python -c "import torch, pytorch_lightning; print('HistoBistro OK')"
-```
+**Note:** SLURM scripts (`.sh` files) automatically activate the correct environment.

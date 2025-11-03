@@ -1,8 +1,0 @@
-preprocessing:
-  output_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/UITH/features/h-optimus-0/"
-  wsi_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/UITH/raw"
-  extractor: "h-optimus-0"
-  device: "cuda:0"
-  cache_dir: "/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/UITH/.cache"
-  max_workers: 16
-  default_slide_mpp: 0.259965

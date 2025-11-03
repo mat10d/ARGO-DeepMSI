@@ -1,0 +1,31 @@
+# STAMP Preprocessing Config Template
+# Used for Stage 3: Feature Extraction
+#
+# Placeholders (replaced at runtime):
+#   ${BASE_DIR}  - Project base directory
+#   ${MODEL}     - Feature extractor model name (e.g., ctranspath, virchow2, h-optimus-0)
+#   ${SITE}      - Site name (e.g., OAUTHC, LUTH, LASUTH, etc.)
+#   ${DEVICE}    - CUDA device (default: cuda:0)
+
+preprocessing:
+  # Output directory for extracted features
+  output_dir: ${BASE_DIR}/results/stage3_features/${MODEL}/${SITE}
+
+  # Directory containing raw WSI files
+  wsi_dir: ${BASE_DIR}/data/${SITE}/raw
+
+  # Feature extractor model to use
+  extractor: ${MODEL}
+
+  # Device to run on (cuda:0, cuda:1, cpu, etc.)
+  device: ${DEVICE}
+
+  # Cache directory for intermediate preprocessing results
+  # Using cache significantly speeds up extraction if running multiple models
+  cache_dir: ${BASE_DIR}/data/${SITE}/.cache
+
+  # Number of parallel workers for tile extraction
+  max_workers: 16
+
+  # Default microns per pixel if not available in slide metadata
+  default_slide_mpp: 0.259965

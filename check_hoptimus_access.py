@@ -26,7 +26,7 @@ def main():
         print(f"✓ Logged in as: {user['name']}")
     except Exception as e:
         print(f"✗ Not logged in: {e}")
-        print("Please run: huggingface-cli login")
+        print("Please run: hf auth login")
         return
     
     print("\nChecking model access:")
