@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Optional, Dict, Tuple, List
 import logging
 
-from .io_utils import get_project_root, get_data_dir, ensure_dir
+from .io_utils import get_project_root, get_features_dir, get_stage_dir, ensure_dir
 
 
 logger = logging.getLogger(__name__)
@@ -26,10 +26,13 @@ def find_feature_file(
 ) -> Optional[str]:
     """Find feature file path for a given slide.
 
+    New structure: results/stage3_features/{model}/{site}/
+    Old structure: data/{site}/features/{model}/  (for backward compatibility)
+
     Args:
         slide_filename: Slide filename (without path)
         site: Site name
-        features_base_dir: Base directory for features
+        features_base_dir: Base directory for features (defaults to results/stage3_features/)
         extractor_name: Name of the extractor (ctranspath, h-optimus-0, etc.).
                        If None, searches for any extractor.
 
@@ -39,38 +42,61 @@ def find_feature_file(
     # Extract base filename without extension
     base_filename = Path(slide_filename).stem
 
-    # Check for feature directories
-    site_path = features_base_dir / site / 'features'
-    if not site_path.exists():
-        return None
+    # NEW STRUCTURE: results/stage3_features/{model}/{site}/
+    # If extractor specified, check directly
+    if extractor_name:
+        new_path = features_base_dir / extractor_name / site
+        if new_path.exists():
+            h5_path = new_path / f"{base_filename}.h5"
+            if h5_path.exists():
+                return str(h5_path)
+            # Check for subdirectories (hash directories from STAMP)
+            for subdir in new_path.iterdir():
+                if subdir.is_dir():
+                    h5_path = subdir / f"{base_filename}.h5"
+                    if h5_path.exists():
+                        return str(h5_path)
 
-    # Look for feature directories matching the extractor
-    feature_dirs = []
-    for item in site_path.iterdir():
-        if not item.is_dir():
-            continue
+    # NEW STRUCTURE: Search all models if no extractor specified
+    if features_base_dir.exists():
+        for model_dir in features_base_dir.iterdir():
+            if not model_dir.is_dir():
+                continue
+            site_dir = model_dir / site
+            if site_dir.exists():
+                h5_path = site_dir / f"{base_filename}.h5"
+                if h5_path.exists():
+                    return str(h5_path)
 
-        # If extractor specified, match it
-        if extractor_name:
-            if extractor_name.lower() in item.name.lower() or extractor_name.replace('-', '_') in item.name:
-                # Check for H5 files directly or in subdirectories
-                if any(f.suffix == '.h5' for f in item.iterdir() if f.is_file()):
+    # OLD STRUCTURE (backward compatibility): data/{site}/features/{model}/
+    old_site_path = features_base_dir.parent.parent / site / 'features'
+    if old_site_path.exists():
+        logger.debug(f"Checking old structure: {old_site_path}")
+        feature_dirs = []
+        for item in old_site_path.iterdir():
+            if not item.is_dir():
+                continue
+
+            # If extractor specified, match it
+            if extractor_name:
+                if extractor_name.lower() in item.name.lower() or extractor_name.replace('-', '_') in item.name:
+                    if any(f.suffix == '.h5' for f in item.iterdir() if f.is_file()):
+                        feature_dirs.append(item)
+                    else:
+                        # Look for hash subdirectories
+                        for subitem in item.iterdir():
+                            if subitem.is_dir() and any(f.suffix == '.h5' for f in subitem.iterdir() if f.is_file()):
+                                feature_dirs.append(subitem)
+            else:
+                # Default: look for ctranspath or xiyuewang
+                if 'ctranspath' in item.name or 'xiyuewang' in item.name:
                     feature_dirs.append(item)
-                else:
-                    # Look for hash subdirectories
-                    for subitem in item.iterdir():
-                        if subitem.is_dir() and any(f.suffix == '.h5' for f in subitem.iterdir() if f.is_file()):
-                            feature_dirs.append(subitem)
-        else:
-            # Default: look for ctranspath or xiyuewang
-            if 'ctranspath' in item.name or 'xiyuewang' in item.name:
-                feature_dirs.append(item)
 
-    # Check each feature directory for the H5 file
-    for feature_dir in feature_dirs:
-        h5_path = feature_dir / f"{base_filename}.h5"
-        if h5_path.exists():
-            return str(h5_path)
+        # Check each feature directory for the H5 file
+        for feature_dir in feature_dirs:
+            h5_path = feature_dir / f"{base_filename}.h5"
+            if h5_path.exists():
+                return str(h5_path)
 
     return None
 
@@ -84,14 +110,14 @@ def add_feature_paths(
 
     Args:
         slide_table: DataFrame with PATIENT, FILENAME, and SITE columns
-        features_base_dir: Base directory for features (if None, uses project data dir)
+        features_base_dir: Base directory for features (if None, uses results/stage3_features/)
         extractor_name: Name of the extractor to search for
 
     Returns:
         Updated slide table with FEATURE_PATH column
     """
     if features_base_dir is None:
-        features_base_dir = get_data_dir()
+        features_base_dir = get_features_dir()  # New: results/stage3_features/
     else:
         features_base_dir = Path(features_base_dir)
 
@@ -139,13 +165,14 @@ def check_processing_status(
         clinical_table: DataFrame with PATIENT and isMSIH columns
         slide_table: DataFrame with PATIENT, FILENAME, and SITE columns
         features_base_dir: Base directory where feature H5 files are stored
+                          (if None, uses results/stage3_features/)
         extractor_name: Name of the extractor to check
 
     Returns:
         Merged DataFrame with 'processed' column indicating status
     """
     if features_base_dir is None:
-        features_base_dir = get_data_dir()
+        features_base_dir = get_features_dir()  # New: results/stage3_features/
     else:
         features_base_dir = Path(features_base_dir)
 
@@ -226,14 +253,16 @@ def generate_extraction_report(
         clinical_table: DataFrame with PATIENT and isMSIH columns
         slide_table: DataFrame with PATIENT, FILENAME, and SITE columns
         features_base_dir: Base directory where feature H5 files are stored
-        output_dir: Directory to save report files (default: results/feature_validation/)
+                          (if None, uses results/stage3_features/)
+        output_dir: Directory to save report files
+                   (default: results/stage4_feature_validation/reports/)
         extractor_name: Name of the extractor
 
     Returns:
         DataFrame with processing status for all slides
     """
     if output_dir is None:
-        output_dir = get_project_root() / "results" / "feature_validation"
+        output_dir = get_stage_dir(4) / "reports"  # New: results/stage4_feature_validation/reports/
     else:
         output_dir = Path(output_dir)
 
@@ -388,8 +417,10 @@ def prepare_tables_for_training(
     Args:
         clinical_table: DataFrame with PATIENT and isMSIH columns
         slide_table: DataFrame with PATIENT, FILENAME, and SITE columns
-        output_dir: Directory to save output tables (default: tables/2/)
+        output_dir: Directory to save output tables
+                   (default: results/stage4_feature_validation/tables/)
         features_base_dir: Base directory for features
+                          (if None, uses results/stage3_features/)
         extractor_name: Name of the extractor
         save_by_site: Whether to save site-specific tables
 
@@ -397,7 +428,7 @@ def prepare_tables_for_training(
         Dictionary with 'all' key and optional site-specific keys containing (clinical, slide) tuples
     """
     if output_dir is None:
-        output_dir = get_project_root() / "tables" / "2"
+        output_dir = get_stage_dir(4) / "tables"  # New: results/stage4_feature_validation/tables/
     else:
         output_dir = Path(output_dir)
 
@@ -410,7 +441,7 @@ def prepare_tables_for_training(
     # Step 2: Generate extraction report
     logger.info("Generating extraction report...")
     generate_extraction_report(clinical_table, slide_table_with_features, features_base_dir,
-                               get_project_root() / "results" / "feature_validation", extractor_name)
+                               get_stage_dir(4) / "reports", extractor_name)
 
     # Step 3: Prepare "all" table (consolidated across all sites)
     all_slide_table = slide_table_with_features.copy()

@@ -117,16 +117,22 @@ def create_clinical_table(redcap_data: pd.DataFrame) -> pd.DataFrame:
 
 
 def load_halo_link_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
-    """Load all Halo Link CSV export files from data directory.
+    """Load all Halo Link CSV export files from data/metadata directory.
 
     Args:
-        base_dir: Base directory to search for halo_link_*.csv files (if None, uses project data dir)
+        base_dir: Base directory to search for halo_link_*.csv files
+                 (if None, uses data/metadata/, falls back to data/)
 
     Returns:
         Combined DataFrame from all Halo Link files with standardized columns.
     """
     if base_dir is None:
-        base_dir = get_project_root() / "data"
+        # New structure: data/metadata/
+        base_dir = get_project_root() / "data" / "metadata"
+        if not base_dir.exists():
+            # Backward compatibility: check data/ root
+            logger.warning("data/metadata/ not found, checking data/ root (legacy)")
+            base_dir = get_project_root() / "data"
     else:
         base_dir = Path(base_dir)
 
@@ -226,7 +232,8 @@ def verify_slides_exist(
 
     Args:
         slide_table: DataFrame with PATIENT and FILENAME columns
-        slide_dirs: List of directories to search (if None, uses default data dir)
+        slide_dirs: List of directories to search
+                   (if None, searches data/raw/ and data/ for backward compat)
 
     Returns:
         Updated DataFrame with slide_exists and slide_path columns.
@@ -239,7 +246,12 @@ def verify_slides_exist(
 
     # Default directories if not specified
     if not slide_dirs:
-        slide_dirs = [get_project_root() / "data"]
+        # New structure: data/raw/
+        slide_dirs = [get_project_root() / "data" / "raw"]
+        # Backward compatibility: also check data/ root
+        data_root = get_project_root() / "data"
+        if data_root.exists():
+            slide_dirs.append(data_root)
     else:
         slide_dirs = [Path(d) for d in slide_dirs]
 
@@ -371,10 +383,10 @@ def process_redcap_data(
     This is the main entry point that orchestrates the entire data ingestion process.
 
     Args:
-        output_dir: Directory to save output tables (default: tables/0/)
+        output_dir: Directory to save output tables (default: results/stage1_data_ingestion/)
         api_url: REDCap API URL (if None, loads from environment)
         api_token: REDCap API token (if None, loads from environment)
-        halo_base_dir: Directory with Halo Link CSV files (if None, uses data/)
+        halo_base_dir: Directory with Halo Link CSV files (if None, uses data/metadata/)
 
     Returns:
         Tuple of (clinical_table, slide_table) DataFrames
@@ -383,7 +395,8 @@ def process_redcap_data(
         Exception: If REDCap fetch or data processing fails
     """
     if output_dir is None:
-        output_dir = get_project_root() / "tables" / "0"
+        from .io_utils import get_stage_dir
+        output_dir = get_stage_dir(1)  # results/stage1_data_ingestion/
     else:
         output_dir = Path(output_dir)
 

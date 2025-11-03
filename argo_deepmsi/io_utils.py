@@ -95,41 +95,50 @@ def ensure_dir(path: Union[str, Path]) -> Path:
     return path
 
 
-def get_data_dir(site: Optional[str] = None) -> Path:
-    """Get path to data directory.
+def get_data_dir(subdirectory: Optional[str] = None) -> Path:
+    """Get path to data directory (INPUT DATA ONLY - raw files, metadata).
 
     Args:
-        site: Optional site name (OAUTHC, LUTH, etc.). If None, returns base data dir.
+        subdirectory: Optional subdirectory ('raw', 'metadata')
 
     Returns:
         Path to data directory.
     """
     data_dir = get_project_root() / "data"
-    if site:
-        return data_dir / site
+    if subdirectory:
+        return data_dir / subdirectory
     return data_dir
 
 
-def get_tables_dir(stage: Optional[Union[int, str]] = None) -> Path:
-    """Get path to tables directory.
+def get_raw_data_dir(site: Optional[str] = None) -> Path:
+    """Get path to raw WSI files.
 
     Args:
-        stage: Optional stage number (0, 2, etc.). If None, returns base tables dir.
+        site: Optional site name (OAUTHC, LUTH, etc.)
 
     Returns:
-        Path to tables directory.
+        Path to data/raw/ or data/raw/{site}/
     """
-    tables_dir = get_project_root() / "tables"
-    if stage is not None:
-        return tables_dir / str(stage)
-    return tables_dir
+    raw_dir = get_data_dir("raw")
+    if site:
+        return raw_dir / site
+    return raw_dir
+
+
+def get_metadata_dir() -> Path:
+    """Get path to metadata directory (Halo Link CSVs, etc.).
+
+    Returns:
+        Path to data/metadata/
+    """
+    return get_data_dir("metadata")
 
 
 def get_results_dir(subdir: Optional[str] = None) -> Path:
-    """Get path to results directory.
+    """Get path to results directory (ALL PIPELINE OUTPUTS).
 
     Args:
-        subdir: Optional subdirectory (qc, feature_validation, statistics, etc.)
+        subdir: Optional subdirectory (stage1_data_ingestion, stage4_feature_validation, etc.)
 
     Returns:
         Path to results directory.
@@ -138,6 +147,113 @@ def get_results_dir(subdir: Optional[str] = None) -> Path:
     if subdir:
         return results_dir / subdir
     return results_dir
+
+
+def get_stage_dir(stage: Union[int, str]) -> Path:
+    """Get path to stage-specific results directory.
+
+    Args:
+        stage: Stage number (1-8) or name ('data_ingestion', 'feature_validation', etc.)
+
+    Returns:
+        Path to results/stage{N}_{name}/
+
+    Examples:
+        get_stage_dir(1) → results/stage1_data_ingestion/
+        get_stage_dir('feature_validation') → results/stage4_feature_validation/
+    """
+    stage_names = {
+        1: "stage1_data_ingestion",
+        2: "stage2_qc",
+        3: "stage3_features",
+        4: "stage4_feature_validation",
+        5: "stage5_baseline",
+        6: "stage6_training",
+        7: "stage7_statistics",
+        8: "stage8_visualization",
+        "data_ingestion": "stage1_data_ingestion",
+        "qc": "stage2_qc",
+        "features": "stage3_features",
+        "feature_validation": "stage4_feature_validation",
+        "baseline": "stage5_baseline",
+        "training": "stage6_training",
+        "statistics": "stage7_statistics",
+        "visualization": "stage8_visualization",
+    }
+
+    if stage in stage_names:
+        return get_results_dir(stage_names[stage])
+    else:
+        # Assume it's already a stage name like "stage1_data_ingestion"
+        return get_results_dir(str(stage))
+
+
+def get_features_dir(model: Optional[str] = None, site: Optional[str] = None) -> Path:
+    """Get path to extracted features directory.
+
+    Features are stored in results/stage3_features/{model}/{site}/
+
+    Args:
+        model: Model name (ctranspath, virchow2, etc.)
+        site: Site name (OAUTHC, LUTH, etc.)
+
+    Returns:
+        Path to features directory.
+
+    Examples:
+        get_features_dir() → results/stage3_features/
+        get_features_dir('ctranspath') → results/stage3_features/ctranspath/
+        get_features_dir('ctranspath', 'OAUTHC') → results/stage3_features/ctranspath/OAUTHC/
+    """
+    features_dir = get_stage_dir(3)
+    if model:
+        features_dir = features_dir / model
+    if site:
+        features_dir = features_dir / site
+    return features_dir
+
+
+def get_training_dir(model: Optional[str] = None) -> Path:
+    """Get path to training outputs directory.
+
+    Args:
+        model: Model name (ctranspath, virchow2, etc.)
+
+    Returns:
+        Path to results/stage6_training/{model}/
+    """
+    training_dir = get_stage_dir(6)
+    if model:
+        return training_dir / model
+    return training_dir
+
+
+# Deprecated functions (for backward compatibility)
+def get_tables_dir(stage: Optional[Union[int, str]] = None) -> Path:
+    """[DEPRECATED] Get path to tables directory.
+
+    Use get_stage_dir() instead:
+    - tables/0/ → results/stage1_data_ingestion/
+    - tables/2/ → results/stage4_feature_validation/tables/
+
+    Args:
+        stage: Optional stage number (0, 2, etc.)
+
+    Returns:
+        Path to tables directory.
+    """
+    import warnings
+    warnings.warn(
+        "get_tables_dir() is deprecated. Use get_stage_dir() instead:\n"
+        "  tables/0/ → results/stage1_data_ingestion/\n"
+        "  tables/2/ → results/stage4_feature_validation/tables/",
+        DeprecationWarning,
+        stacklevel=2
+    )
+    tables_dir = get_project_root() / "tables"
+    if stage is not None:
+        return tables_dir / str(stage)
+    return tables_dir
 
 
 def get_configs_dir(model: Optional[str] = None) -> Path:
