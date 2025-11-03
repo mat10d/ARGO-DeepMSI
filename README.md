@@ -106,8 +106,8 @@ huggingface-cli login
 conda activate argo
 python scripts/1_data_ingestion.py
 
-# Stage 2: Quality Control
-python scripts/2_quality_control.py
+# Stage 2: Quality Control (optional, placeholder)
+python scripts/2_quality_control.py --slides tables/0/slide_table.csv
 
 # Stage 3: Feature Extraction
 source STAMP/.venv/bin/activate
@@ -115,20 +115,28 @@ sbatch scripts/slurm/3_extract_features.sh ctranspath
 
 # Stage 4: Feature Validation
 conda activate argo
-python scripts/4_feature_validation.py
+python scripts/4_feature_validation.py \
+    --clinical tables/0/clinical_table.csv \
+    --slides tables/0/slide_table.csv \
+    --extractor ctranspath
 
 # Stage 5: Baseline Testing
-conda activate histobistro
-python scripts/5_baseline_testing.py
+python scripts/5_baseline_testing.py \
+    --clinical tables/2/all_clinical_table.csv \
+    --slides tables/2/all_slide_table.csv
 
 # Stage 6: MIL Training
 source STAMP/.venv/bin/activate
 sbatch scripts/slurm/6_mil_training.sh ctranspath
 
-# Stage 7-8: Statistics & Visualization
+# Stage 7: Statistics
+python scripts/7_statistics.py --model ctranspath
+
+# Stage 8: Visualization
 conda activate argo
-python scripts/7_statistics.py
-python scripts/8_visualization.py
+python scripts/8_visualization.py stage1 \
+    --clinical tables/0/clinical_table.csv \
+    --slides tables/0/slide_table.csv
 ```
 
 ---
@@ -201,28 +209,31 @@ ARGO-DeepMSI/
 ├── setup.py                     # Package installation
 │
 ├── argo_deepmsi/                # Python package (installed via pip)
-│   ├── __init__.py
-│   ├── data_ingestion.py        # REDCap, SVS discovery, table creation
-│   ├── quality_control.py       # Slide QC functions
-│   ├── feature_extraction.py    # STAMP preprocessing wrappers
-│   ├── feature_validation.py    # Feature QC and validation
-│   ├── baseline_testing.py      # HistoBistro inference
-│   ├── training.py              # STAMP MIL training wrappers
-│   ├── statistics.py            # Metrics calculation
-│   ├── visualization.py         # Plotting, heatmaps
-│   ├── config_utils.py          # Config generation
-│   └── io_utils.py              # File I/O, logging, paths
+│   ├── __init__.py              # Package initialization, version, exports
+│   ├── io_utils.py              # ✅ File I/O, logging, path utilities
+│   ├── data_ingestion.py        # ✅ REDCap, Halo Link, table creation
+│   ├── feature_validation.py    # ✅ Feature QC, extraction reports
+│   ├── visualization.py         # ✅ Plotting, heatmaps, figures
+│   ├── quality_control.py       # ⏳ Slide QC (to be implemented)
+│   ├── baseline_testing.py      # ⏳ HistoBistro inference (to be implemented)
+│   ├── statistics.py            # ⏳ Metrics calculation (to be implemented)
+│   └── config_utils.py          # ⏳ STAMP config generation (to be implemented)
 │
-├── scripts/                     # Thin CLI scripts (call argo_deepmsi functions)
-│   ├── 1_data_ingestion.py
-│   ├── 2_quality_control.py
-│   ├── 3_feature_extraction.py
-│   ├── 4_feature_validation.py
-│   ├── 5_baseline_testing.py
-│   ├── 6_mil_training.py
-│   ├── 7_statistics.py
-│   ├── 8_visualization.py
+├── scripts/                     # Thin CLI scripts (50-100 lines each)
+│   ├── 1_data_ingestion.py      # ✅ Stage 1: REDCap → tables
+│   ├── 2_quality_control.py     # ✅ Stage 2: Slide QC (placeholder)
+│   ├── 4_feature_validation.py  # ✅ Stage 4: Feature QC → training tables
+│   ├── 5_baseline_testing.py    # ✅ Stage 5: HistoBistro validation
+│   ├── 7_statistics.py          # ✅ Stage 7: STAMP statistics wrapper
+│   ├── 8_visualization.py       # ✅ Stage 8: Generate figures
+│   ├── deprecated/              # Old scripts (do not use)
+│   │   ├── README.md
+│   │   ├── 0.prepare.py
+│   │   ├── 2.preprocess_eval.py
+│   │   └── ...
 │   └── slurm/                   # SLURM batch scripts
+│       ├── 3_extract_features.sh
+│       └── 6_mil_training.sh
 │
 ├── environments/                # Environment configs
 │   ├── argo.yml
@@ -288,6 +299,25 @@ ARGO-DeepMSI/
 | 6. MIL Training | STAMP | `source STAMP/.venv/bin/activate` |
 | 7. Statistics | ARGO | `conda activate argo` |
 | 8. Visualization | ARGO | `conda activate argo` |
+
+---
+
+## ⚠️ Important: Old Scripts Deprecated
+
+**If you're familiar with the old pipeline**, note that these scripts have been deprecated and moved to `scripts/deprecated/`:
+- ~~`0.prepare.py`~~ → Use `scripts/1_data_ingestion.py`
+- ~~`2.preprocess_eval.py`~~ → Use `scripts/4_feature_validation.py`
+- ~~`6.prepare_histobistro.py`~~ → Use `scripts/5_baseline_testing.py`
+- ~~`5.embedding_visualizations_h-optimus-0.py`~~ → Use `scripts/8_visualization.py`
+
+**Why deprecated?** The old scripts (500+ lines each) mixed heavy logic with CLI code. The new architecture:
+- ✅ Heavy logic in `argo_deepmsi/` package (importable, testable, reusable)
+- ✅ Thin CLI wrappers in `scripts/` (~50-100 lines)
+- ✅ Consistent logging and error handling
+- ✅ Type hints and documentation
+- ✅ Extensible for custom models
+
+See `scripts/deprecated/README.md` for migration guide.
 
 ---
 
