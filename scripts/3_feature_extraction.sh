@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=stamp_features
+#SBATCH --job-name=features
 #SBATCH --partition=nvidia-2080ti-20
-#SBATCH --output=logs/feature_extraction/stamp_%x_%A_%a.out
+#SBATCH --output=/lab/barcheese01/mdiberna/ARGO-DeepMSI/logs/feature_extraction/%x_%A_%a.out
 #SBATCH --array=0-5
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
@@ -53,8 +53,16 @@ echo "Array Task ID: $SLURM_ARRAY_TASK_ID"
 echo "Time: $(date)"
 echo "================================="
 
+# Define base directory
+BASE_DIR="/lab/barcheese01/mdiberna/ARGO-DeepMSI"
+
+# Load environment variables from .env (for HF_TOKEN)
+if [ -f "$BASE_DIR/.env" ]; then
+    export $(grep -v '^#' "$BASE_DIR/.env" | xargs)
+fi
+
 # Set environment variables
-export HF_HOME="/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache"
+export HF_HOME="$BASE_DIR/.huggingface_cache"
 export HF_DATASETS_CACHE="$HF_HOME/datasets"
 export TRANSFORMERS_CACHE="$HF_HOME/transformers"
 export CUDA_HOME=/usr/local/cuda-12.6
@@ -65,7 +73,7 @@ mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE"
 
 # Activate STAMP environment
 echo "Activating STAMP environment..."
-source /lab/barcheese01/mdiberna/ARGO-DeepMSI/STAMP/.venv/bin/activate
+source "$BASE_DIR/STAMP/.venv/bin/activate"
 
 # Print GPU information
 echo "==== GPU INFO ===="
@@ -84,18 +92,25 @@ if torch.cuda.is_available():
 "
 echo "==========================="
 
-# Check Hugging Face authentication for gated models (h-optimus-0, h-optimus-1)
-if [[ "$MODEL" == "h-optimus-0" ]] || [[ "$MODEL" == "h-optimus-1" ]]; then
+# Check Hugging Face authentication for gated models
+GATED_MODELS=("h-optimus-0" "h-optimus-1" "virchow2" "uni2" "conch1_5" "gigapath" "mstar" "musk")
+if [[ " ${GATED_MODELS[@]} " =~ " ${MODEL} " ]]; then
     echo "==== HUGGING FACE CHECK ===="
     python -c "
+import os
 from huggingface_hub import HfApi
 try:
-    api = HfApi()
-    user = api.whoami()
+    token = os.environ.get('HF_TOKEN')
+    if not token:
+        print('✗ HF_TOKEN not found in environment')
+        print('  Add HF_TOKEN to .env file')
+        exit(1)
+    api = HfApi(token=token)
+    user = api.whoami(token=token)
     print(f'✓ Logged in as: {user[\"name\"]}')
 except Exception as e:
     print(f'✗ HF authentication failed: {e}')
-    print('Please run: hf auth login')
+    print('  Check your HF_TOKEN in .env file')
     exit(1)
 "
     exit_code=$?
@@ -108,7 +123,6 @@ except Exception as e:
 fi
 
 # Define paths
-BASE_DIR="/lab/barcheese01/mdiberna/ARGO-DeepMSI"
 TEMPLATE_FILE="$BASE_DIR/configs/templates/preprocessing_site.yaml.template"
 CONFIG_FILE="$BASE_DIR/.temp_configs/$MODEL/config_${SITE}.yaml"
 
@@ -139,7 +153,7 @@ echo "Using generated config: $CONFIG_FILE"
 cd "$BASE_DIR"
 
 # Create log directory if it doesn't exist
-mkdir -p logs/feature_extraction
+mkdir -p "$BASE_DIR/logs/feature_extraction"
 
 # Run STAMP preprocessing
 echo "==== STARTING PREPROCESSING ===="

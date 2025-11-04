@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=stamp_all_features
+#SBATCH --job-name=all_features
 #SBATCH --partition=nvidia-2080ti-20
-#SBATCH --output=logs/feature_extraction_all/stamp_all_%j.out
+#SBATCH --output=/lab/barcheese01/mdiberna/ARGO-DeepMSI/logs/feature_extraction_all/%x_%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
@@ -52,8 +52,14 @@ echo ""
 echo "Loading environment..."
 source ~/.bashrc
 
+# Load environment variables from .env (for HF_TOKEN)
+if [ -f "$BASE_DIR/.env" ]; then
+    export $(grep -v '^#' "$BASE_DIR/.env" | xargs)
+    echo "✓ Loaded .env file"
+fi
+
 # Set environment variables
-export HF_HOME="/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache"
+export HF_HOME="$BASE_DIR/.huggingface_cache"
 export HF_DATASETS_CACHE="$HF_HOME/datasets"
 export TRANSFORMERS_CACHE="$HF_HOME/transformers"
 export CUDA_HOME=/usr/local/cuda-12.6
@@ -70,7 +76,7 @@ MODELS=(
     # No authentication required
     "ctranspath"
     "plip"
-    "dinobloom"
+    "dino-bloom"
     "chief-ctranspath"
 
     # Gated models (require HF authentication)
