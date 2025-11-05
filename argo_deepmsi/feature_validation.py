@@ -64,9 +64,16 @@ def find_feature_file(
                 continue
             site_dir = model_dir / site
             if site_dir.exists():
+                # Check for direct .h5 file
                 h5_path = site_dir / f"{base_filename}.h5"
                 if h5_path.exists():
                     return str(h5_path)
+                # Check for subdirectories (hash directories from STAMP)
+                for subdir in site_dir.iterdir():
+                    if subdir.is_dir():
+                        h5_path = subdir / f"{base_filename}.h5"
+                        if h5_path.exists():
+                            return str(h5_path)
 
     # OLD STRUCTURE (backward compatibility): data/{site}/features/{model}/
     old_site_path = features_base_dir.parent.parent / site / 'features'
@@ -187,52 +194,19 @@ def check_processing_status(
     logger.info("Checking for processed slides (H5 files)...")
     processed_count = 0
 
-    # Find all feature directories across all sites
-    feature_dirs = {}
-    for site in merged_data['SITE'].unique():
-        site_path = features_base_dir / site / 'features'
-        if site_path.exists():
-            # Look for subdirectories containing extractor name
-            for item in site_path.iterdir():
-                if not item.is_dir():
-                    continue
-
-                # Match extractor if specified
-                if extractor_name:
-                    if extractor_name.lower() in item.name.lower():
-                        feature_dirs[site] = item
-                        logger.info(f"Found feature directory for {site}: {item}")
-                        break
-                else:
-                    # Default: ctranspath or xiyuewang
-                    if 'ctranspath' in item.name or 'xiyuewang' in item.name:
-                        feature_dirs[site] = item
-                        logger.info(f"Found feature directory for {site}: {item}")
-                        break
-
-    if not feature_dirs:
-        logger.warning(f"No feature directories found in {features_base_dir}")
-        return merged_data
-
-    logger.info(f"Found feature directories for {len(feature_dirs)} sites")
-
-    # Check each slide for H5 files
+    # Check each slide for H5 files using find_feature_file
     for idx, row in merged_data.iterrows():
         filename = row['FILENAME']
-        if pd.isna(filename) or not isinstance(filename, str):
+        site = row.get('SITE')
+
+        if pd.isna(filename) or not isinstance(filename, str) or pd.isna(site):
             continue
 
-        # Extract just the filename without path or extension
-        base_filename = Path(filename).stem
-
-        # Check for H5 file in the site's feature directory
-        site = row['SITE']
-        if site in feature_dirs:
-            feature_dir = feature_dirs[site]
-            h5_path = feature_dir / f"{base_filename}.h5"
-            if h5_path.exists():
-                merged_data.at[idx, 'processed'] = True
-                processed_count += 1
+        # Use find_feature_file to locate the H5 file
+        feature_path = find_feature_file(filename, site, features_base_dir, extractor_name)
+        if feature_path:
+            merged_data.at[idx, 'processed'] = True
+            processed_count += 1
 
     pct = (processed_count / len(merged_data) * 100) if len(merged_data) > 0 else 0
     logger.info(f"Processing status: {processed_count} of {len(merged_data)} slides processed ({pct:.1f}%)")
@@ -347,6 +321,12 @@ def generate_extraction_report(
     logger.info(f"Overall: {total_processed}/{total_slides} ({overall_pct:.1f}%)")
     logger.info("-" * 60)
 
+    # Generate visualizations
+    logger.info("Generating feature validation visualizations...")
+    from . import visualization
+    viz_dir = output_dir / "visualizations"
+    visualization.generate_feature_validation_visualizations(merged_data, viz_dir)
+
     return merged_data
 
 
@@ -427,12 +407,27 @@ def prepare_tables_for_training(
     Returns:
         Dictionary with 'all' key and optional site-specific keys containing (clinical, slide) tuples
     """
+    # Create model-specific output directories
     if output_dir is None:
-        output_dir = get_stage_dir(4) / "tables"  # New: results/stage4_feature_validation/tables/
+        if extractor_name:
+            output_dir = get_stage_dir(4) / extractor_name / "tables"
+        else:
+            output_dir = get_stage_dir(4) / "tables"
     else:
         output_dir = Path(output_dir)
 
     ensure_dir(output_dir)
+
+    # Determine reports directory
+    if extractor_name:
+        reports_dir = get_stage_dir(4) / extractor_name / "reports"
+    else:
+        reports_dir = get_stage_dir(4) / "reports"
+
+    # Log configuration
+    logger.info(f"Feature extractor: {extractor_name if extractor_name else 'auto-detect'}")
+    logger.info(f"Output directory: {output_dir}")
+    logger.info(f"Reports directory: {reports_dir}")
 
     # Step 1: Add feature paths
     logger.info("Adding feature paths to slide table...")
@@ -441,7 +436,7 @@ def prepare_tables_for_training(
     # Step 2: Generate extraction report
     logger.info("Generating extraction report...")
     generate_extraction_report(clinical_table, slide_table_with_features, features_base_dir,
-                               get_stage_dir(4) / "reports", extractor_name)
+                               reports_dir, extractor_name)
 
     # Step 3: Prepare "all" table (consolidated across all sites)
     all_slide_table = slide_table_with_features.copy()
@@ -455,6 +450,18 @@ def prepare_tables_for_training(
     clinical_table.to_csv(output_dir / "all_clinical_table.csv", index=False)
     all_slide_table.to_csv(output_dir / "all_slide_table.csv", index=False)
     logger.info(f"Saved consolidated tables with {len(clinical_table)} patients and {len(all_slide_table)} slides")
+
+    # For CTransPath specifically, also create HistoBistro-format table (FILENAME = stem only, no .h5)
+    # HistoBistro uses glob('**/*.h5') and matches on stem, while STAMP expects filename with .h5
+    if extractor_name and 'ctranspath' in extractor_name.lower():
+        logger.info("Detected CTransPath model - creating HistoBistro-format slide table...")
+        histobistro_slide_table = all_slide_table.copy()
+        # Convert FILENAME from full path or "name.h5" to just stem "name"
+        histobistro_slide_table['FILENAME'] = histobistro_slide_table['FILENAME'].apply(
+            lambda x: Path(x).stem if pd.notna(x) else x
+        )
+        histobistro_slide_table.to_csv(output_dir / "all_slide_table_histobistro.csv", index=False)
+        logger.info(f"Saved HistoBistro-format table with stems (no .h5 extension)")
 
     result = {'all': (clinical_table, all_slide_table)}
 

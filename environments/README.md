@@ -151,7 +151,7 @@ After requesting access and being approved, run `hf auth login` to authenticate.
 
 ```bash
 # Create environment
-conda env create -f HistoBistro/environment_simple.yaml
+conda env create -f HistoBistro/environment.yaml
 
 # Activate
 conda activate histobistro

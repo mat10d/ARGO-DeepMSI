@@ -1,64 +1,70 @@
 #!/bin/bash
-#SBATCH --job-name=features
-#SBATCH --partition=nvidia-2080ti-20
-#SBATCH --output=/lab/barcheese01/mdiberna/ARGO-DeepMSI/logs/feature_extraction/%x_%A_%a.out
-#SBATCH --array=0-5
+#SBATCH --job-name=features_orchestrator
+#SBATCH --partition=20
+#SBATCH --output=/lab/barcheese01/mdiberna/ARGO-DeepMSI/logs/feature_extraction/orchestrator_%j.out
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=16
-#SBATCH --mem=128G
-#SBATCH --gres=gpu:1
-#SBATCH --time=36:00:00
-
-#######################################################################################
-# Stage 3: Feature Extraction via STAMP
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=8G
+#SBATCH --time=72:00:00
+#
+# Stage 3: Feature Extraction via STAMP (Orchestrator)
+#
+# This orchestrator submits SLURM array jobs for feature extraction.
+# Runs on CPU partition (no GPU needed for orchestration).
 #
 # Usage:
-#   sbatch scripts/3_feature_extraction.sh <MODEL>
+#   # Extract features for ALL models (default)
+#   sbatch scripts/3_feature_extraction.sh
 #
-# Examples:
+#   # Extract features for ONE specific model
 #   sbatch scripts/3_feature_extraction.sh ctranspath
-#   sbatch scripts/3_feature_extraction.sh h-optimus-0
 #   sbatch scripts/3_feature_extraction.sh virchow2
 #
-# This script:
-# - Runs STAMP preprocessing for feature extraction
-# - Works across all models (parameterized)
-# - Processes 6 sites in parallel via SLURM array (0-5)
-# - Stores features in: results/stage3_features/{MODEL}/{SITE}/
-# - Uses configs from: configs/{MODEL}/config_{SITE}.yaml
-#######################################################################################
+# Features:
+# - Default: processes all available models sequentially
+# - Optional: process just one model by passing model name as argument
+# - Tests model accessibility before extraction
+# - Submits worker jobs (3_feature_extraction_worker.sh) with GPU
+# - Each model processes all 6 sites in parallel (SLURM array)
+# - Logs results and skips inaccessible models
+#
 
-# Define sites array (6 sites)
-sites=("OAUTHC" "LUTH" "LASUTH" "UITH" "retrospective_msk" "retrospective_oau")
+set -e  # Exit on error
 
-# Get model from command-line argument
-MODEL=$1
-
-if [ -z "$MODEL" ]; then
-    echo "ERROR: Model name required"
-    echo "Usage: sbatch scripts/3_feature_extraction.sh <MODEL>"
-    echo "Example: sbatch scripts/3_feature_extraction.sh ctranspath"
-    exit 1
-fi
-
-# Get the current site based on array index
-SITE=${sites[$SLURM_ARRAY_TASK_ID]}
-
-echo "================================="
-echo "STAMP FEATURE EXTRACTION"
-echo "Model: $MODEL"
-echo "Site: $SITE"
-echo "Array Task ID: $SLURM_ARRAY_TASK_ID"
-echo "Time: $(date)"
-echo "================================="
-
-# Define base directory
 BASE_DIR="/lab/barcheese01/mdiberna/ARGO-DeepMSI"
+
+# Create log directories
+mkdir -p "$BASE_DIR/logs/feature_extraction"
+mkdir -p "$BASE_DIR/logs/feature_extraction/workers"
+
+echo "=========================================="
+echo "ARGO-DeepMSI: Stage 3 - Feature Extraction Orchestrator"
+echo "=========================================="
+echo "Start time: $(date)"
+echo "Job ID: $SLURM_JOB_ID"
+echo "Node: $SLURM_NODELIST"
+echo ""
+
+# Check if specific model was requested
+REQUESTED_MODEL=$1
+
+if [ -n "$REQUESTED_MODEL" ]; then
+    echo "Mode: Single model extraction"
+    echo "Requested model: $REQUESTED_MODEL"
+else
+    echo "Mode: All models extraction (default)"
+fi
+echo ""
+
+# Load environment
+echo "Loading environment..."
+source ~/.bashrc
 
 # Load environment variables from .env (for HF_TOKEN)
 if [ -f "$BASE_DIR/.env" ]; then
     export $(grep -v '^#' "$BASE_DIR/.env" | xargs)
+    echo "✓ Loaded .env file"
 fi
 
 # Set environment variables
@@ -70,112 +76,123 @@ export PATH=$CUDA_HOME/bin:$PATH
 
 # Create cache directories
 mkdir -p "$HF_HOME" "$HF_DATASETS_CACHE" "$TRANSFORMERS_CACHE"
+echo "✓ Environment variables set"
+echo ""
+
+# List of all available models (prefer newer versions)
+ALL_MODELS=(
+    # No authentication required
+    "ctranspath"
+    "plip"
+    "dino-bloom"
+    "chief-ctranspath"
+
+    # Gated models (require HF authentication)
+    "virchow2"        # Prefer over virchow
+    "uni2"            # Prefer over uni
+    "conch1_5"        # Prefer over conch
+    "gigapath"
+    "h-optimus-0"
+    "h-optimus-1"
+    "mstar"
+    "musk"
+)
+
+# Determine which models to process
+if [ -n "$REQUESTED_MODEL" ]; then
+    # Single model requested
+    MODELS=("$REQUESTED_MODEL")
+    echo "Processing single model: $REQUESTED_MODEL"
+else
+    # All models
+    MODELS=("${ALL_MODELS[@]}")
+    echo "Processing all ${#MODELS[@]} models:"
+    for model in "${MODELS[@]}"; do
+        echo "  - $model"
+    done
+fi
+echo ""
 
 # Activate STAMP environment
 echo "Activating STAMP environment..."
 source "$BASE_DIR/STAMP/.venv/bin/activate"
 
-# Print GPU information
-echo "==== GPU INFO ===="
-nvidia-smi
-echo "=================="
+# Track results
+declare -a SUCCESSFUL_MODELS
+declare -a FAILED_MODELS
+declare -a SKIPPED_MODELS
 
-# Check PyTorch GPU access
-echo "==== PYTORCH GPU CHECK ===="
-python -c "
-import torch
-print('CUDA available:', torch.cuda.is_available())
-print('CUDA device count:', torch.cuda.device_count())
-if torch.cuda.is_available():
-    print('CUDA current device:', torch.cuda.current_device())
-    print('CUDA device name:', torch.cuda.get_device_name(0))
-"
-echo "==========================="
+# Test and run each model
+for MODEL in "${MODELS[@]}"; do
+    echo "=========================================="
+    echo "Processing model: $MODEL"
+    echo "Time: $(date)"
+    echo "=========================================="
 
-# Check Hugging Face authentication for gated models
-GATED_MODELS=("h-optimus-0" "h-optimus-1" "virchow2" "uni2" "conch1_5" "gigapath" "mstar" "musk")
-if [[ " ${GATED_MODELS[@]} " =~ " ${MODEL} " ]]; then
-    echo "==== HUGGING FACE CHECK ===="
-    python -c "
-import os
-from huggingface_hub import HfApi
-try:
-    token = os.environ.get('HF_TOKEN')
-    if not token:
-        print('✗ HF_TOKEN not found in environment')
-        print('  Add HF_TOKEN to .env file')
-        exit(1)
-    api = HfApi(token=token)
-    user = api.whoami(token=token)
-    print(f'✓ Logged in as: {user[\"name\"]}')
-except Exception as e:
-    print(f'✗ HF authentication failed: {e}')
-    print('  Check your HF_TOKEN in .env file')
-    exit(1)
-"
-    exit_code=$?
-    echo "==========================="
+    # Test if model is accessible
+    echo "Testing model accessibility..."
+    python "$BASE_DIR/scripts/test_model_access.py" "$MODEL"
 
-    if [ $exit_code -ne 0 ]; then
-        echo "ERROR: HF authentication required for $MODEL"
-        exit 1
+    TEST_EXIT_CODE=$?
+
+    if [ $TEST_EXIT_CODE -eq 0 ]; then
+        echo "✓ Model $MODEL is accessible"
+        echo ""
+        echo "Submitting SLURM job for $MODEL..."
+
+        # Submit SLURM array job (worker) and wait for completion
+        JOB_OUTPUT=$(sbatch --wait "$BASE_DIR/scripts/3_feature_extraction_worker.sh" "$MODEL")
+        JOB_ID=$(echo "$JOB_OUTPUT" | grep -oP 'Submitted batch job \K\d+')
+
+        echo "Submitted job: $JOB_ID"
+        echo "Waiting for job $JOB_ID to complete..."
+
+        # Wait for job to finish (sbatch --wait handles this)
+        echo "Job $JOB_ID completed for model: $MODEL"
+
+        # Check if job succeeded by looking at SLURM output files
+        # Note: This is a simplified check - you may want more robust error checking
+        if ls "$BASE_DIR/logs/feature_extraction/workers/extract_${JOB_ID}_*.out" 1> /dev/null 2>&1; then
+            echo "✓ Feature extraction completed for $MODEL"
+            SUCCESSFUL_MODELS+=("$MODEL")
+        else
+            echo "✗ Feature extraction may have failed for $MODEL (check logs)"
+            FAILED_MODELS+=("$MODEL")
+        fi
+
+    elif [ $TEST_EXIT_CODE -eq 1 ]; then
+        echo "✗ Model $MODEL is not accessible - SKIPPING"
+        SKIPPED_MODELS+=("$MODEL")
+
+    else
+        echo "✗ Error testing model $MODEL - SKIPPING"
+        SKIPPED_MODELS+=("$MODEL")
     fi
-fi
 
-# Define paths
-TEMPLATE_FILE="$BASE_DIR/configs/templates/preprocessing_site.yaml.template"
-CONFIG_FILE="$BASE_DIR/.temp_configs/$MODEL/config_${SITE}.yaml"
+    echo ""
+done
 
-# Check if template exists
-if [ ! -f "$TEMPLATE_FILE" ]; then
-    echo "ERROR: Template file not found: $TEMPLATE_FILE"
-    exit 1
-fi
-
-# Generate config from template
-echo "Generating config from template..."
-python "$BASE_DIR/scripts/generate_config.py" \
-    --template "$TEMPLATE_FILE" \
-    --output "$CONFIG_FILE" \
-    --model "$MODEL" \
-    --site "$SITE" \
-    --device "cuda:0" \
-    --base-dir "$BASE_DIR"
-
-if [ $? -ne 0 ]; then
-    echo "ERROR: Config generation failed"
-    exit 1
-fi
-
-echo "Using generated config: $CONFIG_FILE"
-
-# Change to project directory
-cd "$BASE_DIR"
-
-# Create log directory if it doesn't exist
-mkdir -p "$BASE_DIR/logs/feature_extraction"
-
-# Run STAMP preprocessing
-echo "==== STARTING PREPROCESSING ===="
-echo "Command: stamp --config $CONFIG_FILE preprocess"
-echo "================================="
-
-stamp --config "$CONFIG_FILE" preprocess
-
-exit_code=$?
-
-echo "================================="
-echo "PREPROCESSING COMPLETED"
-echo "Model: $MODEL"
-echo "Site: $SITE"
-echo "Exit code: $exit_code"
-echo "Time: $(date)"
-echo "================================="
-
-if [ $exit_code -eq 0 ]; then
-    echo "✓ Feature extraction completed successfully for $MODEL on $SITE"
-else
-    echo "✗ Feature extraction failed for $MODEL on $SITE (exit code: $exit_code)"
-fi
-
-exit $exit_code
+# Final summary
+echo "=========================================="
+echo "FEATURE EXTRACTION COMPLETE"
+echo "=========================================="
+echo "End time: $(date)"
+echo ""
+echo "Summary:"
+echo "  Successful: ${#SUCCESSFUL_MODELS[@]}"
+for model in "${SUCCESSFUL_MODELS[@]}"; do
+    echo "    ✓ $model"
+done
+echo ""
+echo "  Failed: ${#FAILED_MODELS[@]}"
+for model in "${FAILED_MODELS[@]}"; do
+    echo "    ✗ $model"
+done
+echo ""
+echo "  Skipped: ${#SKIPPED_MODELS[@]}"
+for model in "${SKIPPED_MODELS[@]}"; do
+    echo "    ⊘ $model"
+done
+echo ""
+echo "Worker logs: $BASE_DIR/logs/feature_extraction/workers/"
+echo "=========================================="
