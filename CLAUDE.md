@@ -210,27 +210,51 @@ The project fetches patient data from REDCap API. Required setup:
    - Loading Halo Link CSV exports (`halo_link_*.csv`)
    - Generating clinical and slide tables with MSI labels
 
-## Feature Extractors
+## Feature Extractors (12 STAMP Models)
 
-STAMP supports multiple feature extractors (located in `STAMP/src/stamp/encoding/encoder/`):
-- CTransPath (ctranspath)
-- H-optimus-0, H-optimus-1 (requires Hugging Face authentication)
-- CHIEF, COBRA, EAGLE, GigaPath, Madeleine, PRISM, TITAN
+**No authentication required:**
+- ctranspath
+- plip
+- dinobloom
+- chief-ctranspath
 
-Configs are organized by encoder in `configs/{encoder}/`.
+**Gated (requires HF auth via `hf auth login`):**
+- virchow2 (vs virchow - newer version preferred)
+- uni2 (vs uni - newer version preferred)
+- conch1_5 (vs conch - newer version preferred)
+- gigapath
+- h-optimus-0
+- h-optimus-1
+- mstar
+- musk
+
+To add a new model: Simply run `sbatch scripts/3_feature_extraction.sh <model_name>` - no config files needed (template-based).
 
 ## Cross-Validation Strategy
 
-- **n_splits**: 3 (defined in YAML configs)
-- **Output structure**: `data/all/results/crossval/split-{0,1,2}/patient-preds.csv`
-- **Statistics aggregation**: Combines predictions from all splits to generate ROC curves, AUROC/AUPRC with 95% CI
+- **n_splits**: 3 (default, configurable in templates)
+- **Output structure**: `results/stage6_training/{MODEL}/crossval/split-{0,1,2}/patient-preds.csv`
+- **Statistics aggregation**: `7_statistics.py` combines predictions from all splits to generate ROC curves, AUROC/AUPRC with 95% CI
+
+## Code Organization
+
+**Modular Package Structure:**
+- Heavy logic in `argo_deepmsi/` package (installable via `pip install -e .`)
+- Thin scripts in `scripts/` (CLI wrappers that call package functions)
+- STAMP and HistoBistro are external dependencies (never modified, kept as-is)
+
+**Key Design Principles:**
+1. **Template-based configs** - No per-model config files needed
+2. **Installable package** - `argo_deepmsi` module with reusable functions
+3. **Clean separation** - `data/` (inputs) vs `results/` (outputs)
+4. **Multi-environment** - ARGO (conda), STAMP (uv), HistoBistro (conda)
 
 ## Notes for Development
 
-- The script numbering (0, 1, 2, 3, 4, 6, 7) directly corresponds to workflow steps
-- Step 5 exists for embedding visualizations (h-optimus-0 specific)
-- Always verify which environment a script requires before running
+- Script numbering (1-8) directly corresponds to pipeline stages
+- Always verify which environment a script requires before running (see stage → environment mapping in README.md)
 - STAMP is installed as a local clone in `STAMP/` subdirectory, not via pip globally
 - HistoBistro is also a local clone in `HistoBistro/` subdirectory
 - AWS credentials should be configured system-wide using `aws configure` (see AWS.md for data transfer instructions)
-- When adding new sites, create a new config in `configs/<encoder>/config_<NEWSITE>.yaml` and add to the sites array in `1.preprocess.sh`
+- When adding new sites, update the `SITES` array in `scripts/3_feature_extraction.sh`
+- All path logic is centralized in `argo_deepmsi/io_utils.py` (use helper functions, not hardcoded paths)

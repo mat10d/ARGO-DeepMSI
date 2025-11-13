@@ -1,42 +1,48 @@
-# ARGO-DeepMSI Repository Cleanup & Standardization
+# ARGO-DeepMSI Development Roadmap
 
-## Current Status (Updated 2025-11-03)
-- **Branch**: `stamp_v2` (active development)
-- **Goal**: Clean, standardized, end-to-end MSI prediction pipeline
-- **Strategy**: Refactor → Test → Merge → Expand
-- **Latest Session**: Folder structure refactor completed (see SESSION_NOTES.md)
+## Current Status (Updated 2025-11-13)
+- **Branch**: `overhaul` (active refactoring)
+- **Goal**: Clean, standardized, end-to-end MSI prediction pipeline with 12+ models
+- **Strategy**: Refactor → Test → Expand
+- **Latest Focus**: Documentation cleanup and streamlining
 
-## Recent Progress ✅
+## Major Milestones Completed ✅
 
-### Completed (2025-11-03)
+### Phase 1: Repository Structure (COMPLETED)
 - ✅ Implemented installable `argo-deepmsi` package with `pyproject.toml`
 - ✅ Refactored all scripts to use package functions (thin CLI wrappers)
-- ✅ **NEW FOLDER STRUCTURE IMPLEMENTED**:
+- ✅ **Clean folder structure**:
   - `data/` - Input data only (raw WSI files, metadata)
   - `results/` - All pipeline outputs (stage-based naming)
-  - Replaced `tables/0/` → `results/stage1_data_ingestion/`
-  - Replaced `tables/2/` → `results/stage4_feature_validation/`
-  - Moved features: `data/{site}/features/` → `results/stage3_features/{model}/{site}/`
-- ✅ Updated `io_utils.py` with new path helpers (`get_stage_dir()`, `get_features_dir()`, etc.)
-- ✅ Updated all modules (data_ingestion, feature_validation) to use new paths
-- ✅ Updated all scripts (1-8) to use new structure
-- ✅ Removed all deprecated function calls
-- ✅ Upgraded environment to Python 3.11 (was 3.9)
-- ✅ Environment files organized in `environments/argo.yml`
+  - Template-based STAMP configuration (no per-model config files)
+- ✅ Path management centralized in `argo_deepmsi/io_utils.py`
+- ✅ All 8 pipeline stages implemented with modular package architecture
+- ✅ Upgraded to Python 3.11 across environments
+- ✅ Template-based config generation for STAMP models
 
-### Next Immediate Steps 🔄
-1. ⏳ **Create new argo conda environment** (Python 3.11)
-   ```bash
-   conda env create -f environments/argo.yml
-   ```
-2. ⏳ **Test Stage 1 data ingestion** with new folder structure
-3. ⏳ **Verify outputs** in `results/stage1_data_ingestion/`
-4. ⏳ **Generate visualizations** to confirm pipeline works
+### Phase 2: Core Functionality (COMPLETED)
+- ✅ Stage 1: Data ingestion (REDCap + Halo metadata)
+- ✅ Stage 2: Quality control (placeholder)
+- ✅ Stage 3: Feature extraction (template-based, 12+ models supported)
+- ✅ Stage 4: Feature validation (extraction QC and reporting)
+- ✅ Stage 5: Baseline testing (HistoBistro integration)
+- ✅ Stage 6: MIL training (STAMP cross-validation)
+- ✅ Stage 7: Statistics (AUROC/AUPRC with CI)
+- ✅ Stage 8: Visualization (heatmaps, ROC curves)
 
-### Architecture Changes Summary
-- **Before**: Mixed data/outputs, cryptic numbered folders, monolithic scripts
-- **After**: Clean separation (data/ vs results/), descriptive stage names, modular package
-- **Backward Compatibility**: Old paths still work with deprecation warnings
+## Current Focus 🔄
+
+### Documentation Streamlining (IN PROGRESS)
+- ✅ Updated CLAUDE.md to reflect 8-stage pipeline
+- ✅ environments/README.md comprehensive and up-to-date
+- ⏳ Cleaning up TODO.md (this file)
+- ⏳ Archiving temporary session notes
+
+### Next Steps
+1. **Test end-to-end pipeline** - Run stages 1-8 on small dataset
+2. **Feature extraction at scale** - Extract features for all 12 models
+3. **Model comparison** - Compare performance across all models
+4. **Merge to main** - Clean merge after validation
 
 ---
 
@@ -78,86 +84,46 @@ configs/            # YAML configurations per model
 
 ---
 
-## Phase 1: Repository Structure & Cleanup
+## Phase 1: Repository Structure & Cleanup (COMPLETED ✅)
 
-### 1.0 Environment Management
-
-**Goal**: Clean, reproducible environments for each component
+### 1.0 Environment Management (COMPLETED ✅)
 
 **Three Separate Environments:**
 
-1. **ARGO-DeepMSI Environment** (for utils + scripts)
-   - Python: 3.10+
-   - Manager: conda
+1. **ARGO Environment** (conda, Python 3.11)
    - Purpose: Data ingestion, QC, validation, statistics, visualization
-   - Key dependencies: pandas, numpy, scikit-learn, matplotlib, seaborn, requests
+   - Location: `environments/argo.yml`
+   - Used in: Stages 1, 2, 4, 7, 8
 
-2. **STAMP Environment** (for feature extraction + MIL training)
-   - Python: 3.12 (per STAMP v2.3)
-   - Manager: uv (per STAMP requirements)
+2. **STAMP Environment** (uv, Python 3.11+)
    - Purpose: Feature extraction and MIL training
-   - Key dependencies: torch, transformers, timm, lightning, huggingface_hub
+   - Location: `STAMP/.venv/`
+   - Used in: Stages 3, 6
 
-3. **HistoBistro Environment** (for baseline validation)
-   - Python: 3.10
-   - Manager: conda
+3. **HistoBistro Environment** (conda, Python 3.10)
    - Purpose: Pre-trained model inference
-   - Key dependencies: torch, pytorch-lightning, etc.
+   - Location: `environments/histobistro.yml`
+   - Used in: Stage 5
 
-**Current Status:**
-- ✅ `argo_env.yml` exists (Python 3.9, pandas, scikit-learn, matplotlib, requests)
-- ✅ `HistoBistro/environment_simple.yaml` exists (Python 3.10.9, PyTorch 2.0, Lightning)
-- ✅ STAMP has its own environment (STAMP/.venv, managed via uv)
+**Completed:**
+- ✅ Upgraded ARGO environment to Python 3.11
+- ✅ Organized environment files in `environments/` directory
+- ✅ Comprehensive environment setup guide in `environments/README.md`
+- ✅ All environment variables documented
+- ✅ STAMP installation instructions (must install on compute node)
+- ✅ Hugging Face authentication documented
 
-**Tasks:**
-- [ ] Review and potentially update `argo_env.yml` (currently Python 3.9)
-  - Consider upgrading to Python 3.10 for better compatibility
-  - Add any missing dependencies for QC and validation
-- [ ] Organize environment files:
-  - Move `argo_env.yml` → `environments/argo.yml`
-  - Create symlink or document HistoBistro environment location
-- [ ] Create `scripts/setup_environments.sh` automation script:
-  ```bash
-  # 1. Create ARGO environment
-  conda env create -f environments/argo.yml
+### 1.1 Package Module Structure (COMPLETED ✅)
 
-  # 2. Setup STAMP (uv-based)
-  cd STAMP && uv sync --extra build --extra gpu
-
-  # 3. Setup HistoBistro
-  conda env create -f HistoBistro/environment_simple.yaml
-  ```
-- [ ] Document environment activation in README:
-  - Stage 1-2, 4, 6-7: `conda activate argo`
-  - Stage 3, 5: `source STAMP/.venv/bin/activate`
-  - HistoBistro baseline: `conda activate histobistro`
-- [ ] Add environment variables to documentation:
-  - `HF_HOME=/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache`
-  - `REDCAP_API_TOKEN` (from .env)
-- [ ] Test all three environments install and work correctly
-
-**Final Environment Structure:**
+**Implemented as `argo_deepmsi/` package:**
 ```
-ARGO-DeepMSI/
-├── environments/
-│   ├── argo.yml              # Main utils env (Python 3.9 → 3.10)
-│   ├── setup.sh              # Environment setup automation
-│   └── README.md             # Environment docs
-├── STAMP/
-│   ├── .venv/                # STAMP environment (uv-managed, Python 3.12)
-│   └── pyproject.toml        # STAMP dependencies
-└── HistoBistro/
-    └── environment_simple.yaml  # HistoBistro env (Python 3.10.9)
-```
-
-### 1.1 Create Utils Module Structure
-```
-utils/
+argo_deepmsi/
 ├── __init__.py
 ├── data_ingestion.py      # REDCap API, SVS discovery, table creation
 ├── quality_control.py     # Slide QC functions
 ├── feature_extraction.py  # STAMP preprocessing wrappers
-├── model_validation.py    # HistoBistro inference
+├── feature_validation.py  # Feature QC and reporting
+├── baseline_testing.py    # HistoBistro inference
 ├── training.py            # STAMP crossval wrappers
 ├── statistics.py          # Metrics calculation
 ├── visualization.py       # Plotting, heatmaps, embeddings
@@ -165,710 +131,279 @@ utils/
 └── io_utils.py            # File I/O, logging, paths
 ```
 
-**Tasks:**
-- [ ] Create `utils/` directory structure
-- [ ] Move reusable code from scripts into utils
-- [ ] Add proper error handling and logging
-- [ ] Add docstrings to all functions
-- [ ] Add type hints
-- [ ] Create `utils/__init__.py` with clean imports
+**Completed:**
+- ✅ Created installable `argo_deepmsi` package with `pyproject.toml`
+- ✅ All modules implemented with proper structure
+- ✅ Error handling and logging throughout
+- ✅ Docstrings and type hints added
+- ✅ Scripts refactored as thin wrappers calling package functions
 
-### 1.2 Refactor Existing Scripts
+### 1.2 Refactor Existing Scripts (COMPLETED ✅)
 
-**Before (monolithic scripts):**
-```
-scripts/0.prepare.py  (does everything inline)
-```
+**Scripts refactored as thin wrappers:**
+- ✅ `scripts/1_data_ingestion.py` → calls `argo_deepmsi.data_ingestion`
+- ✅ `scripts/2_quality_control.py` → calls `argo_deepmsi.quality_control`
+- ✅ `scripts/3_feature_extraction.sh` → SLURM wrapper with template-based config generation
+- ✅ `scripts/4_feature_validation.py` → calls `argo_deepmsi.feature_validation`
+- ✅ `scripts/5_baseline_testing.py` → calls `argo_deepmsi.baseline_testing`
+- ✅ `scripts/6_mil_training.sh` → SLURM wrapper for STAMP cross-validation
+- ✅ `scripts/7_statistics.py` → calls `argo_deepmsi.statistics`
+- ✅ `scripts/8_visualization.py` → calls `argo_deepmsi.visualization`
 
-**After (modular scripts):**
+**All scripts follow the pattern:**
 ```python
-# scripts/1_data_ingestion.py
-from utils.data_ingestion import fetch_redcap_data, create_clinical_table
-from utils.io_utils import setup_logging
-
-def main():
-    logger = setup_logging("data_ingestion")
-    clinical_df = fetch_redcap_data(...)
-    # etc.
-```
-
-**Script Implementation (Thin Wrappers):**
-- [ ] `scripts/1_data_ingestion.py` → calls `argo_deepmsi.data_ingestion`
-- [ ] `scripts/2_quality_control.py` → calls `argo_deepmsi.quality_control`
-- [ ] `scripts/3_feature_extraction.py` → calls `argo_deepmsi.feature_extraction`
-- [ ] `scripts/4_feature_validation.py` → calls `argo_deepmsi.feature_validation`
-- [ ] `scripts/5_baseline_testing.py` → calls `argo_deepmsi.baseline_testing`
-- [ ] `scripts/6_mil_training.py` → calls `argo_deepmsi.training`
-- [ ] `scripts/7_statistics.py` → calls `argo_deepmsi.statistics`
-- [ ] `scripts/8_visualization.py` → calls `argo_deepmsi.visualization`
-
-**Example Script Structure:**
-```python
-# scripts/4_feature_validation.py
 import argparse
-from argo_deepmsi import feature_validation, io_utils
+from argo_deepmsi import module_name, io_utils
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--slide-table", required=True)
-    parser.add_argument("--feature-dir", required=True)
-    args = parser.parse_args()
-
-    # All logic in package
-    report = feature_validation.generate_extraction_report(
-        args.slide_table, args.feature_dir
-    )
-    report.save("results/feature_validation/")
+    args = parse_args()
+    # Call package functions (logic in package, not script)
+    result = module_name.main_function(args)
+    print(f"✓ Complete. Results saved to {result.output_dir}")
 
 if __name__ == "__main__":
     main()
 ```
 
-### 1.3 Standardize SLURM Scripts
+### 1.3 SLURM Scripts (COMPLETED ✅)
 
-Create consistent SLURM wrappers:
-```
-scripts/slurm/
-├── 2_qc_array.sh              # Quality control (array job)
-├── 3_extract_features.sh      # Feature extraction (array job, per model)
-├── 4_baseline_validation.sh   # HistoBistro baseline
-├── 5_mil_training.sh          # STAMP crossval
-└── submit_all.sh              # Master submission script
-```
+**Implemented SLURM wrappers:**
+- ✅ `scripts/3_feature_extraction.sh` - Array job for 6 sites, GPU required
+- ✅ `scripts/3_feature_extraction_all.sh` - Sequential submission of all models
+- ✅ `scripts/6_mil_training.sh` - Cross-validation training
+- ✅ All scripts include: environment activation, GPU checks, config generation, error handling
 
-**Tasks:**
-- [ ] Create `scripts/slurm/` directory
-- [ ] Standardize SLURM headers (partition, resources, logging)
-- [ ] Add pre-flight checks (GPU, env, configs)
-- [ ] Add error handling and notifications
-- [ ] Create master orchestration script
+### 1.4 Directory Structure (COMPLETED ✅)
 
-### 1.4 Directory Structure
-
-**Final structure:**
+**Implemented clean folder structure:**
 ```
 ARGO-DeepMSI/
-├── README.md                    # User-facing documentation
-├── TODO.md                      # This file
-├── CLAUDE.md                    # AI assistant guide
-├── PIPELINE.md                  # Technical pipeline details
-├── pyproject.toml               # Package definition
-├── setup.py                     # Package installation
-│
-├── argo_deepmsi/                # Installable Python package
-│   ├── __init__.py              # Package init, version
-│   ├── data_ingestion.py        # Stage 1
-│   ├── quality_control.py       # Stage 2
-│   ├── feature_extraction.py    # Stage 3
-│   ├── feature_validation.py    # Stage 4 (NEW)
-│   ├── baseline_testing.py      # Stage 5 (HistoBistro)
-│   ├── training.py              # Stage 6 (STAMP MIL)
-│   ├── statistics.py            # Stage 7
-│   ├── visualization.py         # Stage 8
-│   ├── config_utils.py
-│   └── io_utils.py
-│
-├── scripts/                     # Executable scripts
+├── README.md, CLAUDE.md, TODO.md    # Documentation
+├── pyproject.toml                   # Package definition
+├── argo_deepmsi/                    # Installable package (all logic)
+├── scripts/                         # Thin CLI wrappers
 │   ├── 1_data_ingestion.py
 │   ├── 2_quality_control.py
-│   ├── 3_feature_extraction.py
-│   ├── 4_feature_validation.py      # NEW: Validate extracted features
-│   ├── 5_baseline_testing.py        # HistoBistro pre-trained model
-│   ├── 6_mil_training.py
+│   ├── 3_feature_extraction.sh
+│   ├── 3_feature_extraction_all.sh
+│   ├── 4_feature_validation.py
+│   ├── 5_baseline_testing.py
+│   ├── 6_mil_training.sh
 │   ├── 7_statistics.py
 │   ├── 8_visualization.py
-│   └── slurm/                       # SLURM batch scripts
-│       ├── 2_qc_array.sh
-│       ├── 3_extract_features.sh
-│       ├── 5_baseline_testing.sh
-│       ├── 6_mil_training.sh
-│       └── submit_all.sh
-│
-├── configs/                     # Model configurations
-│   ├── template.yaml            # Base template
-│   ├── ctranspath/              # Per-site configs
-│   ├── virchow2/
-│   ├── uni2/
-│   └── ...
-│
-├── data/                        # Processed data (gitignored)
-│   ├── OAUTHC/
-│   ├── LUTH/
-│   ├── LASUTH/
-│   ├── UITH/
-│   ├── retrospective_msk/
-│   ├── retrospective_oau/
-│   └── all/                     # Consolidated
-│
-├── tables/                      # Clinical/slide metadata
-│   ├── clinical_table.csv
-│   ├── slide_table.csv
-│   └── qc_report.csv
-│
-├── results/                     # Pipeline outputs
-│   ├── qc/                      # QC reports
-│   ├── features/                # Feature summaries
-│   ├── baseline/                # HistoBistro results
-│   ├── crossval/                # STAMP crossval results
-│   ├── statistics/              # Metrics
-│   └── figures/                 # Visualizations
-│
-├── logs/                        # Execution logs
-│   ├── data_ingestion/
-│   ├── qc/
-│   ├── feature_extraction/
-│   └── ...
-│
-├── environments/
-│   ├── argo.yml                 # Main environment
-│   ├── stamp.txt                # STAMP requirements
-│   └── histobistro.yml
-│
-├── STAMP/                       # Git submodule
-├── HistoBistro/                 # Git submodule
-│
-└── tests/                       # Unit tests (future)
-    └── test_utils.py
+│   ├── generate_config.py
+│   └── test_model_access.py
+├── configs/templates/               # YAML templates
+├── data/                            # INPUT: raw WSI files, metadata
+├── results/                         # OUTPUT: all pipeline outputs by stage
+├── logs/                            # Execution logs
+├── environments/                    # Environment YAML files
+├── STAMP/                           # External dependency
+└── HistoBistro/                     # External dependency
 ```
 
-**Tasks:**
-- [ ] Create all necessary directories
-- [ ] Add `.gitkeep` for empty dirs
-- [ ] Update `.gitignore` appropriately
-- [ ] Document structure in README
+**Key improvements:**
+- ✅ Clean separation: `data/` (inputs) vs `results/` (outputs)
+- ✅ Stage-based naming: `results/stage{N}_{NAME}/`
+- ✅ Template-based configs (no per-model files)
+- ✅ Centralized path management in `argo_deepmsi/io_utils.py`
 
 ---
 
-## Phase 2: Implement Core Functionality
+## Phase 2: Core Functionality (COMPLETED ✅)
 
-### 2.1 Stage 1: Data Ingestion
+All 8 pipeline stages have been implemented with modular package architecture.
 
-**Goal**: Clean, validated clinical and slide tables
+### 2.1 Stage 1: Data Ingestion (COMPLETED ✅)
 
-**Utils Functions:**
-```python
-# utils/data_ingestion.py
-def fetch_redcap_data(api_url, api_token) -> pd.DataFrame
-def discover_svs_files(data_dir) -> List[Path]
-def create_clinical_table(redcap_df) -> pd.DataFrame
-def create_slide_table(svs_files, clinical_df) -> pd.DataFrame
-def validate_tables(clinical_df, slide_df) -> bool
-```
+**Implemented in `argo_deepmsi/data_ingestion.py`:**
+- ✅ REDCap API integration
+- ✅ Halo Link CSV processing
+- ✅ Clinical and slide table generation
+- ✅ MSI status extraction and validation
+- ✅ Output to `results/stage1_data_ingestion/`
 
-**Script:**
-```bash
-python scripts/1_data_ingestion.py \
-  --redcap-url $REDCAP_URL \
-  --redcap-token $REDCAP_TOKEN \
-  --data-dir data/ \
-  --output-dir tables/
-```
+### 2.2 Stage 2: Quality Control (COMPLETED ✅)
 
-**Tasks:**
-- [ ] Implement `utils/data_ingestion.py`
-- [ ] Implement `scripts/1_data_ingestion.py`
-- [ ] Add logging and error handling
-- [ ] Test on existing data
-- [ ] Document expected outputs
+**Implemented in `argo_deepmsi/quality_control.py`:**
+- ✅ Placeholder implementation (ready for QC tool integration)
+- ✅ Output to `results/stage2_qc/`
 
-### 2.2 Stage 2: Quality Control
+### 2.3 Stage 3: Feature Extraction (COMPLETED ✅)
 
-**Goal**: Filter slides based on tissue quality, staining, artifacts
+**Implemented template-based feature extraction:**
+- ✅ Template-based config generation (`scripts/generate_config.py`)
+- ✅ SLURM array job for parallel processing (`scripts/3_feature_extraction.sh`)
+- ✅ Batch processing script for all models (`scripts/3_feature_extraction_all.sh`)
+- ✅ Model accessibility testing (`scripts/test_model_access.py`)
+- ✅ Support for 12 STAMP models (no-auth and gated)
+- ✅ Output to `results/stage3_features/{MODEL}/{SITE}/`
 
-**Utils Functions:**
-```python
-# utils/quality_control.py
-def run_qc_pipeline(wsi_path, qc_tool="histoqc") -> Dict
-def parse_qc_results(qc_output) -> pd.DataFrame
-def apply_qc_thresholds(qc_df, thresholds) -> pd.DataFrame
-def generate_qc_report(qc_df) -> str
-```
+### 2.4 Stage 4: Feature Validation (COMPLETED ✅)
 
-**Script:**
-```bash
-# Sequential
-python scripts/2_quality_control.py \
-  --slide-table tables/slide_table.csv \
-  --wsi-dir data/{SITE}/raw/ \
-  --output-dir results/qc/
+**Implemented in `argo_deepmsi/feature_validation.py`:**
+- ✅ Feature file existence checking across all models
+- ✅ Feature integrity validation (dimensions, NaN/Inf detection)
+- ✅ Per-site and per-model extraction statistics
+- ✅ Extraction success rate reporting
+- ✅ Output to `results/stage4_feature_validation/`
 
-# Parallel (SLURM)
-sbatch scripts/slurm/2_qc_array.sh
-```
+### 2.5 Stage 5: Baseline Testing (COMPLETED ✅)
 
-**Tasks:**
-- [ ] Research QC tool options (HistoQC, STAMP, custom)
-- [ ] Implement `utils/quality_control.py`
-- [ ] Implement `scripts/2_quality_control.py`
-- [ ] Create SLURM array job
-- [ ] Define QC pass/fail thresholds
-- [ ] Generate QC visualization report
+**Implemented in `argo_deepmsi/baseline_testing.py`:**
+- ✅ HistoBistro model integration
+- ✅ Pre-trained model inference for data validation
+- ✅ Performance metrics (AUROC, sensitivity, NPV)
+- ✅ Output to `results/stage5_baseline/`
 
-### 2.3 Stage 3: Feature Extraction (ALL STAMP Models)
+### 2.6 Stage 6: MIL Training (COMPLETED ✅)
 
-**Goal**: Extract features for all available models
+**Implemented via SLURM wrapper:**
+- ✅ Template-based training config generation
+- ✅ STAMP cross-validation integration (`scripts/6_mil_training.sh`)
+- ✅ k-fold cross-validation (default 3 splits)
+- ✅ Output to `results/stage6_training/{MODEL}/crossval/`
 
-**Available STAMP v2.3 Models (18 total):**
-1. CTransPath ✓
-2. H-optimus-0 ✓
-3. H-optimus-1 ✓
-4. Virchow2 (Priority)
-5. UNI2 (Priority)
-6. CONCHv1.5 (Priority)
-7. Gigapath (Priority)
-8. MUSK
-9. mSTAR
-10. DinoBloom
-11. PLIP
-12. Virchow (v1)
-13. UNI (v1)
-14. CONCH
-15. CHIEF-CTransPath
-16. Empty (baseline)
-17-18. Others TBD
+### 2.7 Stage 7: Statistics (COMPLETED ✅)
 
-**Utils Functions:**
-```python
-# utils/feature_extraction.py
-def generate_stamp_configs(model_name, sites, base_config) -> List[Path]
-def run_stamp_preprocessing(config_path) -> bool
-def validate_features(feature_dir, slide_table) -> pd.DataFrame
-def consolidate_features(site_dirs, output_dir) -> None
-```
+**Implemented in `argo_deepmsi/statistics.py`:**
+- ✅ Aggregation of cross-validation predictions
+- ✅ AUROC/AUPRC calculation with 95% CI
+- ✅ Per-site and per-model metrics
+- ✅ Model comparison tables
+- ✅ Output to `results/stage7_statistics/{MODEL}/`
 
-**Script:**
-```bash
-# Single model, single site
-python scripts/3_feature_extraction.py \
-  --model virchow2 \
-  --site OAUTHC \
-  --config configs/virchow2/config_OAUTHC.yaml
+### 2.8 Stage 8: Visualization (COMPLETED ✅)
 
-# All models, all sites (SLURM)
-sbatch scripts/slurm/3_extract_features.sh virchow2
-```
-
-**Tasks:**
-- [ ] Implement `utils/feature_extraction.py`
-- [ ] Implement `scripts/3_feature_extraction.py`
-- [ ] Create config generator: `utils/config_utils.py`
-- [ ] Generate configs for all 18 models × 6 sites
-- [ ] Create SLURM array job with model parameter
-- [ ] Add resume capability for failed jobs
-- [ ] Implement feature validation checks
-- [ ] Document expected feature formats
-
-### 2.4 Stage 4: Feature Validation
-
-**Goal**: Understand which slides successfully extracted features, which failed, and why
-
-**What to Check:**
-- Which slides have features extracted successfully
-- Which slides failed during extraction (errors, timeouts, corrupted files)
-- Feature file integrity (correct dimensions, no NaN/Inf values)
-- Feature statistics per slide (mean, std, distribution)
-- Missing tiles or incomplete coverage
-- Per-site extraction success rates
-- Cross-model comparison (do same slides fail across models?)
-
-**Utils Functions:**
-```python
-# utils/feature_validation.py
-def check_feature_files_exist(slide_table, feature_dir) -> pd.DataFrame
-def validate_feature_integrity(feature_path) -> Dict[str, Any]
-def parse_extraction_logs(log_dir) -> pd.DataFrame
-def generate_extraction_report(slide_table, feature_dirs, models) -> pd.DataFrame
-def plot_extraction_statistics(report_df) -> Figure
-def identify_problematic_slides(report_df, threshold=0.8) -> List[str]
-```
-
-**Script:**
-```bash
-python scripts/4_feature_validation.py \
-  --slide-table tables/slide_table.csv \
-  --feature-base-dir data/ \
-  --models ctranspath,virchow2,uni2 \
-  --output-dir results/feature_validation/
-```
-
-**Output:**
-- `results/feature_validation/extraction_report.csv` - Per-slide, per-model status
-- `results/feature_validation/failed_slides.csv` - Slides that failed extraction
-- `results/feature_validation/statistics.json` - Summary statistics
-- `results/feature_validation/figures/` - Visualization of success rates
-
-**Tasks:**
-- [ ] Implement `utils/feature_validation.py`
-- [ ] Implement `scripts/4_feature_validation.py`
-- [ ] Check feature file existence across all models
-- [ ] Validate feature dimensions and integrity
-- [ ] Parse STAMP preprocessing logs for errors
-- [ ] Generate per-site, per-model extraction statistics
-- [ ] Create visualization of extraction success rates
-- [ ] Identify and document problematic slides
-- [ ] Generate actionable recommendations (re-run, exclude, etc.)
-
-### 2.5 Stage 5: Baseline Testing (HistoBistro)
-
-**Goal**: Validate data quality by testing with published pre-trained model
-
-**Why This Matters:**
-- Proves our feature extraction is correct
-- Establishes performance benchmark to beat
-- Validates our data against published 0.99 sensitivity/NPV results
-- Identifies any systematic data issues early
-
-**Pre-trained Model:**
-- `HistoBistro/CancerCellCRCTransformer/trained_models/MSI_high_CRC_model.pth`
-- Trained on 13K+ patients from 16 cohorts
-- Published performance: 0.99 sensitivity, 0.99 NPV
-- Uses CTransPath features (768-dim)
-
-**Utils Functions:**
-```python
-# utils/baseline_testing.py
-def load_histobistro_model(checkpoint_path) -> nn.Module
-def prepare_features_for_histobistro(feature_dir) -> Dict
-def run_histobistro_inference(model, features) -> pd.DataFrame
-def calculate_metrics(predictions, ground_truth) -> Dict
-def generate_baseline_report(metrics) -> str
-def compare_with_published_results(metrics, published_metrics) -> Dict
-```
-
-**Script:**
-```bash
-python scripts/5_baseline_testing.py \
-  --model-checkpoint HistoBistro/CancerCellCRCTransformer/trained_models/MSI_high_CRC_model.pth \
-  --feature-dir data/all/features/xiyuewang-ctranspath-*/ \
-  --clinical-table tables/clinical_table.csv \
-  --output-dir results/baseline/
-```
-
-**Tasks:**
-- [ ] Implement `utils/baseline_testing.py`
-- [ ] Implement `scripts/5_baseline_testing.py`
-- [ ] Test HistoBistro model loads correctly
-- [ ] Validate feature format compatibility
-- [ ] Generate predictions for all patients
-- [ ] Calculate AUROC, AUPRC, Sensitivity, NPV with 95% CI
-- [ ] Compare with published results
-- [ ] Generate baseline report
-
-### 2.6 Stage 6: MIL Training (STAMP K-Fold)
-
-**Goal**: Train STAMP MIL models with k-fold cross-validation
-
-**Utils Functions:**
-```python
-# utils/training.py
-def prepare_stamp_crossval_config(model_name, n_splits=3) -> Path
-def run_stamp_crossval(config_path) -> bool
-def extract_crossval_results(output_dir) -> pd.DataFrame
-def save_best_checkpoints(crossval_dir, output_dir) -> None
-```
-
-**Script:**
-```bash
-# Single model
-python scripts/6_mil_training.py \
-  --model virchow2 \
-  --config configs/virchow2/config_all.yaml \
-  --n-splits 3
-
-# Via SLURM
-sbatch scripts/slurm/6_mil_training.sh virchow2
-```
-
-**Tasks:**
-- [ ] Implement `utils/training.py`
-- [ ] Implement `scripts/6_mil_training.py`
-- [ ] Create SLURM script for training
-- [ ] Test on one model (CTransPath)
-- [ ] Validate checkpoint saving
-- [ ] Extract predictions from all folds
-- [ ] Document training hyperparameters
-
-### 2.7 Stage 7: Statistics
-
-**Goal**: Generate comprehensive performance metrics
-
-**Utils Functions:**
-```python
-# utils/statistics.py
-def aggregate_crossval_predictions(split_dirs) -> pd.DataFrame
-def calculate_auroc_with_ci(y_true, y_pred) -> Tuple[float, float, float]
-def calculate_auprc_with_ci(y_true, y_pred) -> Tuple[float, float, float]
-def calculate_confusion_metrics(y_true, y_pred, threshold) -> Dict
-def compare_models(results_dict) -> pd.DataFrame
-def generate_statistics_report(metrics) -> str
-```
-
-**Script:**
-```bash
-python scripts/7_statistics.py \
-  --model virchow2 \
-  --crossval-dir data/all/results/crossval/ \
-  --output-dir results/statistics/
-```
-
-**Tasks:**
-- [ ] Implement `utils/statistics.py`
-- [ ] Implement `scripts/7_statistics.py`
-- [ ] Aggregate predictions across folds
-- [ ] Calculate metrics with 95% CI (bootstrap)
-- [ ] Generate per-site statistics
-- [ ] Create comparison table across models
-- [ ] Statistical significance testing (DeLong)
-
-### 2.8 Stage 8: Visualization
-
-**Goal**: Generate heatmaps, embeddings, interpretability plots
-
-**Utils Functions:**
-```python
-# utils/visualization.py
-def generate_roc_curves(results_dict) -> Figure
-def generate_pr_curves(results_dict) -> Figure
-def plot_confusion_matrix(y_true, y_pred) -> Figure
-def generate_stamp_heatmaps(config_path, checkpoint) -> None
-def plot_embeddings_umap(features, labels) -> Figure
-def visualize_top_tiles(heatmap_dir) -> Figure
-```
-
-**Script:**
-```bash
-# ROC/PR curves
-python scripts/8_visualization.py \
-  --mode curves \
-  --results-dir results/statistics/ \
-  --output-dir results/figures/
-
-# Heatmaps via STAMP
-python scripts/8_visualization.py \
-  --mode heatmaps \
-  --model virchow2 \
-  --config configs/virchow2/config_all.yaml \
-  --checkpoint data/all/results/training/best_model.ckpt
-```
-
-**Tasks:**
-- [ ] Implement `utils/visualization.py`
-- [ ] Implement `scripts/8_visualization.py`
-- [ ] Generate ROC/PR curves for all models
-- [ ] Create STAMP heatmaps wrapper
-- [ ] Generate UMAP/t-SNE embeddings
-- [ ] Create top-k tile visualizations
-- [ ] Generate publication-quality figures
+**Implemented in `argo_deepmsi/visualization.py`:**
+- ✅ ROC and PR curve generation
+- ✅ Confusion matrix plotting
+- ✅ STAMP heatmap generation wrapper
+- ✅ Multi-model comparison plots
+- ✅ Output to `results/stage8_visualization/`
 
 ---
 
-## Phase 3: End-to-End Testing
+## Phase 3: Testing & Validation (NEXT)
 
-### 3.1 Integration Testing
+### 3.1 End-to-End Pipeline Testing
 
-**Test Pipeline:**
-1. Run data ingestion
-2. Run QC on small subset
-3. Extract features for ONE model (CTransPath - already done)
-4. Validate extracted features (check which passed/failed)
-5. Run HistoBistro baseline (validates data quality)
-6. Run STAMP crossval (1 split, small dataset)
-7. Generate statistics
-8. Create visualizations
+**Goal**: Validate the entire pipeline works on real data
 
-**Tasks:**
-- [ ] Create test dataset (small subset)
-- [ ] Run end-to-end pipeline manually
-- [ ] Verify outputs at each stage
-- [ ] Check logs for errors
-- [ ] Validate metrics make sense
-- [ ] Document any issues found
+**Test Plan:**
+1. ⏳ Create ARGO environment and test Stage 1 (data ingestion)
+2. ⏳ Run feature extraction for multiple models (ctranspath, virchow2, uni2)
+3. ⏳ Validate feature extraction success rates (Stage 4)
+4. ⏳ Run HistoBistro baseline (Stage 5) - compare with published 0.99 NPV
+5. ⏳ Run MIL training (Stage 6) for at least one model
+6. ⏳ Generate statistics and visualizations (Stages 7-8)
+7. ⏳ Verify outputs at each stage are correct
+8. ⏳ Document any issues or bugs found
 
-### 3.2 Create Master Pipeline Script
+### 3.2 Large-Scale Feature Extraction
 
-```bash
-# scripts/run_pipeline.sh
-#!/bin/bash
-# Master pipeline orchestrator
-
-set -e  # Exit on error
-
-# Stage 1: Data Ingestion
-python scripts/1_data_ingestion.py --config config.yaml
-
-# Stage 2: Quality Control
-sbatch --wait scripts/slurm/2_qc_array.sh
-
-# Stage 3: Feature Extraction (all models)
-for model in virchow2 uni2 conch1_5; do
-  sbatch --wait scripts/slurm/3_extract_features.sh $model
-done
-
-# Stage 4: Feature Validation
-python scripts/4_feature_validation.py
-
-# Stage 5: Baseline Testing
-python scripts/5_baseline_testing.py
-
-# Stage 6: MIL Training (all models)
-for model in virchow2 uni2 conch1_5; do
-  sbatch --wait scripts/slurm/6_mil_training.sh $model
-done
-
-# Stage 7: Statistics
-python scripts/7_statistics.py --all-models
-
-# Stage 8: Visualization
-python scripts/8_visualization.py --all-models
-```
+**Goal**: Extract features for all 12 STAMP models
 
 **Tasks:**
-- [ ] Create `scripts/run_pipeline.sh`
-- [ ] Add error handling and logging
-- [ ] Add progress notifications
-- [ ] Add resume capability
-- [ ] Test on full dataset
-- [ ] Document runtime estimates
+- [ ] Run `bash scripts/3_feature_extraction_all.sh`
+- [ ] Monitor extraction jobs (check SLURM queue, logs)
+- [ ] Validate feature extraction success rates per model
+- [ ] Identify any problematic slides or models
+- [ ] Document model-specific issues (memory, authentication, etc.)
 
-### 3.3 Documentation
+### 3.3 Documentation (PARTIALLY COMPLETED ✅)
 
-**Create comprehensive docs:**
-- [ ] **README.md**: User guide, quick start, examples
-- [ ] **PIPELINE.md**: Technical details, data flow, formats
-- [ ] **CLAUDE.md**: Update with new structure
-- [ ] **CONTRIBUTING.md**: Code style, adding models
-- [ ] **CHANGELOG.md**: Track major changes
+**Completed:**
+- ✅ README.md - Comprehensive user guide with 8-stage pipeline
+- ✅ CLAUDE.md - Updated AI assistant guide (Nov 2025)
+- ✅ environments/README.md - Complete environment setup guide
+- ✅ FEATURE_EXTRACTION_GUIDE.md - Technical extraction details
+- ✅ QUICKSTART_FEATURE_EXTRACTION.md - Quick start guide
 
-**README Structure:**
-```markdown
-# ARGO-DeepMSI
-
-## Overview
-[What it does, who it's for]
-
-## Installation
-[Environment setup]
-
-## Quick Start
-[Minimal working example]
-
-## Pipeline Stages
-[Detailed stage-by-stage guide]
-
-## Available Models
-[List of 18 STAMP models]
-
-## Results
-[Where to find outputs]
-
-## Troubleshooting
-[Common issues]
-
-## Citation
-[How to cite]
-```
-
-**Tasks:**
-- [ ] Write comprehensive README.md
-- [ ] Create PIPELINE.md with data flow diagrams
-- [ ] Update CLAUDE.md
-- [ ] Add inline code documentation
-- [ ] Create examples directory
+**Remaining:**
+- [ ] Create CHANGELOG.md - Track version history and major changes
+- [ ] Add examples/ directory with sample configs and outputs
+- [ ] Create CONTRIBUTING.md (if planning external contributions)
 
 ---
 
-## Phase 4: Merge to Main
+## Phase 4: Merge to Main (PENDING)
 
-### 4.1 Pre-Merge Checklist
-
-- [ ] All 8 pipeline stages implemented and tested
-- [ ] Utils module complete with docstrings
-- [ ] SLURM scripts tested on cluster
-- [ ] End-to-end pipeline runs successfully
-- [ ] Documentation complete
-- [ ] Code follows style guidelines
-- [ ] Git history clean (consider squashing)
+**Pre-Merge Checklist:**
+- ✅ All 8 pipeline stages implemented
+- ✅ Package structure complete with docstrings
+- ✅ SLURM scripts implemented
+- ⏳ End-to-end pipeline tested on real data
+- ✅ Documentation complete (README, CLAUDE, guides)
+- ✅ Clean folder structure (data/ vs results/)
+- [ ] Validate on full dataset
 - [ ] No sensitive data in repo (.env excluded)
 
-### 4.2 Merge Process
-
+**Merge Process:**
 ```bash
-# Final checks
-git status
-git log --oneline
-
-# Merge to main
+# When ready:
 git checkout main
-git merge overhaul --no-ff -m "Refactor: Standardize pipeline with modular utils structure"
-
-# Tag release
-git tag -a v2.0.0 -m "Clean, standardized multi-model pipeline"
+git merge overhaul --no-ff -m "Major refactor: 8-stage pipeline with modular package architecture"
+git tag -a v2.0.0 -m "Clean, standardized multi-model MSI prediction pipeline"
 git push origin main --tags
 ```
 
-### 4.3 Post-Merge
-
-- [ ] Update main branch README
-- [ ] Archive old scripts (if needed)
-- [ ] Update documentation links
-- [ ] Notify collaborators
-- [ ] Plan Phase 5 (expansion)
-
 ---
 
-## Phase 5: Expansion (Post-Merge)
+## Phase 5: Future Work (Post-Merge)
 
-### 5.1 Additional Models
-
-- [ ] Run feature extraction for remaining STAMP models (8-18)
-- [ ] Evaluate performance across all models
-- [ ] Identify top performers
+### 5.1 Multi-Model Evaluation
+- [ ] Extract features for all 12 STAMP models
+- [ ] Train and evaluate all models
+- [ ] Compare performance (AUROC, AUPRC, CI)
+- [ ] Identify top-performing models
+- [ ] Statistical significance testing across models
 
 ### 5.2 Advanced Features
+- [ ] Hyperparameter tuning for top models
+- [ ] Ensemble methods (model averaging, stacking)
+- [ ] External validation on independent cohorts
+- [ ] Prospective validation
 
-- [ ] Hyperparameter tuning
-- [ ] Ensemble methods
-- [ ] External validation datasets
-- [ ] Clinical deployment pipeline
-
-### 5.3 Advanced QC
-
-- [ ] Integrate advanced QC tools
+### 5.3 Quality Control Enhancements
+- [ ] Integrate HistoQC or similar QC tools
+- [ ] Quantify impact of QC on model performance
 - [ ] Retrain models on QC-filtered data
-- [ ] Quantify QC impact
 
 ---
 
 ## Key Milestones
 
-| Milestone | Target | Status |
-|-----------|--------|--------|
-| Utils module created | Week 1 | ⏳ Not started |
-| Scripts refactored | Week 1-2 | ⏳ Not started |
-| Stage 1-2 working | Week 2 | ⏳ Not started |
-| Stage 3-5 working | Week 2-3 | ⏳ Not started |
-| Stage 6-7 working | Week 3 | ⏳ Not started |
-| End-to-end tested | Week 3 | ⏳ Not started |
-| Documentation complete | Week 4 | ⏳ Not started |
-| Merge to main | Week 4 | ⏳ Not started |
+| Milestone | Status |
+|-----------|--------|
+| Package structure created | ✅ Complete |
+| Scripts refactored (thin wrappers) | ✅ Complete |
+| Clean folder structure | ✅ Complete |
+| Template-based configs | ✅ Complete |
+| All 8 stages implemented | ✅ Complete |
+| Documentation updated | ✅ Complete |
+| **End-to-end pipeline tested** | ⏳ **In Progress** |
+| Large-scale feature extraction | ⏳ Pending |
+| Multi-model evaluation | ⏳ Pending |
+| Merge to main | ⏳ Pending |
 
 ---
 
 ## Success Criteria
 
-**Before merging, ensure:**
-1. ✅ Clean, modular code structure (utils + scripts)
-2. ✅ All 8 stages run end-to-end without errors
+**For merging to main:**
+1. ✅ Clean, modular code structure (argo_deepmsi package + thin scripts)
+2. ⏳ All 8 stages run end-to-end on real data without errors
 3. ✅ Feature validation identifies extraction issues clearly
-4. ✅ HistoBistro baseline validates data quality (close to 0.99 NPV)
-5. ✅ At least 3 new models successfully extracted features
-6. ✅ STAMP MIL training completes for all models
+4. ⏳ HistoBistro baseline validates data quality (target: ~0.99 NPV)
+5. ⏳ At least 3 models successfully extracted features
+6. ⏳ STAMP MIL training completes for at least one model
 7. ✅ Comprehensive documentation exists
-8. ✅ Results reproducible from clean repo clone
+8. ⏳ Results reproducible from clean environment setup
 
-**Quality gates:**
-- Code reviewed
-- No hardcoded paths
-- Proper error handling
-- Logging at all stages
-- Config-driven (no magic numbers)
+**Quality Standards Met:**
+- ✅ No hardcoded paths (centralized in io_utils.py)
+- ✅ Proper error handling throughout
+- ✅ Logging at all stages
+- ✅ Template-driven configs (no magic numbers)
+- ✅ Clean git history and documentation
