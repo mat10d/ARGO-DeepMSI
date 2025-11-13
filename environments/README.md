@@ -150,8 +150,8 @@ After requesting access and being approved, run `hf auth login` to authenticate.
 ### Installation
 
 ```bash
-# Create environment
-conda env create -f HistoBistro/environment.yaml
+# Create environment from tested configuration
+conda env create --file environments/histobistro.yml
 
 # Activate
 conda activate histobistro
@@ -227,7 +227,7 @@ hf auth login
 # Enter token from: https://huggingface.co/settings/tokens
 
 # 6. Create HistoBistro environment (if using baseline testing)
-conda env create -f HistoBistro/environment_simple.yaml
+conda env create --file environments/histobistro.yml
 
 # 7. Verify setup
 conda activate argo

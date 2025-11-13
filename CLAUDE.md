@@ -4,173 +4,183 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-ARGO-DeepMSI is a multi-stage pipeline for microsatellite instability (MSI) prediction from whole slide images of colorectal cancer. The pipeline integrates REDCap data collection, multi-site processing, and cross-validation using multiple specialized environments.
+ARGO-DeepMSI is an 8-stage pipeline for microsatellite instability (MSI) prediction from whole slide images of colorectal cancer. The pipeline uses template-based configuration, an installable Python package (`argo_deepmsi`), and multiple specialized environments.
 
 ## Environment Architecture
 
-This project uses **multiple separate environments** for different stages of the pipeline:
+This project uses **three separate environments** for different stages of the pipeline:
 
 ### 1. ARGO Environment (Conda)
-- **Purpose**: Data collection, processing, validation, and post-processing analysis
-- **Python version**: 3.9
+- **Purpose**: Data ingestion, QC, validation, statistics, visualization
+- **Python version**: 3.11
 - **Activation**: `conda activate argo`
-- **Setup**: `conda env create -f argo_env.yml`
-- **Used in**: Scripts 0, 2, 5, 6
+- **Setup**: `conda env create -f environments/argo.yml && pip install -e .`
+- **Used in**: Stages 1, 2, 4, 7, 8
 
 ### 2. STAMP Environment (UV/venv)
-- **Purpose**: Feature extraction and model training using STAMP framework
-- **Python version**: 3.11
+- **Purpose**: Feature extraction and MIL training using STAMP framework
+- **Python version**: 3.11+
 - **Location**: `/lab/barcheese01/mdiberna/ARGO-DeepMSI/STAMP/.venv`
 - **Activation**: `source /lab/barcheese01/mdiberna/ARGO-DeepMSI/STAMP/.venv/bin/activate`
-- **Setup**: Run `stamp_v2_setup.sh` which clones STAMP repo and installs via `uv sync --all-extras`
-- **Used in**: Scripts 1, 3, 4
+- **Setup**: Must install on **compute node**: `cd STAMP && MAX_JOBS=4 uv sync --extra build --extra gpu`
+- **Used in**: Stages 3, 6
 - **Critical**: Requires `export HF_HOME=/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache` before use
-- **Hugging Face models**: Requires `hf auth login` for gated models (H-optimus)
+- **Hugging Face models**: Requires `hf auth login` for gated models (virchow2, uni2, h-optimus-0, etc.)
 
-### 3. TRIDENT Environment (Conda)
-- **Purpose**: Alternative feature extraction using TRIDENT
+### 3. HistoBistro Environment (Conda)
+- **Purpose**: Baseline testing with pre-trained model
 - **Python version**: 3.10
-- **Setup**: `conda create -n trident-env python=3.10 && pip install git+https://github.com/mahmoodlab/trident.git`
-
-### 4. HistoBistro Environment (Conda)
-- **Purpose**: Model comparison and benchmarking
 - **Location**: `HistoBistro/` subdirectory (cloned from GitHub)
 - **Activation**: `conda activate histobistro`
-- **Setup**: `conda env create --file HistoBistro/environment_simple.yaml`
-- **Used in**: Script 7
+- **Setup**: `conda env create --file environments/histobistro.yml`
+- **Used in**: Stage 5
 
 ## Essential Commands
 
-### Development Workflow
+### 8-Stage Pipeline Workflow
 
 ```bash
-# Step 0: Data collection from REDCap
+# Stage 1: Data Ingestion (REDCap + Halo metadata)
 conda activate argo
-python scripts/0.prepare.py
+python scripts/1_data_ingestion.py
 
-# Step 1: Feature extraction via STAMP (SLURM job array for 6 sites)
-# Must be in STAMP environment for preprocessing
-sbatch scripts/1.preprocess.sh  # Array job 0-5, uses config files per site
+# Stage 2: Quality Control (placeholder)
+python scripts/2_quality_control.py
 
-# Step 2: Validate preprocessing
+# Stage 3: Feature Extraction (all models, all sites)
+source STAMP/.venv/bin/activate
+bash scripts/3_feature_extraction_all.sh  # Or single model: sbatch scripts/3_feature_extraction.sh ctranspath
+
+# Stage 4: Feature Validation
 conda activate argo
-python scripts/2.preprocess_eval.py
+python scripts/4_feature_validation.py
 
-# Step 3: Consolidate features and run cross-validation
-sbatch scripts/3.cross_validation.sh
+# Stage 5: Baseline Testing (HistoBistro pre-trained model)
+conda activate histobistro
+python scripts/5_baseline_testing.py
 
-# Step 4: Generate statistical analysis
-sbatch scripts/4.statistics.sh
+# Stage 6: MIL Training (cross-validation)
+source STAMP/.venv/bin/activate
+sbatch scripts/6_mil_training.sh ctranspath
 
-# Optional: HistoBistro comparison
+# Stage 7: Statistics (AUROC, AUPRC, CI)
 conda activate argo
-python scripts/6.prepare_histobistro.py
-sbatch scripts/7.histobistro.sh
+python scripts/7_statistics.py
+
+# Stage 8: Visualization (heatmaps, ROC curves)
+python scripts/8_visualization.py
 ```
 
-### STAMP-Specific Commands
+### Template-Based Configuration
+
+Configs are generated dynamically from templates (no per-model files needed):
 
 ```bash
-# Initialize STAMP config for a site
-stamp --config configs/<encoder>/<site>.yaml init
+# Generate config from template
+python scripts/generate_config.py \
+  --template configs/templates/preprocessing_site.yaml.template \
+  --output my_config.yaml \
+  --model ctranspath \
+  --site OAUTHC
 
-# Run preprocessing manually (usually done via SLURM)
-stamp --config configs/<encoder>/<site>.yaml preprocess
-
-# Cross-validation
-stamp --config configs/<encoder>/config_all.yaml crossval
-
-# Generate statistics
-stamp --config configs/<encoder>/config_all.yaml statistics
-
-# Generate heatmaps
-stamp --config configs/<encoder>/config_all.yaml heatmaps
+# Configs are auto-generated by feature extraction scripts
+# Templates: configs/templates/preprocessing_site.yaml.template
+#            configs/templates/training_all.yaml.template
 ```
 
 ## Architecture and Data Flow
 
 ### Multi-Site Processing Pattern
 
-The pipeline processes slides from 6 independent sites, then consolidates for cross-validation:
-- **Site-specific repos**: `data/{OAUTHC, LUTH, LASUTH, UITH, retrospective_msk, retrospective_oau}/`
-- **Consolidated repo**: `data/all/`
+The pipeline processes slides from 6 independent sites:
+- **OAUTHC**, **LUTH**, **LASUTH**, **UITH** (prospective cohorts)
+- **retrospective_msk**, **retrospective_oau** (retrospective cohorts)
 
-Each site has its own YAML config in `configs/<encoder>/config_<SITE>.yaml`.
+Features are extracted per-site, then consolidated for cross-validation.
 
 ### Data Pipeline Flow
 
 ```
-REDCap API → 0.prepare.py → tables/0/{clinical,slide}_table.csv
-                                ↓
-            1.preprocess.sh (per-site) → data/{SITE}/features/
-                                ↓
-            2.preprocess_eval.py → tables/2/{SITE}_{clinical,slide}_table.csv
-                                ↓
-            3.cross_validation.sh → consolidates to data/all/features/
-                                   → data/all/results/crossval/split-{0,1,2}/
-                                ↓
-            4.statistics.sh → data/all/results/statistics/
+REDCap API + Halo CSVs → 1_data_ingestion.py → results/stage1_data_ingestion/{clinical,slide}_table.csv
+                                                  ↓
+                          2_quality_control.py → results/stage2_qc/qc_report.csv
+                                                  ↓
+                          3_feature_extraction.sh (per-site array) → results/stage3_features/{MODEL}/{SITE}/
+                                                  ↓
+                          4_feature_validation.py → results/stage4_feature_validation/extraction_report.csv
+                                                  ↓
+                          5_baseline_testing.py → results/stage5_baseline/predictions.csv
+                                                  ↓
+                          6_mil_training.sh → results/stage6_training/{MODEL}/crossval/split-{0,1,2}/
+                                                  ↓
+                          7_statistics.py → results/stage7_statistics/{MODEL}/metrics.json
+                                                  ↓
+                          8_visualization.py → results/stage8_visualization/figures/
 ```
 
 ### Directory Structure Conventions
 
-- `data/{SITE}/raw/`: Original SVS whole slide images
-- `data/{SITE}/features/{encoder}/`: Extracted features per encoder (e.g., `xiyuewang-ctranspath-7c998680-02627079/`)
-- `data/{SITE}/results/`: Model training outputs and checkpoints
-- `data/{SITE}/.cache/`: STAMP preprocessing cache
-- `tables/0/`: Initial clinical and slide tables from REDCap
-- `tables/2/`: Post-preprocessing validated tables (split by site and consolidated)
-- `configs/{encoder}/`: STAMP YAML configs per encoder type (ctranspath, h-optimus-0, h-optimus-1)
+**Input Data:**
+- `data/raw/{SITE}/`: Original SVS whole slide images
+- `data/metadata/`: Halo Link CSV exports
+
+**Pipeline Outputs:**
+- `results/stage1_data_ingestion/`: Clinical and slide tables
+- `results/stage3_features/{MODEL}/{SITE}/`: Extracted features per model and site
+- `results/stage4_feature_validation/`: Feature QC reports
+- `results/stage6_training/{MODEL}/`: Model checkpoints and cross-validation results
+- `results/stage7_statistics/{MODEL}/`: Performance metrics (AUROC, AUPRC, CI)
+- `results/stage8_visualization/`: Heatmaps and figures
+
+**Configuration:**
+- `configs/templates/`: YAML templates for dynamic config generation
+- `.temp_configs/{MODEL}/`: Runtime-generated configs (gitignored)
 
 ## STAMP Configuration Structure
 
-STAMP configs are YAML files with these key sections:
+STAMP configs are generated dynamically from templates. Key sections:
 
 ```yaml
+# Template: configs/templates/preprocessing_site.yaml.template
+preprocessing:
+  wsi_dir: "${BASE_DIR}/data/raw/${SITE}/"
+  output_dir: "${BASE_DIR}/results/stage3_features/${MODEL}/${SITE}/"
+  norm_wsi_dir: "${BASE_DIR}/data/norm/${SITE}/"
+  slide_table: "${BASE_DIR}/results/stage1_data_ingestion/slide_table.csv"
+  encoder: "${MODEL}"
+  device: "${DEVICE}"
+  max_workers: 16
+
+# Template: configs/templates/training_all.yaml.template
 crossval:
-  output_dir: "path/to/results/crossval"
-  clini_table: "path/to/clinical_table.csv"
-  feature_dir: "path/to/features/{encoder}/"
-  slide_table: "path/to/slide_table.csv"
-  ground_truth_label: "isMSIH"  # Column name in clinical table
+  output_dir: "${BASE_DIR}/results/stage6_training/${MODEL}/crossval"
+  clini_table: "${BASE_DIR}/results/stage1_data_ingestion/clinical_table.csv"
+  feature_dir: "${BASE_DIR}/results/stage3_features/${MODEL}/all/"
+  slide_table: "${BASE_DIR}/results/stage1_data_ingestion/slide_table.csv"
+  ground_truth_label: "isMSIH"
   patient_label: "PATIENT"
   filename_label: "FILENAME"
   categories: ["MSI-H", "MSS"]
-  n_splits: 3
-
-statistics:
-  output_dir: "path/to/results/statistics"
-  ground_truth_label: "isMSIH"
-  true_class: "MSI-H"
-  pred_csvs:
-    - "path/to/crossval/split-0/patient-preds.csv"
-    - "path/to/crossval/split-1/patient-preds.csv"
-    - "path/to/crossval/split-2/patient-preds.csv"
-
-heatmaps:
-  output_dir: "path/to/results/heatmaps"
-  feature_dir: "path/to/features/{encoder}/"
-  wsi_dir: "path/to/raw/"
-  checkpoint_path: "path/to/results/training/model.ckpt"
-  topk: 10
-  bottomk: 10
+  n_splits: ${N_SPLITS}
 ```
+
+Placeholders (`${MODEL}`, `${SITE}`, etc.) are replaced at runtime by `scripts/generate_config.py`.
 
 ## SLURM Job Configuration Patterns
 
 Scripts use SLURM for HPC execution:
 
-- **Preprocessing** (1.preprocess.sh): Array job `--array=0-5` for 6 sites, requires GPU (`--gres=gpu:1`), 12h runtime
-- **Cross-validation** (3.cross_validation.sh): Single job, GPU required, consolidates features via `rsync` before running
-- **Statistics** (4.statistics.sh): CPU-only, short runtime (1h), no GPU needed
-- **HistoBistro** (7.histobistro.sh): Uses `histobistro` conda environment, runs from `HistoBistro/` subdirectory
+- **Feature Extraction** (3_feature_extraction.sh): Array job `--array=0-5` for 6 sites, GPU required (`--gres=gpu:1`), 12h runtime
+- **MIL Training** (6_mil_training.sh): Single job, GPU required, runs cross-validation with n_splits folds
+- **Statistics** (7_statistics.py): CPU-only, short runtime, aggregates metrics across folds
 
 All SLURM scripts:
 1. Source `~/.bashrc`
-2. Activate appropriate conda/venv environment
-3. Print GPU info via `nvidia-smi`
+2. Activate appropriate environment (STAMP or ARGO)
+3. Print GPU info via `nvidia-smi` (if GPU job)
 4. Test PyTorch CUDA availability
-5. Verify config file exists before running
+5. Generate config from template (if applicable)
+6. Verify inputs exist before running
 
 ## Critical Environment Variables
 
