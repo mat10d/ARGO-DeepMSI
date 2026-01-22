@@ -150,13 +150,28 @@ for MODEL in "${MODELS[@]}"; do
         # Wait for job to finish (sbatch --wait handles this)
         echo "Job $JOB_ID completed for model: $MODEL"
 
-        # Check if job succeeded by looking at SLURM output files
-        # Note: This is a simplified check - you may want more robust error checking
-        if ls "$BASE_DIR/logs/feature_extraction/workers/extract_${JOB_ID}_*.out" 1> /dev/null 2>&1; then
-            echo "✓ Feature extraction completed for $MODEL"
-            SUCCESSFUL_MODELS+=("$MODEL")
+        # Check job status by examining worker log files
+        # Count successful vs failed tasks in the array job
+        WORKER_LOGS="$BASE_DIR/logs/feature_extraction/workers/extract_${JOB_ID}_*.out"
+
+        if ls $WORKER_LOGS 1> /dev/null 2>&1; then
+            # Count successes and failures
+            SUCCESS_COUNT=$(grep -l "Exit code: 0" $WORKER_LOGS | wc -l)
+            FAILURE_COUNT=$(grep -l "Exit code: 1" $WORKER_LOGS | wc -l)
+            TOTAL_COUNT=$(ls $WORKER_LOGS | wc -l)
+
+            if [ $FAILURE_COUNT -eq 0 ] && [ $SUCCESS_COUNT -eq $TOTAL_COUNT ]; then
+                echo "✓ Feature extraction completed for $MODEL ($SUCCESS_COUNT/$TOTAL_COUNT sites successful)"
+                SUCCESSFUL_MODELS+=("$MODEL")
+            elif [ $FAILURE_COUNT -eq $TOTAL_COUNT ]; then
+                echo "✗ Feature extraction failed for $MODEL (all $TOTAL_COUNT sites failed - check logs)"
+                FAILED_MODELS+=("$MODEL")
+            else
+                echo "⚠ Feature extraction partially completed for $MODEL ($SUCCESS_COUNT succeeded, $FAILURE_COUNT failed - check logs)"
+                FAILED_MODELS+=("$MODEL")
+            fi
         else
-            echo "✗ Feature extraction may have failed for $MODEL (check logs)"
+            echo "✗ No worker logs found for $MODEL (job may not have started - check SLURM logs)"
             FAILED_MODELS+=("$MODEL")
         fi
 
@@ -184,9 +199,9 @@ for model in "${SUCCESSFUL_MODELS[@]}"; do
     echo "    ✓ $model"
 done
 echo ""
-echo "  Failed: ${#FAILED_MODELS[@]}"
+echo "  Failed/Partial: ${#FAILED_MODELS[@]}"
 for model in "${FAILED_MODELS[@]}"; do
-    echo "    ✗ $model"
+    echo "    ✗ $model (check worker logs for details)"
 done
 echo ""
 echo "  Skipped: ${#SKIPPED_MODELS[@]}"
@@ -194,5 +209,7 @@ for model in "${SKIPPED_MODELS[@]}"; do
     echo "    ⊘ $model"
 done
 echo ""
-echo "Worker logs: $BASE_DIR/logs/feature_extraction/workers/"
+echo "Check detailed results:"
+echo "  Orchestrator log: $BASE_DIR/logs/feature_extraction/orchestrator_$SLURM_JOB_ID.out"
+echo "  Worker logs: $BASE_DIR/logs/feature_extraction/workers/"
 echo "=========================================="
