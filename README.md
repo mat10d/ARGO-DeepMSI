@@ -131,6 +131,39 @@ results/
 └── models/                 # Trained classifiers
 ```
 
+## HPC / Multi-Model Processing
+
+For running across all models on an HPC cluster:
+
+```bash
+# List available model groups
+python scripts/run_all_models.py --list-models
+
+# Run all recommended models sequentially (interactive GPU session)
+python scripts/run_all_models.py results/data/slide_table.csv --group recommended
+
+# Submit SLURM array job (parallel, one model per GPU)
+python scripts/run_all_models.py results/data/slide_table.csv --slurm --max-concurrent 4
+
+# Run only non-gated models (no HF auth needed)
+python scripts/run_all_models.py results/data/slide_table.csv --no-auth-only
+
+# Test with small subset
+python scripts/run_all_models.py results/data/slide_table.csv --models uni2 virchow2 --max-slides 10
+
+# After extraction, aggregate and visualize all models
+python scripts/aggregate_and_visualize.py --clinical results/data/clinical_table.csv
+```
+
+### Model Groups
+
+| Group | Models |
+|-------|--------|
+| `no_auth` | resnet50, ctranspath, plip |
+| `recommended` | uni2, virchow2, h-optimus-0, gigapath, ctranspath |
+| `gated` | uni, uni2, virchow, virchow2, conch, gigapath, h-optimus-0/1 |
+| `all_patch` | All patch-level extractors |
+
 ## Environment Variables
 
 ```bash
