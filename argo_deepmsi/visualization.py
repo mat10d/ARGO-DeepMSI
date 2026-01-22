@@ -396,3 +396,259 @@ def plot_model_comparison(
         fig.savefig(output_path, dpi=150, bbox_inches='tight')
 
     return fig
+
+
+# ============================================================================
+# LazySlide-native tile visualization
+# ============================================================================
+
+def visualize_tile_clusters(
+    slide_path: Union[str, Path],
+    model: str = "uni2",
+    output_path: Optional[Path] = None,
+    tile_px: int = 256,
+    mpp: float = 0.5,
+    resolution: float = 1.0,
+    figsize: Tuple[int, int] = (18, 6),
+    device: str = "cuda",
+) -> Optional[plt.Figure]:
+    """Visualize tile-level Leiden clusters on a slide.
+
+    This performs:
+    1. Feature extraction
+    2. Neighbor graph construction
+    3. Leiden clustering
+    4. Spatial visualization of clusters
+
+    Args:
+        slide_path: Path to WSI file
+        model: Feature extraction model
+        output_path: Path to save figure
+        tile_px: Tile size
+        mpp: Microns per pixel
+        resolution: Leiden clustering resolution
+        figsize: Figure size
+        device: Device for inference
+
+    Returns:
+        Matplotlib figure or None
+    """
+    if not LAZYSLIDE_AVAILABLE:
+        raise ImportError("LazySlide is not installed")
+
+    try:
+        import scanpy as sc
+    except ImportError:
+        raise ImportError("scanpy is required. Run: pip install scanpy")
+
+    slide_path = Path(slide_path)
+
+    try:
+        # Load and process slide
+        wsi = zs.WSI(str(slide_path))
+        zs.pp.find_tissues(wsi)
+        zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
+        zs.tl.feature_extraction(wsi, model=model, device=device)
+
+        # Get features and perform clustering
+        feature_key = f"{model}_tiles"
+        adata = wsi[feature_key]
+
+        # Compute neighbors and cluster
+        sc.pp.neighbors(adata, n_neighbors=15)
+        sc.tl.umap(adata)
+        sc.tl.leiden(adata, resolution=resolution, key_added="leiden")
+
+        # Create visualization
+        fig, axes = plt.subplots(1, 3, figsize=figsize)
+
+        # 1. Original slide
+        axes[0].set_title("Original Slide")
+        zs.pl.wsi(wsi, ax=axes[0])
+
+        # 2. Spatial cluster map
+        axes[1].set_title(f"Tile Clusters (Leiden, res={resolution})")
+        zs.pl.tiles(wsi, feature_key=model, color="leiden", alpha=0.6, ax=axes[1])
+
+        # 3. UMAP of tiles colored by cluster
+        axes[2].set_title("Tile UMAP")
+        sc.pl.umap(adata, color="leiden", ax=axes[2], show=False)
+
+        plt.suptitle(f"{slide_path.name} - {model}", fontsize=14)
+        plt.tight_layout()
+
+        if output_path:
+            ensure_dir(output_path.parent)
+            fig.savefig(output_path, dpi=150, bbox_inches='tight')
+            logger.info(f"Saved cluster visualization: {output_path}")
+
+        return fig
+
+    except Exception as e:
+        logger.error(f"Failed to visualize clusters for {slide_path.name}: {e}")
+        return None
+
+
+def visualize_feature_heatmap(
+    slide_path: Union[str, Path],
+    model: str = "uni2",
+    feature_idx: int = 0,
+    output_path: Optional[Path] = None,
+    tile_px: int = 256,
+    mpp: float = 0.5,
+    cmap: str = "viridis",
+    figsize: Tuple[int, int] = (12, 5),
+    device: str = "cuda",
+) -> Optional[plt.Figure]:
+    """Visualize a single feature dimension as a spatial heatmap.
+
+    Args:
+        slide_path: Path to WSI file
+        model: Feature extraction model
+        feature_idx: Which feature dimension to visualize
+        output_path: Path to save figure
+        tile_px: Tile size
+        mpp: Microns per pixel
+        cmap: Colormap for heatmap
+        figsize: Figure size
+        device: Device for inference
+
+    Returns:
+        Matplotlib figure or None
+    """
+    if not LAZYSLIDE_AVAILABLE:
+        raise ImportError("LazySlide is not installed")
+
+    slide_path = Path(slide_path)
+
+    try:
+        wsi = zs.WSI(str(slide_path))
+        zs.pp.find_tissues(wsi)
+        zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
+        zs.tl.feature_extraction(wsi, model=model, device=device)
+
+        fig, axes = plt.subplots(1, 2, figsize=figsize)
+
+        # Original slide
+        axes[0].set_title("Original Slide")
+        zs.pl.wsi(wsi, ax=axes[0])
+
+        # Feature heatmap
+        axes[1].set_title(f"Feature {feature_idx} Heatmap")
+        zs.pl.tiles(
+            wsi,
+            feature_key=model,
+            color=[str(feature_idx)],
+            style="heatmap",
+            cmap=cmap,
+            ax=axes[1],
+        )
+
+        plt.suptitle(f"{slide_path.name} - {model} Feature {feature_idx}", fontsize=14)
+        plt.tight_layout()
+
+        if output_path:
+            ensure_dir(output_path.parent)
+            fig.savefig(output_path, dpi=150, bbox_inches='tight')
+
+        return fig
+
+    except Exception as e:
+        logger.error(f"Failed to create heatmap for {slide_path.name}: {e}")
+        return None
+
+
+def explore_slide(
+    slide_path: Union[str, Path],
+    model: str = "uni2",
+    output_dir: Optional[Path] = None,
+    tile_px: int = 256,
+    mpp: float = 0.5,
+    device: str = "cuda",
+) -> dict:
+    """Generate comprehensive exploration visualizations for a slide.
+
+    Creates:
+    - Overview (slide + tissue + tiles)
+    - Cluster visualization
+    - Top 5 feature heatmaps
+    - Tile UMAP
+
+    Args:
+        slide_path: Path to WSI file
+        model: Feature extraction model
+        output_dir: Directory to save figures
+        tile_px: Tile size
+        mpp: Microns per pixel
+        device: Device for inference
+
+    Returns:
+        Dictionary with paths to generated figures
+    """
+    if not LAZYSLIDE_AVAILABLE:
+        raise ImportError("LazySlide is not installed")
+
+    slide_path = Path(slide_path)
+    slide_name = slide_path.stem
+
+    if output_dir is None:
+        output_dir = get_visualizations_dir() / "slides" / slide_name
+    ensure_dir(output_dir)
+
+    logger.info(f"Exploring slide: {slide_name}")
+
+    results = {"slide": str(slide_path), "model": model, "figures": {}}
+
+    # 1. Overview
+    try:
+        fig = visualize_slide(
+            slide_path=slide_path,
+            output_path=output_dir / f"{slide_name}_overview.png",
+            tile_px=tile_px,
+            mpp=mpp,
+        )
+        if fig:
+            results["figures"]["overview"] = str(output_dir / f"{slide_name}_overview.png")
+            plt.close(fig)
+    except Exception as e:
+        logger.warning(f"Overview failed: {e}")
+
+    # 2. Cluster visualization
+    try:
+        fig = visualize_tile_clusters(
+            slide_path=slide_path,
+            model=model,
+            output_path=output_dir / f"{slide_name}_clusters.png",
+            tile_px=tile_px,
+            mpp=mpp,
+            device=device,
+        )
+        if fig:
+            results["figures"]["clusters"] = str(output_dir / f"{slide_name}_clusters.png")
+            plt.close(fig)
+    except Exception as e:
+        logger.warning(f"Cluster viz failed: {e}")
+
+    # 3. Feature heatmaps (top 5 features)
+    for feat_idx in range(5):
+        try:
+            fig = visualize_feature_heatmap(
+                slide_path=slide_path,
+                model=model,
+                feature_idx=feat_idx,
+                output_path=output_dir / f"{slide_name}_feature_{feat_idx}.png",
+                tile_px=tile_px,
+                mpp=mpp,
+                device=device,
+            )
+            if fig:
+                results["figures"][f"feature_{feat_idx}"] = str(
+                    output_dir / f"{slide_name}_feature_{feat_idx}.png"
+                )
+                plt.close(fig)
+        except Exception as e:
+            logger.warning(f"Feature {feat_idx} heatmap failed: {e}")
+
+    logger.info(f"Generated {len(results['figures'])} figures for {slide_name}")
+
+    return results
