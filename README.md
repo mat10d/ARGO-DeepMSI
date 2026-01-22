@@ -1,192 +1,151 @@
-# ARGO-DeepMSI: MSI Prediction Pipeline
+# ARGO-DeepMSI
 
-Multi-model pipeline for microsatellite instability (MSI) prediction from whole slide images of colorectal cancer.
+MSI prediction from whole slide images using [LazySlide](https://github.com/rendeirolab/LazySlide).
 
-## Pipeline Overview
+## Overview
 
-8-stage pipeline from raw slides to biomarker prediction:
+Simplified pipeline for microsatellite instability (MSI) prediction from colorectal cancer histopathology:
 
 1. **Data Ingestion** - REDCap + Halo metadata → clinical/slide tables
-2. **Quality Control** - Filter low-quality slides (placeholder)
-3. **Feature Extraction** - Extract features using STAMP models
-4. **Feature Validation** - Verify extraction success
-5. **Baseline Testing** - Validate with pre-trained model (HistoBistro)
-6. **MIL Training** - Train models with cross-validation
-7. **Statistics** - Calculate metrics (AUROC, AUPRC, CI)
-8. **Visualization** - Generate heatmaps and figures
+2. **Feature Extraction** - Extract features using foundation models (UNI2, Virchow2, etc.)
+3. **Visualization** - UMAP/t-SNE embeddings, slide visualization
+4. **Training** - Simple classifiers (LogReg, RF, SVM) or lightweight MLP
 
----
+## Installation
+
+```bash
+# Create environment
+conda env create -f environments/argo.yml
+conda activate argo
+
+# Or with pip directly
+pip install -e .
+
+# For gated models (UNI, Virchow, etc.), authenticate with Hugging Face
+huggingface-cli login
+```
 
 ## Quick Start
 
-### 1. Setup Environments
-
-See **[environments/README.md](environments/README.md)** for complete installation instructions.
+### CLI Interface
 
 ```bash
-# ARGO environment (data processing)
-conda env create -f environments/argo.yml
-conda activate argo
-pip install -e .
+# List available models
+argo models
 
-# STAMP environment (feature extraction) - MUST install on compute node!
-srun --partition=nvidia-2080ti-20 --gres=gpu:1 --mem=64G --time=2:00:00 --pty bash
-cd STAMP && MAX_JOBS=4 uv sync --extra build --extra gpu && exit
+# Data ingestion (from REDCap)
+argo ingest
 
-# Authenticate with Hugging Face (for gated models)
-source STAMP/.venv/bin/activate
-hf auth login
+# Extract features from slides
+argo extract slide_table.csv --model uni2 --model virchow2
+
+# Aggregate patch features to slide embeddings
+argo aggregate results/features/uni2 uni2 --method mean
+
+# Visualize embeddings
+argo visualize --embeddings results/embeddings/uni2
+
+# Train classifiers
+argo train results/embeddings/uni2 clinical_table.csv
+
+# Full pipeline
+argo run slide_table.csv clinical_table.csv --model uni2
 ```
 
-### 2. Run Pipeline
+### Python API
 
-```bash
-# Stage 1: Data Ingestion
-conda activate argo
-python scripts/1_data_ingestion.py
+```python
+import lazyslide as zs
+from argo_deepmsi import feature_extraction, visualization, training
 
-# Stage 2: Quality Control (placeholder)
-python scripts/2_quality_control.py
+# Load slide
+wsi = zs.WSI("path/to/slide.svs")
 
-# Stage 3: Feature Extraction (ALL models)
-bash scripts/3_feature_extraction_all.sh
+# Process slide
+zs.pp.find_tissues(wsi)
+zs.pp.tile_tissues(wsi, tile_px=256, mpp=0.5)
 
-# Or single model:
-# sbatch scripts/3_feature_extraction.sh ctranspath
+# Extract features with any model
+zs.tl.feature_extraction(wsi, model="uni2", amp=True)
 
-# Stage 4: Feature Validation
-conda activate argo
-python scripts/4_feature_validation.py
-
-# Stage 5: Baseline Testing (optional)
-conda activate histobistro
-python scripts/5_baseline_testing.py
-
-# Stage 6: MIL Training
-source STAMP/.venv/bin/activate
-sbatch scripts/6_mil_training.sh ctranspath
-
-# Stage 7: Statistics
-conda activate argo
-python scripts/7_statistics.py
-
-# Stage 8: Visualization
-python scripts/8_visualization.py
+# Access features
+features = wsi["uni2_tiles"]
 ```
 
----
+## Supported Models
 
-## Script Reference
+### Patch-Level Extractors
 
-| Stage | Script | Environment | Description |
-|-------|--------|-------------|-------------|
-| 1 | `1_data_ingestion.py` | ARGO | Fetch REDCap + Halo data |
-| 2 | `2_quality_control.py` | ARGO | Slide QC (placeholder) |
-| 3 | `3_feature_extraction_all.sh` | STAMP | Extract features (all models) |
-| 3 | `3_feature_extraction.sh` | STAMP | Extract features (single model) |
-| 4 | `4_feature_validation.py` | ARGO | Verify feature extraction |
-| 5 | `5_baseline_testing.py` | HistoBistro | Pre-trained model validation |
-| 6 | `6_mil_training.sh` | STAMP | Cross-validation training |
-| 7 | `7_statistics.py` | ARGO | Performance metrics |
-| 8 | `8_visualization.py` | ARGO | Heatmaps and figures |
+| Model | Auth Required | Description |
+|-------|--------------|-------------|
+| resnet50 | No | ImageNet pretrained ResNet50 |
+| ctranspath | No | CTransPath pathology foundation model |
+| plip | No | PLIP vision-language model |
+| uni / uni2 | Yes | UNI pathology foundation models |
+| virchow / virchow2 | Yes | Virchow models (631M params) |
+| conch | Yes | CONCH vision-language model |
+| gigapath | Yes | GigaPath foundation model |
+| h-optimus-0/1 | Yes | H-Optimus models |
 
-**Helper Scripts:**
-- `scripts/test_model_access.py` - Test if model is accessible
-- `scripts/generate_config.py` - Generate STAMP configs from templates
+### Slide-Level Aggregators
 
----
+| Model | Description |
+|-------|-------------|
+| prism | PRISM slide-level aggregator |
+| threads | THREADS slide-level model |
 
-## Feature Extraction Models
+## Project Structure
 
-Stage 3 processes slides with 12 STAMP models (newer versions preferred):
-
-**No authentication:**
-- ctranspath
-- plip
-- dinobloom
-- chief-ctranspath
-
-**Gated (requires HF authentication):**
-- virchow2 (vs virchow)
-- uni2 (vs uni)
-- conch1_5 (vs conch)
-- gigapath
-- h-optimus-0
-- h-optimus-1
-- mstar
-- musk
-
----
+```
+ARGO-DeepMSI/
+├── argo_deepmsi/           # Core package
+│   ├── cli.py              # CLI entry point
+│   ├── data_ingestion.py   # REDCap + Halo data loading
+│   ├── feature_extraction.py # LazySlide feature extraction
+│   ├── visualization.py    # UMAP, t-SNE, slide viz
+│   ├── training.py         # Simple classifiers + MLP
+│   └── io_utils.py         # Path management
+├── environments/
+│   └── argo.yml            # Conda environment
+├── pyproject.toml          # Package config
+└── README.md
+```
 
 ## Output Structure
 
 ```
 results/
-├── stage1_data_ingestion/       # Clinical and slide tables
-├── stage2_qc/                   # QC reports
-├── stage3_features/             # Extracted features
-│   ├── ctranspath/
-│   │   ├── OAUTHC/
-│   │   ├── LUTH/
-│   │   └── ...
+├── data/                   # Clinical and slide tables
+│   ├── clinical_table.csv
+│   └── slide_table.csv
+├── features/               # Patch-level features (.h5ad)
+│   ├── uni2/
 │   ├── virchow2/
 │   └── ...
-├── stage4_feature_validation/   # Feature QC reports
-├── stage5_baseline/             # HistoBistro results
-├── stage6_training/             # MIL training outputs
-├── stage7_statistics/           # Performance metrics
-└── stage8_visualization/        # Figures and heatmaps
+├── embeddings/             # Slide-level embeddings
+│   ├── uni2/
+│   │   ├── embeddings.npy
+│   │   └── metadata.csv
+│   └── ...
+├── visualizations/         # Plots and figures
+└── models/                 # Trained classifiers
 ```
 
----
+## Environment Variables
 
-## Documentation
+```bash
+# Required for gated HuggingFace models
+export HF_HOME="/path/to/.huggingface_cache"
 
-- **[environments/README.md](environments/README.md)** - Environment setup and installation
-- **[QUICKSTART_FEATURE_EXTRACTION.md](QUICKSTART_FEATURE_EXTRACTION.md)** - Feature extraction guide
-- **[FEATURE_EXTRACTION_GUIDE.md](FEATURE_EXTRACTION_GUIDE.md)** - Technical details
-- **[CLAUDE.md](CLAUDE.md)** - AI assistant instructions
-- **[TODO.md](TODO.md)** - Development roadmap
+# For offline use on compute nodes
+export HF_HUB_OFFLINE=1
 
----
-
-## Key Design Principles
-
-1. **Modular Package**: Heavy logic in `argo_deepmsi/` package, thin scripts in `scripts/`
-2. **Template-Based Configs**: STAMP configs generated from templates (not hardcoded per model)
-3. **External Dependencies**: STAMP and HistoBistro cloned locally, never modified
-4. **Multi-Environment**: Three separate environments (ARGO, STAMP, HistoBistro)
-
----
-
-## Troubleshooting
-
-**STAMP installation fails:**
-- Must install on compute node (not head node) - see [environments/README.md](environments/README.md)
-
-**Feature extraction fails:**
-- Run `python scripts/test_model_access.py <model>` to verify model is accessible
-- Check Hugging Face authentication: `huggingface-cli whoami`
-
-**GPU not detected:**
-- Check: `nvidia-smi` and `python -c "import torch; print(torch.cuda.is_available())"`
-
-For more troubleshooting, see [environments/README.md](environments/README.md).
-
----
-
-## Citation
-
-If using this pipeline, please cite:
-
-```bibtex
-@article{argo_deepmsi,
-  title={ARGO-DeepMSI: Multi-Model MSI Prediction from Histopathology},
-  author={Your Name et al.},
-  year={2025}
-}
+# REDCap credentials (in .env file)
+REDCAP_API_TOKEN=your_token
+REDCAP_API_URL=https://redcap.example.com/api/
 ```
 
-Also cite:
-- **STAMP**: https://github.com/KatherLab/STAMP
-- **HistoBistro**: https://github.com/peng-lab/HistoBistro
+## References
+
+- **LazySlide**: https://github.com/rendeirolab/LazySlide
+- **LazySlide Paper**: https://doi.org/10.1101/2025.05.28.656548

@@ -396,8 +396,8 @@ def process_redcap_data(
         Exception: If REDCap fetch or data processing fails
     """
     if output_dir is None:
-        from .io_utils import get_stage_dir
-        output_dir = get_stage_dir(1)  # results/stage1_data_ingestion/
+        from .io_utils import get_results_dir
+        output_dir = get_results_dir() / "data"
     else:
         output_dir = Path(output_dir)
 
@@ -436,14 +436,6 @@ def process_redcap_data(
     # Save final cleaned tables
     clinical_table.to_csv(output_dir / "clinical_table.csv", index=False)
     slide_table.to_csv(output_dir / "slide_table.csv", index=False)
-
-    # Step 7: Generate visualizations
-    logger.info("Generating visualizations...")
-    from . import visualization
-    viz_dir = output_dir / "visualizations"
-    visualization.generate_data_ingestion_visualizations(
-        clinical_table, slide_table, viz_dir
-    )
 
     logger.info("Data ingestion complete")
     logger.info(f"  - Clinical table: {len(clinical_table)} patients")

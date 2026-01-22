@@ -1,260 +1,111 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-ARGO-DeepMSI is an 8-stage pipeline for microsatellite instability (MSI) prediction from whole slide images of colorectal cancer. The pipeline uses template-based configuration, an installable Python package (`argo_deepmsi`), and multiple specialized environments.
+ARGO-DeepMSI is a simplified pipeline for MSI prediction from whole slide images using [LazySlide](https://github.com/rendeirolab/LazySlide). The architecture uses a single Python environment and a unified CLI interface.
 
-## Environment Architecture
+## Architecture
 
-This project uses **three separate environments** for different stages of the pipeline:
-
-### 1. ARGO Environment (Conda)
-- **Purpose**: Data ingestion, QC, validation, statistics, visualization
-- **Python version**: 3.11
-- **Activation**: `conda activate argo`
-- **Setup**: `conda env create -f environments/argo.yml && pip install -e .`
-- **Used in**: Stages 1, 2, 4, 7, 8
-
-### 2. STAMP Environment (UV/venv)
-- **Purpose**: Feature extraction and MIL training using STAMP framework
-- **Python version**: 3.11+
-- **Location**: `/lab/barcheese01/mdiberna/ARGO-DeepMSI/STAMP/.venv`
-- **Activation**: `source /lab/barcheese01/mdiberna/ARGO-DeepMSI/STAMP/.venv/bin/activate`
-- **Setup**: Must install on **compute node**: `cd STAMP && MAX_JOBS=4 uv sync --extra build --extra gpu`
-- **Used in**: Stages 3, 6
-- **Critical**: Requires `export HF_HOME=/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache` before use
-- **Hugging Face models**: Requires `hf auth login` for gated models (virchow2, uni2, h-optimus-0, etc.)
-
-### 3. HistoBistro Environment (Conda)
-- **Purpose**: Baseline testing with pre-trained model
-- **Python version**: 3.10
-- **Location**: `HistoBistro/` subdirectory (cloned from GitHub)
-- **Activation**: `conda activate histobistro`
-- **Setup**: `conda env create --file environments/histobistro.yml`
-- **Used in**: Stage 5
+```
+argo_deepmsi/
+├── cli.py              # Single entry point (typer-based CLI)
+├── data_ingestion.py   # REDCap + Halo data loading
+├── feature_extraction.py # LazySlide feature extraction
+├── visualization.py    # UMAP, t-SNE, slide visualization
+├── training.py         # Classifiers (LogReg, RF, SVM, MLP)
+└── io_utils.py         # Path management
+```
 
 ## Essential Commands
 
-### 8-Stage Pipeline Workflow
+```bash
+# Install
+pip install -e .
+
+# CLI commands
+argo --help              # Show all commands
+argo models              # List available feature extraction models
+argo ingest              # Data ingestion from REDCap
+argo extract <table>     # Extract features from slides
+argo aggregate <dir>     # Aggregate patch → slide embeddings
+argo visualize           # Generate visualizations
+argo train <embeddings>  # Train classifiers
+argo run <slides> <clinical>  # Full pipeline
+```
+
+## Key Dependencies
+
+- **lazyslide**: Core library for WSI processing and feature extraction
+- **typer/rich**: CLI interface
+- **pandas/numpy**: Data handling
+- **scikit-learn**: Simple classifiers
+- **torch**: MLP training (optional)
+
+## LazySlide Usage Pattern
+
+```python
+import lazyslide as zs
+
+# Load slide
+wsi = zs.WSI("path/to/slide.svs")
+
+# Preprocessing
+zs.pp.find_tissues(wsi)
+zs.pp.tile_tissues(wsi, tile_px=256, mpp=0.5)
+
+# Feature extraction (any supported model)
+zs.tl.feature_extraction(wsi, model="uni2", amp=True)
+
+# Access features as AnnData
+features = wsi["uni2_tiles"]
+```
+
+## Supported Models
+
+**Patch-level (no auth):** resnet50, ctranspath, plip
+
+**Patch-level (HF auth required):** uni, uni2, virchow, virchow2, conch, gigapath, h-optimus-0, h-optimus-1
+
+**Slide-level aggregators:** prism, threads
+
+## Output Structure
+
+```
+results/
+├── data/           # clinical_table.csv, slide_table.csv
+├── features/       # .h5ad files per model (patch-level)
+├── embeddings/     # .npy + metadata.csv per model (slide-level)
+├── visualizations/ # Plots and figures
+└── models/         # Trained classifiers
+```
+
+## Environment Variables
 
 ```bash
-# Stage 1: Data Ingestion (REDCap + Halo metadata)
-conda activate argo
-python scripts/1_data_ingestion.py
-
-# Stage 2: Quality Control (placeholder)
-python scripts/2_quality_control.py
-
-# Stage 3: Feature Extraction (all models, all sites)
-source STAMP/.venv/bin/activate
-bash scripts/3_feature_extraction_all.sh  # Or single model: sbatch scripts/3_feature_extraction.sh ctranspath
-
-# Stage 4: Feature Validation
-conda activate argo
-python scripts/4_feature_validation.py
-
-# Stage 5: Baseline Testing (HistoBistro pre-trained model)
-conda activate histobistro
-python scripts/5_baseline_testing.py
-
-# Stage 6: MIL Training (cross-validation)
-source STAMP/.venv/bin/activate
-sbatch scripts/6_mil_training.sh ctranspath
-
-# Stage 7: Statistics (AUROC, AUPRC, CI)
-conda activate argo
-python scripts/7_statistics.py
-
-# Stage 8: Visualization (heatmaps, ROC curves)
-python scripts/8_visualization.py
-```
-
-### Template-Based Configuration
-
-Configs are generated dynamically from templates (no per-model files needed):
-
-```bash
-# Generate config from template
-python scripts/generate_config.py \
-  --template configs/templates/preprocessing_site.yaml.template \
-  --output my_config.yaml \
-  --model ctranspath \
-  --site OAUTHC
-
-# Configs are auto-generated by feature extraction scripts
-# Templates: configs/templates/preprocessing_site.yaml.template
-#            configs/templates/training_all.yaml.template
-```
-
-## Architecture and Data Flow
-
-### Multi-Site Processing Pattern
-
-The pipeline processes slides from 6 independent sites:
-- **OAUTHC**, **LUTH**, **LASUTH**, **UITH** (prospective cohorts)
-- **retrospective_msk**, **retrospective_oau** (retrospective cohorts)
-
-Features are extracted per-site, then consolidated for cross-validation.
-
-### Data Pipeline Flow
-
-```
-REDCap API + Halo CSVs → 1_data_ingestion.py → results/stage1_data_ingestion/{clinical,slide}_table.csv
-                                                  ↓
-                          2_quality_control.py → results/stage2_qc/qc_report.csv
-                                                  ↓
-                          3_feature_extraction.sh (per-site array) → results/stage3_features/{MODEL}/{SITE}/
-                                                  ↓
-                          4_feature_validation.py → results/stage4_feature_validation/extraction_report.csv
-                                                  ↓
-                          5_baseline_testing.py → results/stage5_baseline/predictions.csv
-                                                  ↓
-                          6_mil_training.sh → results/stage6_training/{MODEL}/crossval/split-{0,1,2}/
-                                                  ↓
-                          7_statistics.py → results/stage7_statistics/{MODEL}/metrics.json
-                                                  ↓
-                          8_visualization.py → results/stage8_visualization/figures/
-```
-
-### Directory Structure Conventions
-
-**Input Data:**
-- `data/raw/{SITE}/`: Original SVS whole slide images
-- `data/metadata/`: Halo Link CSV exports
-
-**Pipeline Outputs:**
-- `results/stage1_data_ingestion/`: Clinical and slide tables
-- `results/stage3_features/{MODEL}/{SITE}/`: Extracted features per model and site
-- `results/stage4_feature_validation/`: Feature QC reports
-- `results/stage6_training/{MODEL}/`: Model checkpoints and cross-validation results
-- `results/stage7_statistics/{MODEL}/`: Performance metrics (AUROC, AUPRC, CI)
-- `results/stage8_visualization/`: Heatmaps and figures
-
-**Configuration:**
-- `configs/templates/`: YAML templates for dynamic config generation
-- `.temp_configs/{MODEL}/`: Runtime-generated configs (gitignored)
-
-## STAMP Configuration Structure
-
-STAMP configs are generated dynamically from templates. Key sections:
-
-```yaml
-# Template: configs/templates/preprocessing_site.yaml.template
-preprocessing:
-  wsi_dir: "${BASE_DIR}/data/raw/${SITE}/"
-  output_dir: "${BASE_DIR}/results/stage3_features/${MODEL}/${SITE}/"
-  norm_wsi_dir: "${BASE_DIR}/data/norm/${SITE}/"
-  slide_table: "${BASE_DIR}/results/stage1_data_ingestion/slide_table.csv"
-  encoder: "${MODEL}"
-  device: "${DEVICE}"
-  max_workers: 16
-
-# Template: configs/templates/training_all.yaml.template
-crossval:
-  output_dir: "${BASE_DIR}/results/stage6_training/${MODEL}/crossval"
-  clini_table: "${BASE_DIR}/results/stage1_data_ingestion/clinical_table.csv"
-  feature_dir: "${BASE_DIR}/results/stage3_features/${MODEL}/all/"
-  slide_table: "${BASE_DIR}/results/stage1_data_ingestion/slide_table.csv"
-  ground_truth_label: "isMSIH"
-  patient_label: "PATIENT"
-  filename_label: "FILENAME"
-  categories: ["MSI-H", "MSS"]
-  n_splits: ${N_SPLITS}
-```
-
-Placeholders (`${MODEL}`, `${SITE}`, etc.) are replaced at runtime by `scripts/generate_config.py`.
-
-## SLURM Job Configuration Patterns
-
-Scripts use SLURM for HPC execution:
-
-- **Feature Extraction** (3_feature_extraction.sh): Array job `--array=0-5` for 6 sites, GPU required (`--gres=gpu:1`), 12h runtime
-- **MIL Training** (6_mil_training.sh): Single job, GPU required, runs cross-validation with n_splits folds
-- **Statistics** (7_statistics.py): CPU-only, short runtime, aggregates metrics across folds
-
-All SLURM scripts:
-1. Source `~/.bashrc`
-2. Activate appropriate environment (STAMP or ARGO)
-3. Print GPU info via `nvidia-smi` (if GPU job)
-4. Test PyTorch CUDA availability
-5. Generate config from template (if applicable)
-6. Verify inputs exist before running
-
-## Critical Environment Variables
-
-```bash
-# Required for STAMP to find Hugging Face models
-export HF_HOME="/lab/barcheese01/mdiberna/ARGO-DeepMSI/.huggingface_cache"
-
-# Required for CUDA compilation (if needed)
-export CUDA_HOME=/usr/local/cuda-12.6
-export PATH=$CUDA_HOME/bin:$PATH
+export HF_HOME="/path/to/.huggingface_cache"  # HuggingFace cache location
+export HF_HUB_OFFLINE=1                       # For offline compute nodes
 ```
 
 ## REDCap Integration
 
-The project fetches patient data from REDCap API. Required setup:
+Create `.env` file in project root:
+```
+REDCAP_API_TOKEN=your_token
+REDCAP_API_URL=https://redcap.example.com/api/
+```
 
-1. Create `.env` file in project root:
-   ```
-   REDCAP_API_TOKEN=your_token_here
-   REDCAP_API_URL=https://redcap.oauife.edu.ng/api/
-   ```
+The `data_ingestion.py` module handles:
+- Fetching patient records via POST to REDCap API
+- Extracting MSI status from prospective (cmo_msi_status) vs retrospective (msi_status_mmr) fields
+- Loading Halo Link CSV exports (`halo_link_*.csv`)
+- Generating clinical and slide tables with MSI labels
 
-2. Script `0.prepare.py` handles:
-   - Fetching patient records via POST to REDCap API
-   - Extracting MSI status from prospective (cmo_msi_status) vs retrospective (msi_status_mmr) fields
-   - Mapping batch_number to differentiate prospective (batch != 1,2) vs retrospective (batch = 1,2)
-   - Loading Halo Link CSV exports (`halo_link_*.csv`)
-   - Generating clinical and slide tables with MSI labels
+## Development Notes
 
-## Feature Extractors (12 STAMP Models)
-
-**No authentication required:**
-- ctranspath
-- plip
-- dinobloom
-- chief-ctranspath
-
-**Gated (requires HF auth via `hf auth login`):**
-- virchow2 (vs virchow - newer version preferred)
-- uni2 (vs uni - newer version preferred)
-- conch1_5 (vs conch - newer version preferred)
-- gigapath
-- h-optimus-0
-- h-optimus-1
-- mstar
-- musk
-
-To add a new model: Simply run `sbatch scripts/3_feature_extraction.sh <model_name>` - no config files needed (template-based).
-
-## Cross-Validation Strategy
-
-- **n_splits**: 3 (default, configurable in templates)
-- **Output structure**: `results/stage6_training/{MODEL}/crossval/split-{0,1,2}/patient-preds.csv`
-- **Statistics aggregation**: `7_statistics.py` combines predictions from all splits to generate ROC curves, AUROC/AUPRC with 95% CI
-
-## Code Organization
-
-**Modular Package Structure:**
-- Heavy logic in `argo_deepmsi/` package (installable via `pip install -e .`)
-- Thin scripts in `scripts/` (CLI wrappers that call package functions)
-- STAMP and HistoBistro are external dependencies (never modified, kept as-is)
-
-**Key Design Principles:**
-1. **Template-based configs** - No per-model config files needed
-2. **Installable package** - `argo_deepmsi` module with reusable functions
-3. **Clean separation** - `data/` (inputs) vs `results/` (outputs)
-4. **Multi-environment** - ARGO (conda), STAMP (uv), HistoBistro (conda)
-
-## Notes for Development
-
-- Script numbering (1-8) directly corresponds to pipeline stages
-- Always verify which environment a script requires before running (see stage → environment mapping in README.md)
-- STAMP is installed as a local clone in `STAMP/` subdirectory, not via pip globally
-- HistoBistro is also a local clone in `HistoBistro/` subdirectory
-- AWS credentials should be configured system-wide using `aws configure` (see AWS.md for data transfer instructions)
-- When adding new sites, update the `SITES` array in `scripts/3_feature_extraction.sh`
-- All path logic is centralized in `argo_deepmsi/io_utils.py` (use helper functions, not hardcoded paths)
+- All paths are managed via `io_utils.py` - use helper functions, not hardcoded paths
+- Feature extraction saves as AnnData (.h5ad) files for scverse compatibility
+- Embeddings are saved as numpy arrays with metadata CSV
+- CLI is built with typer, uses rich for nice terminal output
+- Training module supports sklearn classifiers and a simple PyTorch MLP
