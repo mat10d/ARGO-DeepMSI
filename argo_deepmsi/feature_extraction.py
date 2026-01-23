@@ -18,6 +18,7 @@ from tqdm import tqdm
 
 try:
     import lazyslide as zs
+
     LAZYSLIDE_AVAILABLE = True
 except ImportError:
     LAZYSLIDE_AVAILABLE = False
@@ -31,9 +32,11 @@ logger = logging.getLogger(__name__)
 # Model configurations
 # ============================================================================
 
+
 @dataclass
 class ModelConfig:
     """Configuration for a feature extraction model."""
+
     name: str
     type: str  # "patch" or "slide"
     requires_auth: bool = False
@@ -45,27 +48,75 @@ class ModelConfig:
 # Patch-level feature extractors (tile → embedding)
 PATCH_MODELS = {
     # No authentication required
-    "resnet50": ModelConfig("resnet50", "patch", False, 256, 0.5, "ImageNet pretrained ResNet50"),
-    "ctranspath": ModelConfig("ctranspath", "patch", False, 256, 0.5, "CTransPath pathology foundation model"),
+    "ctranspath": ModelConfig(
+        "ctranspath", "patch", False, 256, 0.5, "CTransPath pathology foundation model"
+    ),
     "plip": ModelConfig("plip", "patch", False, 256, 0.5, "PLIP vision-language model"),
-
+    "phikon": ModelConfig("phikon", "patch", False, 256, 0.5, "Phikon pathology foundation model"),
+    "phikonv2": ModelConfig(
+        "phikonv2", "patch", False, 256, 0.5, "Phikon v2 pathology foundation model"
+    ),
     # Gated models (require HuggingFace auth)
     "uni": ModelConfig("uni", "patch", True, 256, 0.5, "UNI pathology foundation model"),
     "uni2": ModelConfig("uni2", "patch", True, 256, 0.5, "UNI2 pathology foundation model"),
-    "virchow": ModelConfig("virchow", "patch", True, 256, 0.5, "Virchow pathology foundation model"),
-    "virchow2": ModelConfig("virchow2", "patch", True, 256, 0.5, "Virchow2 (631M params, 2560 features)"),
+    "virchow": ModelConfig(
+        "virchow", "patch", True, 256, 0.5, "Virchow pathology foundation model"
+    ),
+    "virchow2": ModelConfig(
+        "virchow2", "patch", True, 256, 0.5, "Virchow2 (631M params, 2560 features)"
+    ),
     "conch": ModelConfig("conch", "patch", True, 256, 0.5, "CONCH vision-language model"),
-    "gigapath": ModelConfig("gigapath", "patch", True, 256, 0.5, "GigaPath pathology foundation model"),
-    "h-optimus-0": ModelConfig("h-optimus-0", "patch", True, 256, 0.5, "H-Optimus-0 pathology model"),
-    "h-optimus-1": ModelConfig("h-optimus-1", "patch", True, 256, 0.5, "H-Optimus-1 pathology model"),
+    "conch_v1.5": ModelConfig(
+        "conch_v1.5", "patch", True, 256, 0.5, "CONCH v1.5 vision-language model"
+    ),
+    "gigapath": ModelConfig(
+        "gigapath", "patch", True, 256, 0.5, "GigaPath pathology foundation model"
+    ),
+    "h-optimus-0": ModelConfig(
+        "h-optimus-0", "patch", True, 256, 0.5, "H-Optimus-0 pathology model"
+    ),
+    "h-optimus-1": ModelConfig(
+        "h-optimus-1", "patch", True, 256, 0.5, "H-Optimus-1 pathology model"
+    ),
+    "h0-mini": ModelConfig("h0-mini", "patch", True, 256, 0.5, "H-Optimus-0 mini variant"),
+    "hibou-b": ModelConfig(
+        "hibou-b", "patch", True, 256, 0.5, "Hibou-B pathology foundation model"
+    ),
+    "hibou-l": ModelConfig(
+        "hibou-l", "patch", True, 256, 0.5, "Hibou-L pathology foundation model"
+    ),
+    "chief": ModelConfig("chief", "patch", True, 256, 0.5, "CHIEF pathology foundation model"),
+    "madeleine": ModelConfig(
+        "madeleine", "patch", True, 256, 0.5, "Madeleine pathology foundation model"
+    ),
+    "medsiglip": ModelConfig(
+        "medsiglip", "patch", True, 256, 0.5, "MedSigLIP vision-language model"
+    ),
+    "omiclip": ModelConfig("omiclip", "patch", True, 256, 0.5, "OmiCLIP vision-language model"),
+    "path_orchestra": ModelConfig(
+        "path_orchestra", "patch", True, 256, 0.5, "PathOrchestra pathology model"
+    ),
+    "pathprofiler": ModelConfig(
+        "pathprofiler", "patch", True, 256, 0.5, "PathProfiler pathology model"
+    ),
+    "musk": ModelConfig("musk", "patch", True, 256, 0.5, "MUSK pathology foundation model"),
+    "nulite": ModelConfig("nulite", "patch", True, 256, 0.5, "NuLite pathology foundation model"),
+    "gpfm": ModelConfig("gpfm", "patch", True, 256, 0.5, "GPFM pathology foundation model"),
+    "histoplus": ModelConfig(
+        "histoplus", "patch", True, 256, 0.5, "HistoPlus pathology foundation model"
+    ),
+    "rosie": ModelConfig("rosie", "patch", True, 256, 0.5, "Rosie pathology foundation model"),
 }
 
 # Slide-level aggregation encoders
-# Note: PRISM requires Virchow features, TITAN requires specific features
 SLIDE_ENCODERS = {
     "mean": "Mean pooling (default)",
+    "max": "Max pooling",
     "prism": "PRISM slide encoder (requires Virchow features)",
     "titan": "TITAN slide encoder",
+    "chief-slide-encoder": "CHIEF slide-level aggregator",
+    "gigapath-slide-encoder": "GigaPath slide-level aggregator",
+    "gigatime": "GigaTime slide-level encoder",
 }
 
 ALL_MODELS = {**PATCH_MODELS}
@@ -89,6 +140,7 @@ def get_model_info(model_name: str) -> Optional[ModelConfig]:
 # ============================================================================
 # Core WSI Processing
 # ============================================================================
+
 
 def process_slide(
     slide_path: Union[str, Path],
@@ -198,6 +250,7 @@ def process_slide_with_aggregation(
 # Tile-Level Analysis
 # ============================================================================
 
+
 def analyze_tiles(
     wsi,
     feature_key: str,
@@ -238,6 +291,7 @@ def analyze_tiles(
 # ============================================================================
 # Batch Feature Extraction
 # ============================================================================
+
 
 def extract_features_single_slide(
     slide_path: Union[str, Path],
@@ -353,12 +407,14 @@ def extract_features_batch(
             device=device,
             overwrite=overwrite,
         )
-        results.append({
-            "slide_path": slide_path,
-            "model": model,
-            "features_path": str(output_path) if output_path else None,
-            "success": output_path is not None,
-        })
+        results.append(
+            {
+                "slide_path": slide_path,
+                "model": model,
+                "features_path": str(output_path) if output_path else None,
+                "success": output_path is not None,
+            }
+        )
 
     results_df = pd.DataFrame(results)
     success_count = results_df["success"].sum()
@@ -382,9 +438,9 @@ def extract_features_multi_model(
     all_results = []
 
     for model in models:
-        logger.info(f"\n{'='*60}")
+        logger.info(f"\n{'=' * 60}")
         logger.info(f"Model: {model}")
-        logger.info(f"{'='*60}")
+        logger.info(f"{'=' * 60}")
 
         results = extract_features_batch(
             slide_table=slide_table,
@@ -406,10 +462,13 @@ def extract_features_multi_model(
 # Slide-Level Aggregation
 # ============================================================================
 
+
 def aggregate_features(
     features_dir: Union[str, Path],
     model: str,
-    method: Literal["mean", "max", "prism", "titan"] = "mean",
+    method: Literal[
+        "mean", "max", "prism", "titan", "chief-slide-encoder", "gigapath-slide-encoder", "gigatime"
+    ] = "mean",
     output_dir: Optional[Path] = None,
     device: str = "cuda",
 ) -> pd.DataFrame:
@@ -423,6 +482,9 @@ def aggregate_features(
             - "max": Max pooling
             - "prism": PRISM encoder (requires Virchow features)
             - "titan": TITAN encoder
+            - "chief-slide-encoder": CHIEF slide aggregator
+            - "gigapath-slide-encoder": GigaPath slide aggregator
+            - "gigatime": GigaTime encoder
         output_dir: Output directory for embeddings
         device: Device for neural aggregators
 
@@ -443,7 +505,9 @@ def aggregate_features(
 
     # Validate PRISM requirements
     if method == "prism" and model not in ["virchow", "virchow2"]:
-        logger.warning(f"PRISM encoder works best with Virchow features. Using {model} may give suboptimal results.")
+        logger.warning(
+            f"PRISM encoder works best with Virchow features. Using {model} may give suboptimal results."
+        )
 
     logger.info(f"Aggregating {len(feature_files)} slides with {method}")
 
@@ -456,21 +520,29 @@ def aggregate_features(
                 embedding = np.asarray(adata.X.mean(axis=0)).flatten()
             elif method == "max":
                 embedding = np.asarray(adata.X.max(axis=0)).flatten()
-            elif method in ["prism", "titan"]:
+            elif method in [
+                "prism",
+                "titan",
+                "chief-slide-encoder",
+                "gigapath-slide-encoder",
+                "gigatime",
+            ]:
                 # Use LazySlide's neural aggregator
                 # Need to reload the slide for this
                 # For now, fall back to mean pooling
-                # TODO: Implement proper PRISM/TITAN aggregation
+                # TODO: Implement proper neural aggregation
                 logger.warning(f"{method} aggregation requires slide reload. Using mean pooling.")
                 embedding = np.asarray(adata.X.mean(axis=0)).flatten()
             else:
                 embedding = np.asarray(adata.X.mean(axis=0)).flatten()
 
-            embeddings.append({
-                "slide_id": feature_file.stem,
-                "embedding": embedding,
-                "n_tiles": adata.n_obs,
-            })
+            embeddings.append(
+                {
+                    "slide_id": feature_file.stem,
+                    "embedding": embedding,
+                    "n_tiles": adata.n_obs,
+                }
+            )
         except Exception as e:
             logger.error(f"Failed to aggregate {feature_file.name}: {e}")
 
@@ -546,12 +618,14 @@ def aggregate_with_encoder(
             )
 
             if slide_embedding is not None:
-                embeddings.append({
-                    "slide_id": Path(slide_path).stem,
-                    "embedding": np.asarray(slide_embedding).flatten(),
-                    "patch_model": patch_model,
-                    "slide_encoder": slide_encoder,
-                })
+                embeddings.append(
+                    {
+                        "slide_id": Path(slide_path).stem,
+                        "embedding": np.asarray(slide_embedding).flatten(),
+                        "patch_model": patch_model,
+                        "slide_encoder": slide_encoder,
+                    }
+                )
         except Exception as e:
             logger.error(f"Failed: {Path(slide_path).name}: {e}")
 

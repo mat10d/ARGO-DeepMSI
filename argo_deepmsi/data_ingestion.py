@@ -7,7 +7,6 @@ Handles REDCap data fetching, Halo Link data loading, and clinical/slide table c
 import os
 import requests
 import pandas as pd
-import glob
 from pathlib import Path
 from typing import Optional, List, Tuple
 from dotenv import load_dotenv
@@ -19,7 +18,9 @@ from .io_utils import get_project_root, ensure_dir
 logger = logging.getLogger(__name__)
 
 
-def fetch_redcap_data(api_url: Optional[str] = None, api_token: Optional[str] = None) -> pd.DataFrame:
+def fetch_redcap_data(
+    api_url: Optional[str] = None, api_token: Optional[str] = None
+) -> pd.DataFrame:
     """Fetch patient data from REDCap API.
 
     Args:
@@ -34,20 +35,22 @@ def fetch_redcap_data(api_url: Optional[str] = None, api_token: Optional[str] = 
     """
     if api_url is None or api_token is None:
         load_dotenv()
-        api_token = api_token or os.getenv('REDCAP_API_TOKEN')
-        api_url = api_url or os.getenv('REDCAP_API_URL')
+        api_token = api_token or os.getenv("REDCAP_API_TOKEN")
+        api_url = api_url or os.getenv("REDCAP_API_URL")
 
     if not api_token or not api_url:
-        raise ValueError("REDCap API credentials not found. Set REDCAP_API_TOKEN and REDCAP_API_URL in .env file")
+        raise ValueError(
+            "REDCap API credentials not found. Set REDCAP_API_TOKEN and REDCAP_API_URL in .env file"
+        )
 
     payload = {
-        'token': api_token,
-        'content': 'record',
-        'format': 'json',
-        'type': 'flat',
-        'rawOrLabel': 'raw',
-        'rawOrLabelHeaders': 'raw',
-        'exportDataAccessGroups': 'true'
+        "token": api_token,
+        "content": "record",
+        "format": "json",
+        "type": "flat",
+        "rawOrLabel": "raw",
+        "rawOrLabelHeaders": "raw",
+        "exportDataAccessGroups": "true",
     }
 
     logger.info(f"Fetching data from REDCap API: {api_url}")
@@ -58,7 +61,7 @@ def fetch_redcap_data(api_url: Optional[str] = None, api_token: Optional[str] = 
 
     data = response.json()
     df = pd.DataFrame(data)
-    df.replace('', pd.NA, inplace=True)
+    df.replace("", pd.NA, inplace=True)
 
     logger.info(f"Fetched {len(df)} records from REDCap")
     return df
@@ -73,44 +76,54 @@ def create_clinical_table(redcap_data: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with columns: PATIENT, isMSIH, batch_number, redcap_data_access_group
     """
-    clinical_table = pd.DataFrame(columns=['PATIENT', 'isMSIH'])
+    clinical_table = pd.DataFrame(columns=["PATIENT", "isMSIH"])
 
     # Split data into prospective (batch != 1,2) and retrospective (batch = 1,2)
     prospective_data = redcap_data[
-        (redcap_data['batch_number'] != '1') &
-        (redcap_data['batch_number'] != '2')
+        (redcap_data["batch_number"] != "1") & (redcap_data["batch_number"] != "2")
     ].copy()
 
     retrospective_data = redcap_data[
-        (redcap_data['batch_number'] == '1') |
-        (redcap_data['batch_number'] == '2')
+        (redcap_data["batch_number"] == "1") | (redcap_data["batch_number"] == "2")
     ].copy()
 
     # Process prospective data (uses cmo_msi_status field)
     if not prospective_data.empty:
-        prospective_msi = prospective_data[['record_id', 'cmo_msi_status', 'batch_number', 'redcap_data_access_group']].copy()
-        prospective_msi['isMSIH'] = prospective_msi['cmo_msi_status'].map({
-            'Instable': 'MSI-H',
-            'Stable': 'MSS',
-            'Indeterminate': 'MSS',
-            'Stable, Indeterminate': 'MSS'
-        })
-        prospective_msi.rename(columns={'record_id': 'PATIENT'}, inplace=True)
-        prospective_msi = prospective_msi[['PATIENT', 'isMSIH', 'batch_number', 'redcap_data_access_group']]
+        prospective_msi = prospective_data[
+            ["record_id", "cmo_msi_status", "batch_number", "redcap_data_access_group"]
+        ].copy()
+        prospective_msi["isMSIH"] = prospective_msi["cmo_msi_status"].map(
+            {
+                "Instable": "MSI-H",
+                "Stable": "MSS",
+                "Indeterminate": "MSS",
+                "Stable, Indeterminate": "MSS",
+            }
+        )
+        prospective_msi.rename(columns={"record_id": "PATIENT"}, inplace=True)
+        prospective_msi = prospective_msi[
+            ["PATIENT", "isMSIH", "batch_number", "redcap_data_access_group"]
+        ]
         clinical_table = pd.concat([clinical_table, prospective_msi], ignore_index=True)
         logger.info(f"Processed {len(prospective_msi)} prospective patients")
 
     # Process retrospective data (uses msi_status_mmr field)
     if not retrospective_data.empty:
-        retrospective_msi = retrospective_data[['record_id', 'msi_status_mmr', 'batch_number', 'redcap_data_access_group']].copy()
-        retrospective_msi['isMSIH'] = retrospective_msi['msi_status_mmr'].map({'1': 'MSI-H', '2': 'MSS'})
-        retrospective_msi.rename(columns={'record_id': 'PATIENT'}, inplace=True)
-        retrospective_msi = retrospective_msi[['PATIENT', 'isMSIH', 'batch_number', 'redcap_data_access_group']]
+        retrospective_msi = retrospective_data[
+            ["record_id", "msi_status_mmr", "batch_number", "redcap_data_access_group"]
+        ].copy()
+        retrospective_msi["isMSIH"] = retrospective_msi["msi_status_mmr"].map(
+            {"1": "MSI-H", "2": "MSS"}
+        )
+        retrospective_msi.rename(columns={"record_id": "PATIENT"}, inplace=True)
+        retrospective_msi = retrospective_msi[
+            ["PATIENT", "isMSIH", "batch_number", "redcap_data_access_group"]
+        ]
         clinical_table = pd.concat([clinical_table, retrospective_msi], ignore_index=True)
         logger.info(f"Processed {len(retrospective_msi)} retrospective patients")
 
     # Ensure PATIENT column is string
-    clinical_table['PATIENT'] = clinical_table['PATIENT'].astype(str)
+    clinical_table["PATIENT"] = clinical_table["PATIENT"].astype(str)
 
     logger.info(f"Created clinical table with {len(clinical_table)} total patients")
     return clinical_table
@@ -133,7 +146,7 @@ def load_halo_link_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
         base_dir = Path(base_dir)
 
     # Search recursively for halo_link_*.csv in site subdirectories
-    halo_files = list(base_dir.glob('*/halo_link_*.csv'))
+    halo_files = list(base_dir.glob("*/halo_link_*.csv"))
 
     if not halo_files:
         logger.warning(f"No Halo Link files found in {base_dir}")
@@ -142,10 +155,10 @@ def load_halo_link_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
     halo_dfs = []
 
     for file in halo_files:
-        site_name = file.stem.replace('halo_link_', '').replace('_export', '')
+        site_name = file.stem.replace("halo_link_", "").replace("_export", "")
         try:
             df = pd.read_csv(file)
-            df['site'] = site_name
+            df["site"] = site_name
             halo_dfs.append(df)
             logger.info(f"Loaded Halo data for {site_name} ({len(df)} records)")
         except Exception as e:
@@ -158,16 +171,16 @@ def load_halo_link_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
 
     # Standardize column names
     standard_col_map = {
-        'Slide ID': 'slide_id',
-        'Study Image ID': 'image_id',
-        'Name': 'filename',
-        'Image Location': 'image_location',
-        'Pathology REDCap ID': 'redcap_id'
+        "Slide ID": "slide_id",
+        "Study Image ID": "image_id",
+        "Name": "filename",
+        "Image Location": "image_location",
+        "Pathology REDCap ID": "redcap_id",
     }
 
     combined_halo.rename(
         columns={k: v for k, v in standard_col_map.items() if k in combined_halo.columns},
-        inplace=True
+        inplace=True,
     )
 
     logger.info(f"Combined {len(halo_dfs)} Halo Link files, total {len(combined_halo)} records")
@@ -183,47 +196,50 @@ def create_slide_table(halo_data: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with columns: PATIENT, FILENAME, SITE
     """
-    slide_table = pd.DataFrame(columns=['PATIENT', 'FILENAME', 'SITE'])
+    slide_table = pd.DataFrame(columns=["PATIENT", "FILENAME", "SITE"])
 
     # Check if we have the necessary columns
-    if 'redcap_id' not in halo_data.columns or 'filename' not in halo_data.columns:
+    if "redcap_id" not in halo_data.columns or "filename" not in halo_data.columns:
         logger.warning("Missing required columns in Halo data for slide table")
 
-        if 'redcap_id' not in halo_data.columns:
+        if "redcap_id" not in halo_data.columns:
             logger.warning("- Missing 'redcap_id' column (Pathology REDCap ID)")
-        if 'filename' not in halo_data.columns:
+        if "filename" not in halo_data.columns:
             logger.warning("- Missing 'filename' column (Name)")
 
         # Try to find alternative columns
-        patient_id_cols = [col for col in halo_data.columns if 'id' in col.lower() and 'redcap' in col.lower()]
-        filename_cols = [col for col in halo_data.columns if 'name' in col.lower() or 'file' in col.lower()]
+        patient_id_cols = [
+            col for col in halo_data.columns if "id" in col.lower() and "redcap" in col.lower()
+        ]
+        filename_cols = [
+            col for col in halo_data.columns if "name" in col.lower() or "file" in col.lower()
+        ]
 
         if patient_id_cols and filename_cols:
             logger.info(f"Using alternative columns: {patient_id_cols[0]} and {filename_cols[0]}")
             temp_df = halo_data[[patient_id_cols[0], filename_cols[0]]].copy()
-            temp_df.columns = ['PATIENT', 'FILENAME']
+            temp_df.columns = ["PATIENT", "FILENAME"]
             slide_table = pd.concat([slide_table, temp_df], ignore_index=True)
         else:
             return slide_table
     else:
         # Extract relevant columns
-        temp_df = halo_data[['redcap_id', 'filename', 'site']].copy()
-        temp_df.columns = ['PATIENT', 'FILENAME', 'SITE']
+        temp_df = halo_data[["redcap_id", "filename", "site"]].copy()
+        temp_df.columns = ["PATIENT", "FILENAME", "SITE"]
         slide_table = pd.concat([slide_table, temp_df], ignore_index=True)
 
     # Drop rows with missing values
-    slide_table = slide_table.dropna(subset=['PATIENT', 'FILENAME'])
+    slide_table = slide_table.dropna(subset=["PATIENT", "FILENAME"])
 
     # Ensure PATIENT column is string
-    slide_table['PATIENT'] = slide_table['PATIENT'].astype(str)
+    slide_table["PATIENT"] = slide_table["PATIENT"].astype(str)
 
     logger.info(f"Created slide table with {len(slide_table)} slides")
     return slide_table
 
 
 def verify_slides_exist(
-    slide_table: pd.DataFrame,
-    slide_dirs: Optional[List[Path]] = None
+    slide_table: pd.DataFrame, slide_dirs: Optional[List[Path]] = None
 ) -> pd.DataFrame:
     """Verify if slides exist in specified directories and add absolute paths.
 
@@ -238,8 +254,8 @@ def verify_slides_exist(
     result = slide_table.copy()
 
     # Add columns for slide existence and path
-    result['slide_exists'] = False
-    result['slide_path'] = None
+    result["slide_exists"] = False
+    result["slide_path"] = None
 
     # Default directories if not specified
     if not slide_dirs:
@@ -272,7 +288,7 @@ def verify_slides_exist(
                 absolute_path = Path(root) / file
                 found_files[file] = str(absolute_path.resolve())
                 # Also add version without .svs extension for easier matching
-                if file.endswith('.svs'):
+                if file.endswith(".svs"):
                     found_files[file[:-4]] = str(absolute_path.resolve())
 
     logger.info(f"Found {len(found_files)} unique filenames in all directories")
@@ -280,31 +296,33 @@ def verify_slides_exist(
     # Check each slide
     found_count = 0
     for idx, row in result.iterrows():
-        filename = row['FILENAME']
+        filename = row["FILENAME"]
         if pd.isna(filename) or not isinstance(filename, str):
             continue
 
         # Check if file exists in our dictionary
         if filename in found_files:
-            result.at[idx, 'slide_exists'] = True
-            result.at[idx, 'slide_path'] = found_files[filename]
+            result.at[idx, "slide_exists"] = True
+            result.at[idx, "slide_path"] = found_files[filename]
             found_count += 1
         # Try with .svs extension if not found
-        elif filename + '.svs' in found_files:
-            result.at[idx, 'slide_exists'] = True
-            result.at[idx, 'slide_path'] = found_files[filename + '.svs']
+        elif filename + ".svs" in found_files:
+            result.at[idx, "slide_exists"] = True
+            result.at[idx, "slide_path"] = found_files[filename + ".svs"]
             found_count += 1
 
-    logger.info(f"Slide verification complete: {found_count} found, {len(result) - found_count} not found")
+    logger.info(
+        f"Slide verification complete: {found_count} found, {len(result) - found_count} not found"
+    )
 
     # Log examples
-    found_slides = result[result['slide_exists'] == True]
+    found_slides = result[result["slide_exists"]]
     if not found_slides.empty:
         logger.info("Examples of found slides:")
         for _, row in found_slides.head(3).iterrows():
             logger.info(f"  - {row['FILENAME']} → {row['slide_path']}")
 
-    missing_slides = result[result['slide_exists'] == False]
+    missing_slides = result[not result["slide_exists"]]
     if not missing_slides.empty:
         logger.warning("Examples of missing slides:")
         for _, row in missing_slides.head(3).iterrows():
@@ -314,8 +332,7 @@ def verify_slides_exist(
 
 
 def clean_tables(
-    clinical_table: pd.DataFrame,
-    slide_table: pd.DataFrame
+    clinical_table: pd.DataFrame, slide_table: pd.DataFrame
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Clean up tables to ensure consistency.
 
@@ -338,25 +355,25 @@ def clean_tables(
 
     # 1. Remove patients with missing MSI status
     initial_clinical_count = len(clinical)
-    clinical = clinical.dropna(subset=['isMSIH'])
+    clinical = clinical.dropna(subset=["isMSIH"])
     dropped_clinical = initial_clinical_count - len(clinical)
     if dropped_clinical > 0:
         logger.info(f"Removed {dropped_clinical} patients with missing MSI status")
 
     # 2. Get list of valid patients (those with MSI status)
-    valid_patients = set(clinical['PATIENT'].unique())
+    valid_patients = set(clinical["PATIENT"].unique())
 
     # 3. Remove slides for patients without MSI status
     initial_slide_count = len(slides)
-    slides = slides[slides['PATIENT'].isin(valid_patients)]
+    slides = slides[slides["PATIENT"].isin(valid_patients)]
     dropped_slides = initial_slide_count - len(slides)
     if dropped_slides > 0:
         logger.info(f"Removed {dropped_slides} slides for patients without MSI status")
 
     # 4. Update clinical table to include only patients with slides
-    patients_with_slides = set(slides['PATIENT'].unique())
+    patients_with_slides = set(slides["PATIENT"].unique())
     initial_clinical_count = len(clinical)
-    clinical = clinical[clinical['PATIENT'].isin(patients_with_slides)]
+    clinical = clinical[clinical["PATIENT"].isin(patients_with_slides)]
     dropped_clinical = initial_clinical_count - len(clinical)
     if dropped_clinical > 0:
         logger.info(f"Removed {dropped_clinical} patients without slides")
@@ -366,9 +383,9 @@ def clean_tables(
 
     # 6. Log MSI distribution
     if not clinical.empty:
-        msi_counts = clinical['isMSIH'].value_counts()
+        msi_counts = clinical["isMSIH"].value_counts()
         for status, count in msi_counts.items():
-            logger.info(f"  - {status}: {count} patients ({count/len(clinical)*100:.1f}%)")
+            logger.info(f"  - {status}: {count} patients ({count / len(clinical) * 100:.1f}%)")
 
     return clinical, slides
 
@@ -377,7 +394,7 @@ def process_redcap_data(
     output_dir: Optional[Path] = None,
     api_url: Optional[str] = None,
     api_token: Optional[str] = None,
-    halo_base_dir: Optional[Path] = None
+    halo_base_dir: Optional[Path] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Complete data ingestion pipeline: REDCap → clinical/slide tables.
 
@@ -397,6 +414,7 @@ def process_redcap_data(
     """
     if output_dir is None:
         from .io_utils import get_results_dir
+
         output_dir = get_results_dir() / "data"
     else:
         output_dir = Path(output_dir)
@@ -424,8 +442,8 @@ def process_redcap_data(
     # Step 5: Verify slides exist
     logger.info("Verifying slides exist...")
     slide_table = verify_slides_exist(slide_table)
-    slide_table['FILENAME'] = slide_table['slide_path']
-    slide_table = slide_table.drop(columns=['slide_path', 'slide_exists'])
+    slide_table["FILENAME"] = slide_table["slide_path"]
+    slide_table = slide_table.drop(columns=["slide_path", "slide_exists"])
     slide_table.to_csv(output_dir / "slide_table_full.csv", index=False)
     logger.info(f"Saved slide table with {len(slide_table)} slides")
 

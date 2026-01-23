@@ -26,8 +26,7 @@ def setup_logging(
     logger.handlers.clear()
 
     formatter = logging.Formatter(
-        '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S'
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
 
     # Console handler
@@ -64,6 +63,7 @@ def ensure_dir(path: Union[str, Path]) -> Path:
 # ============================================================================
 # Path getters - simplified structure
 # ============================================================================
+
 
 def get_data_dir() -> Path:
     """Get path to data directory (raw slides, metadata)."""

@@ -6,23 +6,21 @@ Provides simple classifiers and lightweight ViT training on embeddings.
 
 import logging
 from pathlib import Path
-from typing import Optional, Dict, List, Tuple, Any
+from typing import Optional, Dict, List, Any
 
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
-from sklearn.metrics import (
-    accuracy_score, roc_auc_score, average_precision_score,
-    classification_report, confusion_matrix
-)
+from sklearn.metrics import roc_auc_score
 from sklearn.preprocessing import StandardScaler
 
 try:
     import torch
     import torch.nn as nn
+
     TORCH_AVAILABLE = True
 except ImportError:
     TORCH_AVAILABLE = False
@@ -35,6 +33,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # Simple classifiers on embeddings
 # ============================================================================
+
 
 def train_logistic_regression(
     X: np.ndarray,
@@ -59,26 +58,26 @@ def train_logistic_regression(
     model = LogisticRegression(
         max_iter=1000,
         random_state=random_state,
-        class_weight='balanced',
+        class_weight="balanced",
     )
 
     cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
 
-    auroc_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='roc_auc')
-    accuracy_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='accuracy')
+    auroc_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="roc_auc")
+    accuracy_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="accuracy")
 
     # Fit final model on all data
     model.fit(X_scaled, y)
 
     return {
-        'model': model,
-        'scaler': scaler,
-        'auroc_mean': auroc_scores.mean(),
-        'auroc_std': auroc_scores.std(),
-        'accuracy_mean': accuracy_scores.mean(),
-        'accuracy_std': accuracy_scores.std(),
-        'cv_auroc_scores': auroc_scores,
-        'cv_accuracy_scores': accuracy_scores,
+        "model": model,
+        "scaler": scaler,
+        "auroc_mean": auroc_scores.mean(),
+        "auroc_std": auroc_scores.std(),
+        "accuracy_mean": accuracy_scores.mean(),
+        "accuracy_std": accuracy_scores.std(),
+        "cv_auroc_scores": auroc_scores,
+        "cv_accuracy_scores": accuracy_scores,
     }
 
 
@@ -104,26 +103,26 @@ def train_random_forest(
     model = RandomForestClassifier(
         n_estimators=n_estimators,
         random_state=random_state,
-        class_weight='balanced',
+        class_weight="balanced",
         n_jobs=-1,
     )
 
     cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
 
-    auroc_scores = cross_val_score(model, X, y, cv=cv, scoring='roc_auc')
-    accuracy_scores = cross_val_score(model, X, y, cv=cv, scoring='accuracy')
+    auroc_scores = cross_val_score(model, X, y, cv=cv, scoring="roc_auc")
+    accuracy_scores = cross_val_score(model, X, y, cv=cv, scoring="accuracy")
 
     model.fit(X, y)
 
     return {
-        'model': model,
-        'auroc_mean': auroc_scores.mean(),
-        'auroc_std': auroc_scores.std(),
-        'accuracy_mean': accuracy_scores.mean(),
-        'accuracy_std': accuracy_scores.std(),
-        'cv_auroc_scores': auroc_scores,
-        'cv_accuracy_scores': accuracy_scores,
-        'feature_importances': model.feature_importances_,
+        "model": model,
+        "auroc_mean": auroc_scores.mean(),
+        "auroc_std": auroc_scores.std(),
+        "accuracy_mean": accuracy_scores.mean(),
+        "accuracy_std": accuracy_scores.std(),
+        "cv_auroc_scores": auroc_scores,
+        "cv_accuracy_scores": accuracy_scores,
+        "feature_importances": model.feature_importances_,
     }
 
 
@@ -148,28 +147,28 @@ def train_svm(
     X_scaled = scaler.fit_transform(X)
 
     model = SVC(
-        kernel='rbf',
+        kernel="rbf",
         probability=True,
         random_state=random_state,
-        class_weight='balanced',
+        class_weight="balanced",
     )
 
     cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
 
-    auroc_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='roc_auc')
-    accuracy_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring='accuracy')
+    auroc_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="roc_auc")
+    accuracy_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="accuracy")
 
     model.fit(X_scaled, y)
 
     return {
-        'model': model,
-        'scaler': scaler,
-        'auroc_mean': auroc_scores.mean(),
-        'auroc_std': auroc_scores.std(),
-        'accuracy_mean': accuracy_scores.mean(),
-        'accuracy_std': accuracy_scores.std(),
-        'cv_auroc_scores': auroc_scores,
-        'cv_accuracy_scores': accuracy_scores,
+        "model": model,
+        "scaler": scaler,
+        "auroc_mean": auroc_scores.mean(),
+        "auroc_std": auroc_scores.std(),
+        "accuracy_mean": accuracy_scores.mean(),
+        "accuracy_std": accuracy_scores.std(),
+        "cv_auroc_scores": auroc_scores,
+        "cv_accuracy_scores": accuracy_scores,
     }
 
 
@@ -194,36 +193,42 @@ def compare_classifiers(
 
     logger.info("Training Logistic Regression...")
     lr_results = train_logistic_regression(X, y, n_splits, random_state)
-    results.append({
-        'classifier': 'Logistic Regression',
-        'auroc_mean': lr_results['auroc_mean'],
-        'auroc_std': lr_results['auroc_std'],
-        'accuracy_mean': lr_results['accuracy_mean'],
-        'accuracy_std': lr_results['accuracy_std'],
-    })
+    results.append(
+        {
+            "classifier": "Logistic Regression",
+            "auroc_mean": lr_results["auroc_mean"],
+            "auroc_std": lr_results["auroc_std"],
+            "accuracy_mean": lr_results["accuracy_mean"],
+            "accuracy_std": lr_results["accuracy_std"],
+        }
+    )
 
     logger.info("Training Random Forest...")
     rf_results = train_random_forest(X, y, n_splits, random_state=random_state)
-    results.append({
-        'classifier': 'Random Forest',
-        'auroc_mean': rf_results['auroc_mean'],
-        'auroc_std': rf_results['auroc_std'],
-        'accuracy_mean': rf_results['accuracy_mean'],
-        'accuracy_std': rf_results['accuracy_std'],
-    })
+    results.append(
+        {
+            "classifier": "Random Forest",
+            "auroc_mean": rf_results["auroc_mean"],
+            "auroc_std": rf_results["auroc_std"],
+            "accuracy_mean": rf_results["accuracy_mean"],
+            "accuracy_std": rf_results["accuracy_std"],
+        }
+    )
 
     logger.info("Training SVM...")
     svm_results = train_svm(X, y, n_splits, random_state)
-    results.append({
-        'classifier': 'SVM',
-        'auroc_mean': svm_results['auroc_mean'],
-        'auroc_std': svm_results['auroc_std'],
-        'accuracy_mean': svm_results['accuracy_mean'],
-        'accuracy_std': svm_results['accuracy_std'],
-    })
+    results.append(
+        {
+            "classifier": "SVM",
+            "auroc_mean": svm_results["auroc_mean"],
+            "auroc_std": svm_results["auroc_std"],
+            "accuracy_mean": svm_results["accuracy_mean"],
+            "accuracy_std": svm_results["accuracy_std"],
+        }
+    )
 
     df = pd.DataFrame(results)
-    df = df.sort_values('auroc_mean', ascending=False)
+    df = df.sort_values("auroc_mean", ascending=False)
 
     logger.info("\nClassifier Comparison:")
     logger.info(df.to_string(index=False))
@@ -236,6 +241,7 @@ def compare_classifiers(
 # ============================================================================
 
 if TORCH_AVAILABLE:
+
     class MLPClassifier(nn.Module):
         """Simple MLP for embedding classification."""
 
@@ -252,12 +258,14 @@ if TORCH_AVAILABLE:
             prev_dim = input_dim
 
             for hidden_dim in hidden_dims:
-                layers.extend([
-                    nn.Linear(prev_dim, hidden_dim),
-                    nn.ReLU(),
-                    nn.BatchNorm1d(hidden_dim),
-                    nn.Dropout(dropout),
-                ])
+                layers.extend(
+                    [
+                        nn.Linear(prev_dim, hidden_dim),
+                        nn.ReLU(),
+                        nn.BatchNorm1d(hidden_dim),
+                        nn.Dropout(dropout),
+                    ]
+                )
                 prev_dim = hidden_dim
 
             layers.append(nn.Linear(prev_dim, num_classes))
@@ -266,7 +274,6 @@ if TORCH_AVAILABLE:
 
         def forward(self, x):
             return self.network(x)
-
 
     class AttentionMIL(nn.Module):
         """Attention-based MIL for bag-level classification."""
@@ -363,15 +370,15 @@ def train_mlp(
     criterion = nn.CrossEntropyLoss()
 
     # Training loop
-    history = {'train_loss': [], 'val_loss': [], 'val_auroc': []}
+    history = {"train_loss": [], "val_loss": [], "val_auroc": []}
 
     for epoch in range(n_epochs):
         model.train()
         train_loss = 0
 
         for i in range(0, len(X_train), batch_size):
-            batch_X = X_train[i:i+batch_size].to(device)
-            batch_y = y_train[i:i+batch_size].to(device)
+            batch_X = X_train[i : i + batch_size].to(device)
+            batch_y = y_train[i : i + batch_size].to(device)
 
             optimizer.zero_grad()
             outputs = model(batch_X)
@@ -389,24 +396,27 @@ def train_mlp(
             val_probs = torch.softmax(val_outputs, dim=1)[:, 1].cpu().numpy()
             val_auroc = roc_auc_score(y_val.numpy(), val_probs)
 
-        history['train_loss'].append(train_loss / (len(X_train) / batch_size))
-        history['val_loss'].append(val_loss)
-        history['val_auroc'].append(val_auroc)
+        history["train_loss"].append(train_loss / (len(X_train) / batch_size))
+        history["val_loss"].append(val_loss)
+        history["val_auroc"].append(val_auroc)
 
         if (epoch + 1) % 20 == 0:
-            logger.info(f"Epoch {epoch+1}/{n_epochs} - Train Loss: {history['train_loss'][-1]:.4f}, "
-                       f"Val Loss: {val_loss:.4f}, Val AUROC: {val_auroc:.4f}")
+            logger.info(
+                f"Epoch {epoch + 1}/{n_epochs} - Train Loss: {history['train_loss'][-1]:.4f}, "
+                f"Val Loss: {val_loss:.4f}, Val AUROC: {val_auroc:.4f}"
+            )
 
     return {
-        'model': model,
-        'history': history,
-        'best_val_auroc': max(history['val_auroc']),
+        "model": model,
+        "history": history,
+        "best_val_auroc": max(history["val_auroc"]),
     }
 
 
 # ============================================================================
 # Model persistence
 # ============================================================================
+
 
 def save_model(
     model: Any,
@@ -433,9 +443,9 @@ def save_model(
 
     model_path = output_dir / f"{model_name}.joblib"
 
-    save_dict = {'model': model}
+    save_dict = {"model": model}
     if metadata:
-        save_dict['metadata'] = metadata
+        save_dict["metadata"] = metadata
 
     joblib.dump(save_dict, model_path)
     logger.info(f"Saved model: {model_path}")
@@ -453,4 +463,5 @@ def load_model(model_path: Path) -> Dict[str, Any]:
         Dictionary with model and optional metadata
     """
     import joblib
+
     return joblib.load(model_path)

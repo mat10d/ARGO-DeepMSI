@@ -11,10 +11,10 @@ from typing import Optional, List, Union, Tuple
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import seaborn as sns
 
 try:
     import lazyslide as zs
+
     LAZYSLIDE_AVAILABLE = True
 except ImportError:
     LAZYSLIDE_AVAILABLE = False
@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # Slide visualization
 # ============================================================================
+
 
 def visualize_slide(
     slide_path: Union[str, Path],
@@ -76,14 +77,14 @@ def visualize_slide(
             axes[2].set_title(f"Tiling ({tile_px}px @ {mpp} mpp)")
             zs.pl.tiles(wsi, ax=axes[2])
         else:
-            axes[2].axis('off')
+            axes[2].axis("off")
 
         plt.suptitle(slide_path.name, fontsize=14)
         plt.tight_layout()
 
         if output_path:
             ensure_dir(output_path.parent)
-            fig.savefig(output_path, dpi=150, bbox_inches='tight')
+            fig.savefig(output_path, dpi=150, bbox_inches="tight")
             logger.info(f"Saved visualization: {output_path}")
 
         return fig
@@ -135,7 +136,6 @@ def visualize_features(
         zs.pl.wsi(wsi, ax=axes[0])
 
         # Feature maps
-        feature_key = f"{model}_tiles"
         for i, feat_idx in enumerate(feature_indices):
             axes[i + 1].set_title(f"Feature {feat_idx}")
             zs.pl.tiles(wsi, feature_key=model, color=[str(feat_idx)], ax=axes[i + 1])
@@ -145,7 +145,7 @@ def visualize_features(
 
         if output_path:
             ensure_dir(output_path.parent)
-            fig.savefig(output_path, dpi=150, bbox_inches='tight')
+            fig.savefig(output_path, dpi=150, bbox_inches="tight")
 
         return fig
 
@@ -157,6 +157,7 @@ def visualize_features(
 # ============================================================================
 # Embedding visualization (UMAP, t-SNE)
 # ============================================================================
+
 
 def plot_embedding_umap(
     embeddings: np.ndarray,
@@ -188,10 +189,10 @@ def plot_embedding_umap(
 
     # Default UMAP parameters
     umap_params = {
-        'n_neighbors': 15,
-        'min_dist': 0.1,
-        'metric': 'cosine',
-        'random_state': 42,
+        "n_neighbors": 15,
+        "min_dist": 0.1,
+        "metric": "cosine",
+        "random_state": 42,
     }
     umap_params.update(umap_kwargs)
 
@@ -225,7 +226,7 @@ def plot_embedding_umap(
 
     if output_path:
         ensure_dir(output_path.parent)
-        fig.savefig(output_path, dpi=150, bbox_inches='tight')
+        fig.savefig(output_path, dpi=150, bbox_inches="tight")
         logger.info(f"Saved UMAP plot: {output_path}")
 
     return fig
@@ -284,7 +285,7 @@ def plot_embedding_tsne(
 
     if output_path:
         ensure_dir(output_path.parent)
-        fig.savefig(output_path, dpi=150, bbox_inches='tight')
+        fig.savefig(output_path, dpi=150, bbox_inches="tight")
         logger.info(f"Saved t-SNE plot: {output_path}")
 
     return fig
@@ -293,6 +294,7 @@ def plot_embedding_tsne(
 # ============================================================================
 # Data exploration plots
 # ============================================================================
+
 
 def plot_dataset_summary(
     clinical_table: pd.DataFrame,
@@ -320,33 +322,35 @@ def plot_dataset_summary(
     # 1. Label distribution
     if label_column in clinical_table.columns:
         fig, ax = plt.subplots(figsize=(8, 6))
-        clinical_table[label_column].value_counts().plot(kind='bar', ax=ax, color=['#2ecc71', '#e74c3c'])
+        clinical_table[label_column].value_counts().plot(
+            kind="bar", ax=ax, color=["#2ecc71", "#e74c3c"]
+        )
         ax.set_title(f"Label Distribution ({label_column})")
         ax.set_xlabel("Label")
         ax.set_ylabel("Count")
         plt.xticks(rotation=0)
-        fig.savefig(output_dir / "label_distribution.png", dpi=150, bbox_inches='tight')
+        fig.savefig(output_dir / "label_distribution.png", dpi=150, bbox_inches="tight")
         figures.append(fig)
 
     # 2. Slides per patient
-    slides_per_patient = slide_table.groupby('PATIENT').size()
+    slides_per_patient = slide_table.groupby("PATIENT").size()
     fig, ax = plt.subplots(figsize=(8, 6))
-    slides_per_patient.hist(bins=20, ax=ax, color='#3498db', edgecolor='white')
+    slides_per_patient.hist(bins=20, ax=ax, color="#3498db", edgecolor="white")
     ax.set_title("Slides per Patient")
     ax.set_xlabel("Number of Slides")
     ax.set_ylabel("Number of Patients")
-    fig.savefig(output_dir / "slides_per_patient.png", dpi=150, bbox_inches='tight')
+    fig.savefig(output_dir / "slides_per_patient.png", dpi=150, bbox_inches="tight")
     figures.append(fig)
 
     # 3. Site distribution (if available)
-    if 'SITE' in slide_table.columns:
+    if "SITE" in slide_table.columns:
         fig, ax = plt.subplots(figsize=(10, 6))
-        slide_table['SITE'].value_counts().plot(kind='bar', ax=ax, color='#9b59b6')
+        slide_table["SITE"].value_counts().plot(kind="bar", ax=ax, color="#9b59b6")
         ax.set_title("Slides by Site")
         ax.set_xlabel("Site")
         ax.set_ylabel("Number of Slides")
-        plt.xticks(rotation=45, ha='right')
-        fig.savefig(output_dir / "site_distribution.png", dpi=150, bbox_inches='tight')
+        plt.xticks(rotation=45, ha="right")
+        fig.savefig(output_dir / "site_distribution.png", dpi=150, bbox_inches="tight")
         figures.append(fig)
 
     logger.info(f"Saved {len(figures)} summary plots to {output_dir}")
@@ -372,9 +376,9 @@ def plot_model_comparison(
     """
     fig, ax = plt.subplots(figsize=figsize)
 
-    models = results_df['model'].unique()
+    models = results_df["model"].unique()
     x = np.arange(len(models))
-    values = [results_df[results_df['model'] == m][metric].mean() for m in models]
+    values = [results_df[results_df["model"] == m][metric].mean() for m in models]
 
     bars = ax.bar(x, values, color=plt.cm.viridis(np.linspace(0.2, 0.8, len(models))))
 
@@ -382,18 +386,24 @@ def plot_model_comparison(
     ax.set_ylabel(metric.upper())
     ax.set_title(f"Model Comparison - {metric.upper()}")
     ax.set_xticks(x)
-    ax.set_xticklabels(models, rotation=45, ha='right')
+    ax.set_xticklabels(models, rotation=45, ha="right")
 
     # Add value labels on bars
     for bar, val in zip(bars, values):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.01,
-                f'{val:.3f}', ha='center', va='bottom', fontsize=10)
+        ax.text(
+            bar.get_x() + bar.get_width() / 2,
+            bar.get_height() + 0.01,
+            f"{val:.3f}",
+            ha="center",
+            va="bottom",
+            fontsize=10,
+        )
 
     plt.tight_layout()
 
     if output_path:
         ensure_dir(output_path.parent)
-        fig.savefig(output_path, dpi=150, bbox_inches='tight')
+        fig.savefig(output_path, dpi=150, bbox_inches="tight")
 
     return fig
 
@@ -401,6 +411,7 @@ def plot_model_comparison(
 # ============================================================================
 # LazySlide-native tile visualization
 # ============================================================================
+
 
 def visualize_tile_clusters(
     slide_path: Union[str, Path],
@@ -479,7 +490,7 @@ def visualize_tile_clusters(
 
         if output_path:
             ensure_dir(output_path.parent)
-            fig.savefig(output_path, dpi=150, bbox_inches='tight')
+            fig.savefig(output_path, dpi=150, bbox_inches="tight")
             logger.info(f"Saved cluster visualization: {output_path}")
 
         return fig
@@ -549,7 +560,7 @@ def visualize_feature_heatmap(
 
         if output_path:
             ensure_dir(output_path.parent)
-            fig.savefig(output_path, dpi=150, bbox_inches='tight')
+            fig.savefig(output_path, dpi=150, bbox_inches="tight")
 
         return fig
 

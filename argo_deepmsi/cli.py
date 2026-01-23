@@ -28,6 +28,7 @@ console = Console()
 # Data ingestion
 # ============================================================================
 
+
 @app.command()
 def ingest(
     output_dir: Optional[Path] = typer.Option(None, "--output", "-o", help="Output directory"),
@@ -38,7 +39,7 @@ def ingest(
     from .io_utils import setup_logging, get_results_dir, ensure_dir
     from .data_ingestion import process_redcap_data
 
-    logger = setup_logging("ingest")
+    setup_logging("ingest")
 
     if output_dir is None:
         output_dir = get_results_dir() / "data"
@@ -59,6 +60,7 @@ def ingest(
 # ============================================================================
 # Feature extraction
 # ============================================================================
+
 
 @app.command()
 def extract(
@@ -81,7 +83,7 @@ def extract(
     from .io_utils import setup_logging
     from .feature_extraction import extract_features_multi_model, list_available_models
 
-    logger = setup_logging("extract")
+    setup_logging("extract")
 
     console.print("[bold blue]ARGO-DeepMSI: Feature Extraction[/bold blue]")
     console.print(f"Slide table: {slide_table}")
@@ -114,8 +116,8 @@ def extract(
 
     # Summary
     for model in models:
-        model_results = results[results['model'] == model]
-        success = model_results['success'].sum()
+        model_results = results[results["model"] == model]
+        success = model_results["success"].sum()
         total = len(model_results)
         console.print(f"[green]{model}[/green]: {success}/{total} successful")
 
@@ -156,6 +158,7 @@ def models():
 # Aggregation
 # ============================================================================
 
+
 @app.command()
 def aggregate(
     features_dir: Path = typer.Argument(..., help="Directory with .h5ad feature files"),
@@ -167,7 +170,7 @@ def aggregate(
     from .io_utils import setup_logging
     from .feature_extraction import aggregate_features
 
-    logger = setup_logging("aggregate")
+    setup_logging("aggregate")
 
     console.print("[bold blue]ARGO-DeepMSI: Feature Aggregation[/bold blue]")
     console.print(f"Features: {features_dir}")
@@ -187,11 +190,18 @@ def aggregate(
 # Visualization
 # ============================================================================
 
+
 @app.command()
 def visualize(
-    slide_path: Optional[Path] = typer.Option(None, "--slide", "-s", help="Single slide to visualize"),
-    embeddings_dir: Optional[Path] = typer.Option(None, "--embeddings", "-e", help="Embeddings directory"),
-    clinical_table: Optional[Path] = typer.Option(None, "--clinical", "-c", help="Clinical table for labels"),
+    slide_path: Optional[Path] = typer.Option(
+        None, "--slide", "-s", help="Single slide to visualize"
+    ),
+    embeddings_dir: Optional[Path] = typer.Option(
+        None, "--embeddings", "-e", help="Embeddings directory"
+    ),
+    clinical_table: Optional[Path] = typer.Option(
+        None, "--clinical", "-c", help="Clinical table for labels"
+    ),
     output_dir: Optional[Path] = typer.Option(None, "--output", "-o", help="Output directory"),
 ):
     """Generate visualizations (slides, embeddings, summaries)."""
@@ -200,7 +210,7 @@ def visualize(
     from .io_utils import setup_logging, get_visualizations_dir, ensure_dir
     from . import visualization as viz
 
-    logger = setup_logging("visualize")
+    setup_logging("visualize")
 
     if output_dir is None:
         output_dir = get_visualizations_dir()
@@ -222,11 +232,11 @@ def visualize(
         console.print(f"Visualizing embeddings: {embeddings_dir}")
 
         embeddings = np.load(embeddings_dir / "embeddings.npy")
-        metadata = pd.read_csv(embeddings_dir / "metadata.csv")
+        pd.read_csv(embeddings_dir / "metadata.csv")
 
         labels = None
         if clinical_table:
-            clinical = pd.read_csv(clinical_table)
+            pd.read_csv(clinical_table)
             # Match labels to embeddings
             # (simplified - assumes slide_id matches PATIENT)
 
@@ -242,6 +252,7 @@ def visualize(
 # Training
 # ============================================================================
 
+
 @app.command()
 def train(
     embeddings_dir: Path = typer.Argument(..., help="Directory with embeddings"),
@@ -254,9 +265,9 @@ def train(
     import pandas as pd
     import numpy as np
     from .io_utils import setup_logging, get_models_dir, ensure_dir
-    from .training import compare_classifiers, save_model
+    from .training import compare_classifiers
 
-    logger = setup_logging("train")
+    setup_logging("train")
 
     if output_dir is None:
         output_dir = get_models_dir()
@@ -274,17 +285,17 @@ def train(
 
     # Match embeddings to labels
     # (This is simplified - in practice need proper patient-slide matching)
-    merged = metadata.merge(clinical, left_on='slide_id', right_on='PATIENT', how='inner')
+    merged = metadata.merge(clinical, left_on="slide_id", right_on="PATIENT", how="inner")
 
     if len(merged) == 0:
         console.print("[red]No matching records found between embeddings and clinical data[/red]")
         raise typer.Exit(1)
 
-    X = embeddings[:len(merged)]  # simplified
-    y = (merged[label_column] == 'MSI-H').astype(int).values
+    X = embeddings[: len(merged)]  # simplified
+    y = (merged[label_column] == "MSI-H").astype(int).values
 
     console.print(f"Training on {len(X)} samples")
-    console.print(f"Label distribution: MSI-H={y.sum()}, MSS={len(y)-y.sum()}")
+    console.print(f"Label distribution: MSI-H={y.sum()}, MSS={len(y) - y.sum()}")
 
     # Compare classifiers
     results = compare_classifiers(X, y, n_splits=n_splits)
@@ -300,7 +311,7 @@ def train(
 
     for _, row in results.iterrows():
         table.add_row(
-            row['classifier'],
+            row["classifier"],
             f"{row['auroc_mean']:.3f} ± {row['auroc_std']:.3f}",
             f"{row['accuracy_mean']:.3f} ± {row['accuracy_std']:.3f}",
         )
@@ -311,6 +322,7 @@ def train(
 # ============================================================================
 # Full pipeline
 # ============================================================================
+
 
 @app.command()
 def run(
@@ -323,11 +335,11 @@ def run(
     """Run the full pipeline: extract → aggregate → train."""
     import pandas as pd
     import numpy as np
-    from .io_utils import setup_logging, get_features_dir, get_embeddings_dir, get_models_dir, ensure_dir
+    from .io_utils import setup_logging, get_features_dir, get_embeddings_dir, get_models_dir
     from .feature_extraction import extract_features_multi_model, aggregate_features
     from .training import compare_classifiers
 
-    logger = setup_logging("pipeline")
+    setup_logging("pipeline")
 
     console.print("[bold blue]ARGO-DeepMSI: Full Pipeline[/bold blue]")
     console.print(f"Models: {', '.join(models)}")
@@ -341,7 +353,7 @@ def run(
 
         # 1. Extract features
         console.print("Step 1: Extracting features...")
-        extract_results = extract_features_multi_model(
+        extract_features_multi_model(
             slide_table=slide_df,
             models=[model],
             device=device,
@@ -351,7 +363,7 @@ def run(
         # 2. Aggregate
         console.print("Step 2: Aggregating features...")
         features_dir = get_features_dir(model)
-        agg_results = aggregate_features(
+        aggregate_features(
             features_dir=features_dir,
             model=model,
             method="mean",
@@ -364,10 +376,10 @@ def run(
         metadata = pd.read_csv(embeddings_dir / "metadata.csv")
 
         # Match to labels (simplified)
-        merged = metadata.merge(clinical_df, left_on='slide_id', right_on='PATIENT', how='inner')
+        merged = metadata.merge(clinical_df, left_on="slide_id", right_on="PATIENT", how="inner")
         if len(merged) > 0:
-            X = embeddings[:len(merged)]
-            y = (merged['isMSIH'] == 'MSI-H').astype(int).values
+            X = embeddings[: len(merged)]
+            y = (merged["isMSIH"] == "MSI-H").astype(int).values
             results = compare_classifiers(X, y)
             results.to_csv(get_models_dir() / f"{model}_results.csv", index=False)
 
@@ -377,6 +389,7 @@ def run(
 # ============================================================================
 # Version
 # ============================================================================
+
 
 @app.command()
 def version():

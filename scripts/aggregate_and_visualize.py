@@ -31,13 +31,12 @@ import matplotlib.pyplot as plt
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from argo_deepmsi.feature_extraction import aggregate_features
-from argo_deepmsi.visualization import (
+from argo_deepmsi.feature_extraction import aggregate_features  # noqa: E402
+from argo_deepmsi.visualization import (  # noqa: E402
     plot_embedding_umap,
     plot_embedding_tsne,
-    plot_model_comparison,
 )
-from argo_deepmsi.io_utils import (
+from argo_deepmsi.io_utils import (  # noqa: E402
     setup_logging,
     get_features_dir,
     get_embeddings_dir,
@@ -128,7 +127,7 @@ def visualize_all_models(
                 clinical_table[["PATIENT", label_column]],
                 left_on="slide_id",
                 right_on="PATIENT",
-                how="left"
+                how="left",
             )
             if label_column in merged.columns:
                 labels = merged[label_column].values
@@ -179,7 +178,7 @@ def create_combined_plot(
     n_cols = min(3, n_models)
     n_rows = (n_models + n_cols - 1) // n_cols
 
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5*n_cols, 4*n_rows))
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
     if n_models == 1:
         axes = np.array([[axes]])
     elif n_rows == 1:
@@ -199,13 +198,13 @@ def create_combined_plot(
                 clinical_table[["PATIENT", label_column]],
                 left_on="slide_id",
                 right_on="PATIENT",
-                how="left"
+                how="left",
             )
             if label_column in merged.columns:
                 labels = merged[label_column].values
 
         # Compute UMAP
-        reducer = UMAP(n_neighbors=15, min_dist=0.1, metric='cosine', random_state=42)
+        reducer = UMAP(n_neighbors=15, min_dist=0.1, metric="cosine", random_state=42)
         embedding_2d = reducer.fit_transform(embeddings)
 
         # Plot
@@ -214,8 +213,14 @@ def create_combined_plot(
             colors = plt.cm.tab10(np.linspace(0, 1, len(unique_labels)))
             for i, label in enumerate(unique_labels):
                 mask = labels == label
-                ax.scatter(embedding_2d[mask, 0], embedding_2d[mask, 1],
-                          c=[colors[i]], label=str(label), alpha=0.6, s=20)
+                ax.scatter(
+                    embedding_2d[mask, 0],
+                    embedding_2d[mask, 1],
+                    c=[colors[i]],
+                    label=str(label),
+                    alpha=0.6,
+                    s=20,
+                )
             if idx == 0:
                 ax.legend(fontsize=8)
         else:
@@ -228,21 +233,25 @@ def create_combined_plot(
     # Hide empty subplots
     for idx in range(n_models, n_rows * n_cols):
         row, col = idx // n_cols, idx % n_cols
-        axes[row, col].axis('off')
+        axes[row, col].axis("off")
 
     plt.suptitle("UMAP Embeddings by Model", fontsize=14, y=1.02)
     plt.tight_layout()
-    plt.savefig(output_dir / "umap_all_models.png", dpi=150, bbox_inches='tight')
+    plt.savefig(output_dir / "umap_all_models.png", dpi=150, bbox_inches="tight")
     plt.close()
 
 
 def main():
     parser = argparse.ArgumentParser(description="Aggregate and visualize features for all models")
 
-    parser.add_argument("--models", nargs="+", help="Specific models to process (default: all found)")
+    parser.add_argument(
+        "--models", nargs="+", help="Specific models to process (default: all found)"
+    )
     parser.add_argument("--clinical", type=Path, help="Clinical table for colored plots")
     parser.add_argument("--label", default="isMSIH", help="Label column for coloring")
-    parser.add_argument("--method", default="mean", choices=["mean", "max"], help="Aggregation method")
+    parser.add_argument(
+        "--method", default="mean", choices=["mean", "max"], help="Aggregation method"
+    )
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing embeddings")
     parser.add_argument("--output", type=Path, help="Output directory for visualizations")
 

@@ -14,12 +14,13 @@ Simplified pipeline for microsatellite instability (MSI) prediction from colorec
 ## Installation
 
 ```bash
-# Create environment
-conda env create -f environments/argo.yml
-conda activate argo
+# Create conda environment with Python, uv, and PyTorch+CUDA
+conda create -n argo -c pytorch -c nvidia -c conda-forge \
+  python=3.11 uv pip pytorch pytorch-cuda=12.1 -y
 
-# Or with pip directly
-pip install -e .
+# Activate and install dependencies
+conda activate argo
+uv pip install -e .
 
 # For gated models (UNI, Virchow, etc.), authenticate with Hugging Face
 huggingface-cli login
@@ -105,9 +106,7 @@ ARGO-DeepMSI/
 │   ├── visualization.py    # UMAP, t-SNE, slide viz
 │   ├── training.py         # Simple classifiers + MLP
 │   └── io_utils.py         # Path management
-├── environments/
-│   └── argo.yml            # Conda environment
-├── pyproject.toml          # Package config
+├── pyproject.toml          # Package config & dependencies
 └── README.md
 ```
 

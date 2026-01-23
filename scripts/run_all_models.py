@@ -31,22 +31,51 @@ from typing import List, Optional
 PROJECT_ROOT = Path(__file__).parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from argo_deepmsi.feature_extraction import (
+from argo_deepmsi.feature_extraction import (  # noqa: E402
     PATCH_MODELS,
-    SLIDE_MODELS,
-    list_available_models,
+    SLIDE_ENCODERS,
     extract_features_batch,
 )
-from argo_deepmsi.io_utils import setup_logging, get_features_dir, ensure_dir
+from argo_deepmsi.io_utils import setup_logging, get_features_dir, ensure_dir  # noqa: E402
 
 
 # Model groups for convenience
 MODEL_GROUPS = {
-    "no_auth": ["resnet50", "ctranspath", "plip"],
-    "gated": ["uni", "uni2", "virchow", "virchow2", "conch", "gigapath", "h-optimus-0", "h-optimus-1"],
-    "recommended": ["uni2", "virchow2", "h-optimus-0", "gigapath", "ctranspath"],
+    "no_auth": ["ctranspath", "plip", "phikon", "phikonv2"],
+    "gated": [
+        "uni",
+        "uni2",
+        "virchow",
+        "virchow2",
+        "conch",
+        "conch_v1.5",
+        "gigapath",
+        "h-optimus-0",
+        "h-optimus-1",
+        "h0-mini",
+        "hibou-b",
+        "hibou-l",
+        "chief",
+        "madeleine",
+        "medsiglip",
+        "omiclip",
+        "path_orchestra",
+        "pathprofiler",
+        "musk",
+        "nulite",
+        "gpfm",
+        "histoplus",
+        "rosie",
+    ],
+    "recommended": ["uni2", "virchow2", "h-optimus-0", "gigapath", "ctranspath", "phikonv2"],
     "all_patch": list(PATCH_MODELS.keys()),
-    "slide": list(SLIDE_MODELS.keys()),
+}
+
+# Slide encoder groups
+ENCODER_GROUPS = {
+    "simple": ["mean", "max"],
+    "neural": ["prism", "titan", "chief-slide-encoder", "gigapath-slide-encoder", "gigatime"],
+    "all_encoders": list(SLIDE_ENCODERS.keys()),
 }
 
 
@@ -65,62 +94,120 @@ def get_models_to_run(
     return MODEL_GROUPS["all_patch"]
 
 
+def get_encoders_to_run(encoder_group: Optional[str] = None) -> List[str]:
+    """Determine which encoders to use for aggregation."""
+    if encoder_group and encoder_group in ENCODER_GROUPS:
+        return ENCODER_GROUPS[encoder_group]
+    return ENCODER_GROUPS["all_encoders"]
+
+
 def run_sequential(
     slide_table: Path,
     models: List[str],
+    encoders: Optional[List[str]] = None,
+    extract_only: bool = False,
+    aggregate_only: bool = False,
     device: str = "cuda",
     max_slides: Optional[int] = None,
     overwrite: bool = False,
 ):
-    """Run extraction for all models sequentially."""
+    """Run extraction and/or aggregation for all models sequentially."""
     import pandas as pd
+    from argo_deepmsi.feature_extraction import aggregate_features
 
     logger = setup_logging("extract_all")
-    df = pd.read_csv(slide_table)
+    df = pd.read_csv(slide_table) if not aggregate_only else None
 
-    logger.info(f"Running extraction for {len(models)} models on {len(df)} slides")
+    if not aggregate_only:
+        logger.info(f"Running extraction for {len(models)} models on {len(df)} slides")
 
     results = {}
-    for i, model in enumerate(models, 1):
-        logger.info(f"\n{'='*60}")
-        logger.info(f"[{i}/{len(models)}] Model: {model}")
-        logger.info(f"{'='*60}")
 
-        try:
-            output_dir = get_features_dir(model)
-            ensure_dir(output_dir)
+    # Step 1: Feature extraction
+    if not aggregate_only:
+        for i, model in enumerate(models, 1):
+            logger.info(f"\n{'=' * 60}")
+            logger.info(f"[{i}/{len(models)}] Extracting features: {model}")
+            logger.info(f"{'=' * 60}")
 
-            model_results = extract_features_batch(
-                slide_table=df,
-                model=model,
-                output_dir=output_dir,
-                device=device,
-                amp=True,
-                overwrite=overwrite,
-                max_slides=max_slides,
-            )
+            try:
+                output_dir = get_features_dir(model)
+                ensure_dir(output_dir)
 
-            success_rate = model_results["success"].mean() * 100
-            results[model] = {
-                "success": model_results["success"].sum(),
-                "total": len(model_results),
-                "rate": success_rate,
-            }
-            logger.info(f"Completed {model}: {success_rate:.1f}% success rate")
+                model_results = extract_features_batch(
+                    slide_table=df,
+                    model=model,
+                    output_dir=output_dir,
+                    device=device,
+                    amp=True,
+                    overwrite=overwrite,
+                    max_slides=max_slides,
+                )
 
-        except Exception as e:
-            logger.error(f"Failed {model}: {e}")
-            results[model] = {"error": str(e)}
+                success_rate = model_results["success"].mean() * 100
+                results[model] = {
+                    "extraction_success": model_results["success"].sum(),
+                    "extraction_total": len(model_results),
+                    "extraction_rate": success_rate,
+                }
+                logger.info(f"Completed {model}: {success_rate:.1f}% success rate")
+
+            except Exception as e:
+                logger.error(f"Failed {model} extraction: {e}")
+                results[model] = {"extraction_error": str(e)}
+
+    # Step 2: Aggregation with all encoders
+    if not extract_only and encoders:
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"Aggregating features with {len(encoders)} encoders")
+        logger.info(f"{'=' * 60}")
+
+        for model in models:
+            features_dir = get_features_dir(model)
+            if not features_dir.exists():
+                logger.warning(f"No features found for {model}, skipping aggregation")
+                continue
+
+            if model not in results:
+                results[model] = {}
+
+            results[model]["aggregation"] = {}
+
+            for encoder in encoders:
+                logger.info(f"  {model} + {encoder}")
+                try:
+                    agg_results = aggregate_features(
+                        features_dir=features_dir,
+                        model=model,
+                        method=encoder,
+                        device=device,
+                    )
+                    results[model]["aggregation"][encoder] = {
+                        "n_slides": len(agg_results),
+                        "embedding_dim": agg_results["embedding"].iloc[0].shape[0]
+                        if len(agg_results) > 0
+                        else 0,
+                    }
+                except Exception as e:
+                    logger.error(f"Failed {model} + {encoder}: {e}")
+                    results[model]["aggregation"][encoder] = {"error": str(e)}
 
     # Summary
-    logger.info("\n" + "="*60)
+    logger.info("\n" + "=" * 60)
     logger.info("SUMMARY")
-    logger.info("="*60)
+    logger.info("=" * 60)
     for model, result in results.items():
-        if "error" in result:
-            logger.info(f"  {model}: FAILED - {result['error']}")
-        else:
-            logger.info(f"  {model}: {result['success']}/{result['total']} ({result['rate']:.1f}%)")
+        if "extraction_error" in result:
+            logger.info(f"  {model}: EXTRACTION FAILED - {result['extraction_error']}")
+        elif "extraction_success" in result:
+            logger.info(
+                f"  {model}: {result['extraction_success']}/{result['extraction_total']} ({result['extraction_rate']:.1f}%) extracted"
+            )
+            if "aggregation" in result:
+                agg_success = sum(1 for v in result["aggregation"].values() if "error" not in v)
+                logger.info(
+                    f"           {agg_success}/{len(result['aggregation'])} encoders successful"
+                )
 
     return results
 
@@ -146,11 +233,11 @@ def submit_slurm(
 #SBATCH --cpus-per-task=8
 #SBATCH --mem={memory}
 #SBATCH --time={time}
-#SBATCH --array=0-{n_models-1}%{max_concurrent}
+#SBATCH --array=0-{n_models - 1}%{max_concurrent}
 
 set -e
 
-MODELS=({' '.join(f'"{m}"' for m in models)})
+MODELS=({" ".join(f'"{m}"' for m in models)})
 MODEL=${{MODELS[$SLURM_ARRAY_TASK_ID]}}
 
 echo "Running model: $MODEL"
@@ -192,28 +279,48 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Model Groups:
-  --group no_auth      Only models that don't require HF auth
-  --group gated        Only gated HF models
-  --group recommended  Best performing models (uni2, virchow2, h-optimus-0, gigapath, ctranspath)
-  --group all_patch    All patch-level extractors (default)
-  --group slide        Slide-level aggregators (prism, threads)
+  --group no_auth      Only models that don't require HF auth (4 models)
+  --group gated        Only gated HF models (23 models)
+  --group recommended  Best performing models (uni2, virchow2, h-optimus-0, gigapath, ctranspath, phikonv2)
+  --group all_patch    All patch-level extractors (27 models, default)
+
+Encoder Groups:
+  --encoders simple    Mean and max pooling only
+  --encoders neural    Neural slide encoders (prism, titan, chief, gigapath, gigatime)
+  --encoders all       All slide encoders (default)
 
 Examples:
   # Run recommended models sequentially
   python scripts/run_all_models.py slide_table.csv --group recommended
 
-  # Submit SLURM array job for all models
+  # Submit SLURM array job for all 27 models
   python scripts/run_all_models.py slide_table.csv --slurm
 
-  # Test with 5 slides only
-  python scripts/run_all_models.py slide_table.csv --max-slides 5 --models uni2 virchow2
-        """
+  # Test with 5 slides, 2 models, mean pooling only
+  python scripts/run_all_models.py slide_table.csv --max-slides 5 --models uni2 virchow2 --encoders simple
+
+  # List all available models and groups
+  python scripts/run_all_models.py --list-models
+        """,
     )
 
-    parser.add_argument("slide_table", type=Path, help="Path to slide table CSV")
+    parser.add_argument("slide_table", nargs="?", type=Path, help="Path to slide table CSV")
     parser.add_argument("--models", nargs="+", help="Specific models to run")
     parser.add_argument("--group", choices=list(MODEL_GROUPS.keys()), help="Predefined model group")
-    parser.add_argument("--no-auth-only", action="store_true", help="Only run models without HF auth")
+    parser.add_argument(
+        "--no-auth-only", action="store_true", help="Only run models without HF auth"
+    )
+    parser.add_argument(
+        "--encoders", choices=list(ENCODER_GROUPS.keys()), help="Slide encoder group (default: all)"
+    )
+    parser.add_argument(
+        "--extract-only", action="store_true", help="Only extract features, skip aggregation"
+    )
+    parser.add_argument(
+        "--aggregate-only",
+        action="store_true",
+        help="Only aggregate existing features, skip extraction",
+    )
     parser.add_argument("--device", default="cuda", help="Device (cuda/cpu)")
     parser.add_argument("--max-slides", type=int, help="Max slides to process (for testing)")
     parser.add_argument("--overwrite", action="store_true", help="Overwrite existing features")
@@ -231,23 +338,39 @@ Examples:
         print("Patch-Level Extractors:")
         for name, config in PATCH_MODELS.items():
             auth = "(HF auth)" if config.requires_auth else ""
-            print(f"  {name:15} {auth:12} {config.description}")
-        print("\nSlide-Level Aggregators:")
-        for name, config in SLIDE_MODELS.items():
-            print(f"  {name:15} {'(HF auth)':12} {config.description}")
+            print(f"  {name:20} {auth:12} {config.description}")
+        print("\nSlide-Level Encoders:")
+        for name, desc in SLIDE_ENCODERS.items():
+            print(f"  {name:20} {desc}")
         print("\nModel Groups:")
         for group, models in MODEL_GROUPS.items():
-            print(f"  {group:15} {', '.join(models)}")
+            print(
+                f"  {group:15} {len(models)} models: {', '.join(models[:5])}{'...' if len(models) > 5 else ''}"
+            )
+        print("\nEncoder Groups:")
+        for group, encoders in ENCODER_GROUPS.items():
+            print(f"  {group:15} {', '.join(encoders)}")
         return
 
-    # Determine models
+    # Validate slide_table requirement
+    if not args.list_models and not args.slide_table:
+        parser.error("slide_table is required unless --list-models is used")
+
+    # Determine models and encoders
     models = get_models_to_run(args.models, args.no_auth_only, args.group)
+    encoders = get_encoders_to_run(args.encoders) if not args.extract_only else None
 
     print(f"Models to run ({len(models)}): {', '.join(models)}")
+    if encoders:
+        print(f"Encoders ({len(encoders)}): {', '.join(encoders)}")
+        print(
+            f"Total combinations: {len(models)} × {len(encoders)} = {len(models) * len(encoders)}"
+        )
     print(f"Slide table: {args.slide_table}")
     print()
 
     if args.slurm:
+        # TODO: Update SLURM submission to handle aggregation
         submit_slurm(
             args.slide_table,
             models,
@@ -259,6 +382,9 @@ Examples:
         run_sequential(
             args.slide_table,
             models,
+            encoders=encoders,
+            extract_only=args.extract_only,
+            aggregate_only=args.aggregate_only,
             device=args.device,
             max_slides=args.max_slides,
             overwrite=args.overwrite,
