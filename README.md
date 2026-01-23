@@ -14,16 +14,17 @@ Simplified pipeline for microsatellite instability (MSI) prediction from colorec
 ## Installation
 
 ```bash
-# Create conda environment with Python, uv, and PyTorch+CUDA
+# 1. Create conda environment with Python, uv, and PyTorch+CUDA
 conda create -n argo -c pytorch -c nvidia -c conda-forge \
   python=3.11 uv pip pytorch pytorch-cuda=12.1 -y
 
-# Activate and install dependencies
+# 2. Activate and install dependencies
 conda activate argo
 uv pip install -e .
 
-# For gated models (UNI, Virchow, etc.), authenticate with Hugging Face
-huggingface-cli login
+# 3. Configure credentials
+cp .env.template .env
+# Edit .env with your HuggingFace token and (optionally) REDCap credentials
 ```
 
 ## Quick Start
@@ -99,21 +100,34 @@ features = wsi["uni2_tiles"]
 
 ```
 ARGO-DeepMSI/
-├── argo_deepmsi/           # Core package
-│   ├── cli.py              # CLI entry point
+├── argo_deepmsi/           # Core Python package
+│   ├── cli.py              # Typer-based CLI entry point
 │   ├── data_ingestion.py   # REDCap + Halo data loading
-│   ├── feature_extraction.py # LazySlide feature extraction
-│   ├── visualization.py    # UMAP, t-SNE, slide viz
-│   ├── training.py         # Simple classifiers + MLP
-│   └── io_utils.py         # Path management
+│   ├── feature_extraction.py # LazySlide feature extraction (27 models)
+│   ├── visualization.py    # UMAP, t-SNE, slide visualization
+│   ├── training.py         # Classifiers (LogReg, RF, SVM, MLP)
+│   └── io_utils.py         # Path management & logging
+├── scripts/                # HPC execution scripts
+│   ├── run_all_models.py   # Multi-model extraction orchestrator
+│   └── aggregate_and_visualize.py # Aggregation pipeline
+├── .env.template           # Environment variables template
 ├── pyproject.toml          # Package config & dependencies
+├── CLAUDE.md               # Claude Code instructions
 └── README.md
+
+# Auto-generated (gitignored):
+├── .huggingface_cache/     # Downloaded models (~10-50GB)
+├── results/                # All outputs
+├── logs/                   # Runtime logs
+└── old/                    # Archived code & data
 ```
 
 ## Output Structure
 
+All outputs are auto-generated in `results/` (gitignored):
+
 ```
-results/
+results/                    # Created automatically on first run
 ├── data/                   # Clinical and slide tables
 │   ├── clinical_table.csv
 │   └── slide_table.csv
@@ -122,13 +136,16 @@ results/
 │   ├── virchow2/
 │   └── ...
 ├── embeddings/             # Slide-level embeddings
-│   ├── uni2/
+│   ├── uni2_mean/
 │   │   ├── embeddings.npy
 │   │   └── metadata.csv
+│   ├── uni2_prism/
 │   └── ...
-├── visualizations/         # Plots and figures
+├── visualizations/         # UMAP/t-SNE plots
 └── models/                 # Trained classifiers
 ```
+
+Logs are auto-generated in `logs/` (gitignored).
 
 ## HPC / Multi-Model Processing
 
@@ -166,16 +183,11 @@ python scripts/aggregate_and_visualize.py --clinical results/data/clinical_table
 ## Environment Variables
 
 ```bash
-# Required for gated HuggingFace models
-export HF_HOME="/path/to/.huggingface_cache"
-
-# For offline use on compute nodes
-export HF_HUB_OFFLINE=1
-
-# REDCap credentials (in .env file)
-REDCAP_API_TOKEN=your_token
-REDCAP_API_URL=https://redcap.example.com/api/
+cp .env.template .env
+# Edit .env with your credentials
 ```
+
+⚠️ **Security**: Never commit `.env` to git!
 
 ## References
 

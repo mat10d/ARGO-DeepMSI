@@ -5,6 +5,7 @@ Simplified path management and file operations.
 """
 
 import logging
+import os
 from pathlib import Path
 from typing import Union, Optional
 from datetime import datetime
@@ -13,6 +14,29 @@ from datetime import datetime
 def get_project_root() -> Path:
     """Get the absolute path to the project root directory."""
     return Path(__file__).parent.parent
+
+
+def setup_huggingface_cache() -> Path:
+    """Set up HuggingFace cache directory.
+
+    If HF_HOME is not set, defaults to .huggingface_cache in project root.
+    Creates the directory if it doesn't exist.
+
+    Returns:
+        Path to HuggingFace cache directory
+    """
+    if "HF_HOME" not in os.environ:
+        cache_dir = get_project_root() / ".huggingface_cache"
+        os.environ["HF_HOME"] = str(cache_dir)
+    else:
+        cache_dir = Path(os.environ["HF_HOME"])
+
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    return cache_dir
+
+
+# Set up HuggingFace cache on module import
+setup_huggingface_cache()
 
 
 def setup_logging(
