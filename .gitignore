@@ -3,17 +3,13 @@
 # ============================================
 
 # ============================================
-# External Repositories (Never track)
+# Old Code & Data (archived, never track)
 # ============================================
-STAMP/
-HistoBistro/
-HistoBistro_deprecated/
+old/
 
 # ============================================
 # Data Directories (gitignored, too large)
 # ============================================
-data/
-tables/
 results/
 logs/
 
@@ -22,6 +18,9 @@ logs/
 # ============================================
 .huggingface_cache/
 .cache/
+.ruff_cache/
+.uv_cache/
+.claude/
 *.pyc
 __pycache__/
 *.egg-info/
@@ -66,7 +65,6 @@ slurm-*.out
 # ============================================
 # Visualization & Plots (keep in results/)
 # ============================================
-visualizations/
 *.png
 *.jpg
 *.jpeg
@@ -123,4 +121,3 @@ Thumbs.db
 
 # Keep example notebooks
 !examples/**/*.ipynb
-.temp_configs/
