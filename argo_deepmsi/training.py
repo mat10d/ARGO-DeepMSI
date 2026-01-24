@@ -91,15 +91,14 @@ def load_training_data(
 
     # Log statistics
     logger.info(f"Matched {len(X)} samples")
-    logger.info(f"Label distribution:")
-    logger.info(f"  {positive_label}: {y.sum()} ({100*y.sum()/len(y):.1f}%)")
-    logger.info(f"  Other: {len(y)-y.sum()} ({100*(len(y)-y.sum())/len(y):.1f}%)")
+    logger.info("Label distribution:")
+    logger.info(f"  {positive_label}: {y.sum()} ({100 * y.sum() / len(y):.1f}%)")
+    logger.info(f"  Other: {len(y) - y.sum()} ({100 * (len(y) - y.sum()) / len(y):.1f}%)")
 
     # Warn if severely imbalanced
     if y.sum() < 5 or (len(y) - y.sum()) < 5:
         logger.warning(
-            "Severely imbalanced dataset! Consider stratified sampling or "
-            "collecting more data."
+            "Severely imbalanced dataset! Consider stratified sampling or collecting more data."
         )
 
     return X, y, merged

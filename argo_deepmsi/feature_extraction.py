@@ -707,9 +707,7 @@ def _save_embeddings(
     # Save embeddings as numpy array
     np.save(output_dir / "embeddings.npy", embedding_matrix)
 
-    logger.info(
-        f"Saved {len(df)} embeddings ({embedding_matrix.shape[1]}D) to {output_dir}"
-    )
+    logger.info(f"Saved {len(df)} embeddings ({embedding_matrix.shape[1]}D) to {output_dir}")
 
     return output_dir
 
@@ -797,6 +795,7 @@ def aggregate_simple_pooling(
             except Exception as e:
                 logger.error(f"Failed to aggregate {zarr_path.name}: {e}")
                 import traceback
+
                 logger.error(traceback.format_exc())
                 continue
 
@@ -853,9 +852,7 @@ def aggregate_neural_encoders(
 
     if encoder in encoder_requirements:
         if model not in encoder_requirements[encoder]:
-            raise ValueError(
-                f"{encoder} requires {encoder_requirements[encoder]}, got {model}"
-            )
+            raise ValueError(f"{encoder} requires {encoder_requirements[encoder]}, got {model}")
 
     # Load slide table
     if isinstance(slide_table, (str, Path)):
@@ -925,6 +922,7 @@ def aggregate_neural_encoders(
         except Exception as e:
             logger.error(f"Failed to aggregate {svs_path.name}: {e}")
             import traceback
+
             logger.error(traceback.format_exc())
             continue
 
@@ -987,8 +985,7 @@ def aggregate_features_new(
         if isinstance(models, list):
             if len(models) > 1:
                 raise ValueError(
-                    f"Neural encoder {method} can only process one model at a time. "
-                    f"Got: {models}"
+                    f"Neural encoder {method} can only process one model at a time. Got: {models}"
                 )
             model = models[0]
         else:
@@ -1006,6 +1003,5 @@ def aggregate_features_new(
 
     else:
         raise ValueError(
-            f"Unknown aggregation method: {method}. "
-            f"Available: {simple_methods + neural_encoders}"
+            f"Unknown aggregation method: {method}. Available: {simple_methods + neural_encoders}"
         )
