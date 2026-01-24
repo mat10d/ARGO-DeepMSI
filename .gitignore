@@ -64,6 +64,7 @@ credentials.json
 # SLURM Output Files
 # ============================================
 scripts/out/
+scripts/archive/
 *.out
 slurm-*.out
 
