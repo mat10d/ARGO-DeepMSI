@@ -32,11 +32,18 @@ Creates:
 
 ### 2. Feature Extraction
 
-Edit `scripts/extract.sh` to select which models to run, then submit:
+Extract features from ALL models in 3 parallel groups:
 
 ```bash
 sbatch scripts/extract.sh
 ```
+
+This splits slides into 3 groups (~270 slides each):
+- **Group 1**: slides 1-270 with all 12 models
+- **Group 2**: slides 271-540 with all 12 models
+- **Group 3**: slides 541-808 with all 12 models
+
+Each slide is preprocessed once, all models extracted in one pass.
 
 Monitor progress:
 ```bash
@@ -72,19 +79,34 @@ Creates: `results/models/{embedding_type}/`
 
 ## Customizing Scripts
 
-All scripts have a `MODELS` or `EMBEDDINGS` array at the top that you can edit:
+### Feature Extraction
+
+Edit the `MODELS` array in `scripts/extract.sh` to select which models to extract:
 
 ```bash
 # scripts/extract.sh
 MODELS=(
-    "plip"
     "uni2"
+    "virchow2"
+    "plip"
     # Add or remove models here
 )
 ```
 
-Update the SLURM `--array` parameter to match:
-- For N models: `--array=0-$((N-1))%M`
+To change the number of parallel groups, update both:
+1. `#SBATCH --array=0-N` (where N = num_groups - 1)
+2. `NUM_GROUPS=N` variable in the script
+
+For example, to use 5 groups instead of 3:
+```bash
+#SBATCH --array=0-4
+NUM_GROUPS=5
+```
+
+### Aggregation and Training
+
+`scripts/aggregate.sh` and `scripts/train.sh` use model-based arrays:
+- For N models/embeddings: `--array=0-$((N-1))%M`
 - M = max concurrent jobs
 
 ## Available Models

@@ -5,38 +5,61 @@
 #SBATCH --partition=short
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=8
-#SBATCH --array=0-9%5
+#SBATCH --array=0-14%5
 
 # =============================================================================
 # ARGO-DeepMSI: Feature Aggregation
 # =============================================================================
-# Aggregate patch features to slide-level embeddings.
-# Customize MODELS and METHODS arrays below.
+# Aggregate patch features to slide-level embeddings using simple pooling.
+# Edit MODELS array to match your extracted models.
+#
+# For neural slide encoders (prism, titan, etc.), use the CLI directly:
+#   argo aggregate virchow2 --method prism
+#   argo aggregate conch_v1.5 --method titan
 #
 # Usage:
 #   sbatch scripts/aggregate.sh
 #
 # Update --array=0-N%M where:
-#   N = number of combinations - 1
+#   N = number of models - 1
 #   M = max concurrent jobs
 # =============================================================================
 
-# Models to aggregate (must match extracted models)
+# Models to aggregate (must match extracted models from extract.sh)
 MODELS=(
+    # ===== Recommended Gated Models =====
+    "uni2"
+    "virchow2"
+    "conch_v1.5"
+    "h-optimus-0"
+    "h-optimus-1"
+    "gigapath"
+    "hibou-b"
+    "chief"
+
+    # ===== Non-Gated Models =====
     "plip"
     "ctranspath"
     "phikon"
     "phikonv2"
-    "uni2"
-    "virchow2"
-    "h-optimus-0"
-    "gigapath"
-    "conch"
-    "hibou-b"
+
+    # ===== Older Versions (uncomment if you extracted them) =====
+    # "uni"
+    # "virchow"
+    # "conch"
+
+    # ===== Model Variants =====
+    # "h0-mini"
+    # "hibou-l"
+
+    # ===== Less Common Models =====
+    # "gpfm"
+    # "path_orchestra"
+    # "midnight"
 )
 
-# Aggregation method (mean, max, median, sum)
-# For neural encoders (prism, titan, etc.), see README
+# Aggregation method
+# Options: mean, max, median, sum
 METHOD="mean"
 
 # Get model for this array task

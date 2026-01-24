@@ -5,13 +5,13 @@
 #SBATCH --partition=short
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=4
-#SBATCH --array=0-9%5
+#SBATCH --array=0-14%5
 
 # =============================================================================
 # ARGO-DeepMSI: Classifier Training
 # =============================================================================
 # Train classifiers on slide-level embeddings.
-# Customize EMBEDDINGS array below to match aggregated models.
+# Edit EMBEDDINGS array to match your aggregated models.
 #
 # Usage:
 #   sbatch scripts/train.sh
@@ -22,17 +22,42 @@
 # =============================================================================
 
 # Embedding directories to train on (must exist in results/embeddings/)
+# Format: {model}_{aggregation_method}
 EMBEDDINGS=(
+    # ===== Recommended Models (mean pooling) =====
+    "uni2_mean"
+    "virchow2_mean"
+    "conch_v1.5_mean"
+    "h-optimus-0_mean"
+    "h-optimus-1_mean"
+    "gigapath_mean"
+    "hibou-b_mean"
+    "chief_mean"
+
+    # ===== Non-Gated Models =====
     "plip_mean"
     "ctranspath_mean"
     "phikon_mean"
     "phikonv2_mean"
-    "uni2_mean"
-    "virchow2_mean"
-    "h-optimus-0_mean"
-    "gigapath_mean"
-    "conch_mean"
-    "hibou-b_mean"
+
+    # ===== Older Versions (uncomment if aggregated) =====
+    # "uni_mean"
+    # "virchow_mean"
+    # "conch_mean"
+
+    # ===== Model Variants =====
+    # "h0-mini_mean"
+    # "hibou-l_mean"
+
+    # ===== Less Common Models =====
+    # "gpfm_mean"
+    # "path_orchestra_mean"
+    # "midnight_mean"
+
+    # ===== Neural Aggregators (if you ran them separately) =====
+    # "virchow2_prism"
+    # "conch_v1.5_titan"
+    # "chief_chief"
 )
 
 # Get embedding for this array task
