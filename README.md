@@ -5,17 +5,17 @@ MSI prediction from whole slide images using [LazySlide](https://github.com/rend
 ## Installation
 
 ```bash
-# Create conda environment with Python, uv, and PyTorch+CUDA
+# Create conda environment
 conda create -n argo -c pytorch -c nvidia -c conda-forge \
   python=3.11 uv pip pytorch pytorch-cuda=12.1 -y
 
-# Activate and install dependencies
+# Install dependencies
 conda activate argo
 uv pip install -e .
 
-# Configure credentials (HuggingFace token for gated models)
+# Configure HuggingFace token (for gated models)
 cp .env.template .env
-# Edit .env with your HF_TOKEN
+# Edit .env and add your HF_TOKEN
 ```
 
 ## Running the Pipeline
@@ -23,76 +23,84 @@ cp .env.template .env
 ### 1. Data Ingestion
 
 ```bash
-# Generate clinical_table.csv and slide_table.csv from REDCap
 argo ingest
 ```
 
-Outputs:
+Creates:
 - `results/data/clinical_table.csv` - Patient MSI labels
 - `results/data/slide_table.csv` - Slide paths and metadata
 
 ### 2. Feature Extraction
 
-Extract features from slides and save to zarr format:
+Edit `scripts/extract.sh` to select which models to run, then submit:
 
 ```bash
-# Non-gated models (no auth required)
-sbatch scripts/extract_all_models.sh
-
-# Gated models (requires HF_TOKEN in .env)
-sbatch scripts/extract_gated_models.sh
+sbatch scripts/extract.sh
 ```
 
-Monitor jobs:
+Monitor progress:
 ```bash
 squeue -u $USER
 tail -f scripts/logs/extract_*.out
 ```
 
-Outputs: `data/SITE/slide.zarr/tables/{model}_tiles/` for each slide and model
+Creates: `data/SITE/slide.zarr/tables/{model}_tiles/` for each slide
 
 ### 3. Aggregation
 
-Aggregate patch features to slide-level embeddings:
+Edit `scripts/aggregate.sh` to match your extracted models, then submit:
 
 ```bash
-# Simple pooling (mean, max, median, sum)
-argo aggregate plip,ctranspath --method mean
-
-# Neural slide encoders (requires specific base models)
-argo aggregate virchow --method prism
-argo aggregate conch_v1.5 --method titan
+sbatch scripts/aggregate.sh
 ```
 
-Outputs: `results/embeddings/{model}_{method}/`
-- `embeddings.npy` - Slide embeddings matrix
-- `metadata.csv` - Slide metadata (patient_id, site, etc.)
+Creates: `results/embeddings/{model}_{method}/`
+- `embeddings.npy` - Slide embedding matrix
+- `metadata.csv` - Slide metadata
 
 ### 4. Training
 
-Train classifiers on slide embeddings:
+Edit `scripts/train.sh` to match your embeddings, then submit:
 
 ```bash
-argo train results/embeddings/plip_mean
+sbatch scripts/train.sh
 ```
 
-Outputs: `results/models/{embedding_type}/`
-- `classifier_comparison.csv` - Performance metrics (AUROC, accuracy)
+Creates: `results/models/{embedding_type}/`
+- `classifier_comparison.csv` - Performance metrics
 - `training_data.csv` - Patient-slide-label mappings
+
+## Customizing Scripts
+
+All scripts have a `MODELS` or `EMBEDDINGS` array at the top that you can edit:
+
+```bash
+# scripts/extract.sh
+MODELS=(
+    "plip"
+    "uni2"
+    # Add or remove models here
+)
+```
+
+Update the SLURM `--array` parameter to match:
+- For N models: `--array=0-$((N-1))%M`
+- M = max concurrent jobs
 
 ## Available Models
 
-Run `argo models` to see all available models and aggregation methods.
-
 **Non-gated** (no auth): plip, ctranspath, phikon, phikonv2, resnet50
 
-**Gated** (HF auth required): uni2, virchow2, h-optimus-0, gigapath, conch, hibou-b
+**Gated** (requires HF_TOKEN): uni2, virchow2, h-optimus-0, gigapath, conch, hibou-b
 
-**Aggregation methods**:
-- Simple: mean, max, median, sum
-- Neural: prism (virchow), titan (conch_v1.5), chief, madeleine
+**Aggregation methods**: mean, max, median, sum
+
+For neural aggregators (prism, titan), use the CLI:
+```bash
+argo aggregate virchow --method prism
+```
 
 ## References
 
 - **LazySlide**: https://github.com/rendeirolab/LazySlide
-- **LazySlide Paper**: https://doi.org/10.1101/2025.05.28.656548
+- **Paper**: https://doi.org/10.1101/2025.05.28.656548
