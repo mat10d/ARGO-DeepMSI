@@ -18,12 +18,13 @@ from tqdm import tqdm
 
 try:
     import lazyslide as zs
+    from wsidata import open_wsi
 
     LAZYSLIDE_AVAILABLE = True
 except ImportError:
     LAZYSLIDE_AVAILABLE = False
 
-from .io_utils import get_features_dir, get_embeddings_dir, ensure_dir
+from .io_utils import get_embeddings_dir, ensure_dir
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +171,7 @@ def process_slide(
     logger.info(f"Processing: {slide_path.name}")
 
     # Load slide
-    wsi = zs.WSI(str(slide_path))
+    wsi = open_wsi(str(slide_path))
 
     # Preprocessing: tissue detection and tiling
     zs.pp.find_tissues(wsi)
@@ -295,30 +296,29 @@ def analyze_tiles(
 
 def extract_features_single_slide(
     slide_path: Union[str, Path],
-    model: str = "uni2",
-    output_dir: Optional[Path] = None,
+    models: Union[str, List[str]] = "uni2",
     tile_px: int = 256,
     mpp: float = 0.5,
     amp: bool = True,
     device: str = "cuda",
     overwrite: bool = False,
-    save_wsi: bool = False,
 ) -> Optional[Path]:
-    """Extract patch features from a single slide.
+    """Extract patch features from a single slide using one or more models.
+
+    Uses LazySlide's design: preprocess once, extract all models, write once.
+    Saves a single Zarr next to the original slide with all features.
 
     Args:
         slide_path: Path to WSI file
-        model: Model name for feature extraction
-        output_dir: Output directory
+        models: Model name(s) for feature extraction (string or list of strings)
         tile_px: Tile size in pixels
         mpp: Microns per pixel
         amp: Use automatic mixed precision
         device: Device for inference
         overwrite: Overwrite existing features
-        save_wsi: Also save the full WSI object (for visualization)
 
     Returns:
-        Path to saved features (.h5ad file)
+        Path to saved Zarr directory (next to original slide)
     """
     if not LAZYSLIDE_AVAILABLE:
         raise ImportError("LazySlide is not installed")
@@ -328,51 +328,55 @@ def extract_features_single_slide(
         logger.error(f"Slide not found: {slide_path}")
         return None
 
-    if output_dir is None:
-        output_dir = get_features_dir(model)
-    ensure_dir(output_dir)
+    # Handle single model or list
+    if isinstance(models, str):
+        models = [models]
 
-    output_path = output_dir / f"{slide_path.stem}.h5ad"
+    # Zarr will be saved next to the slide
+    zarr_path = slide_path.parent / f"{slide_path.stem}.zarr"
 
-    if output_path.exists() and not overwrite:
-        logger.info(f"Features exist, skipping: {output_path}")
-        return output_path
+    if zarr_path.exists() and not overwrite:
+        logger.info(f"Zarr exists, skipping: {zarr_path}")
+        return zarr_path
 
     try:
-        wsi = process_slide(
-            slide_path=slide_path,
-            patch_model=model,
-            tile_px=tile_px,
-            mpp=mpp,
-            amp=amp,
-            device=device,
-        )
+        # Open WSI
+        logger.info(f"Processing {slide_path.name} with models: {', '.join(models)}")
+        wsi = open_wsi(str(slide_path))
 
-        # Save features
-        feature_key = f"{model}_tiles"
-        if feature_key in wsi:
-            wsi[feature_key].write_h5ad(str(output_path))
-            logger.info(f"Saved features: {output_path}")
+        # Preprocess ONCE: tissue detection and tiling
+        logger.info("Preprocessing: tissue detection and tiling...")
+        zs.pp.find_tissues(wsi)
+        zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
 
-            # Optionally save full WSI for visualization
-            if save_wsi:
-                wsi_path = output_dir / f"{slide_path.stem}.wsi.zarr"
-                wsi.write_zarr(str(wsi_path))
+        # Extract ALL models (each adds to wsi.tables)
+        for model in models:
+            logger.info(f"Extracting features with {model}...")
+            zs.tl.feature_extraction(wsi, model=model, amp=amp, device=device)
 
-            return output_path
-        else:
-            logger.warning(f"No features extracted for: {slide_path.name}")
-            return None
+        # Write ONCE → saves next to original slide
+        logger.info("Saving WSI with all features...")
+        wsi.write()
+
+        # Verify features were saved
+        if hasattr(wsi, "tables"):
+            saved_features = list(wsi.tables.keys())
+            logger.info(f"Saved {len(saved_features)} feature tables: {saved_features}")
+
+        logger.info(f"✓ Saved complete WSI: {zarr_path}")
+        return zarr_path
 
     except Exception as e:
         logger.error(f"Failed to process {slide_path.name}: {e}")
+        import traceback
+
+        logger.error(traceback.format_exc())
         return None
 
 
 def extract_features_batch(
     slide_table: pd.DataFrame,
-    model: str = "uni2",
-    output_dir: Optional[Path] = None,
+    models: Union[str, List[str]] = "uni2",
     slide_column: str = "FILENAME",
     tile_px: int = 256,
     mpp: float = 0.5,
@@ -381,7 +385,11 @@ def extract_features_batch(
     overwrite: bool = False,
     max_slides: Optional[int] = None,
 ) -> pd.DataFrame:
-    """Extract features from all slides in a table."""
+    """Extract features from all slides using one or more models.
+
+    Each slide is processed once with all models, creating a single Zarr
+    next to the original slide containing all feature tables.
+    """
     if slide_column not in slide_table.columns:
         raise ValueError(f"Column '{slide_column}' not found in slide table")
 
@@ -389,18 +397,18 @@ def extract_features_batch(
     if max_slides:
         slides = slides[:max_slides]
 
-    logger.info(f"Extracting {model} features from {len(slides)} slides")
+    # Handle single model or list
+    if isinstance(models, str):
+        models = [models]
 
-    if output_dir is None:
-        output_dir = get_features_dir(model)
-    ensure_dir(output_dir)
+    logger.info(f"Extracting features from {len(slides)} slides")
+    logger.info(f"Models: {', '.join(models)}")
 
     results = []
-    for slide_path in tqdm(slides, desc=f"Extracting {model}"):
+    for slide_path in tqdm(slides, desc="Extracting features"):
         output_path = extract_features_single_slide(
             slide_path=slide_path,
-            model=model,
-            output_dir=output_dir,
+            models=models,
             tile_px=tile_px,
             mpp=mpp,
             amp=amp,
@@ -410,8 +418,8 @@ def extract_features_batch(
         results.append(
             {
                 "slide_path": slide_path,
-                "model": model,
-                "features_path": str(output_path) if output_path else None,
+                "models": ",".join(models),
+                "zarr_path": str(output_path) if output_path else None,
                 "success": output_path is not None,
             }
         )
@@ -475,7 +483,7 @@ def aggregate_features(
     """Aggregate patch features to slide-level embeddings.
 
     Args:
-        features_dir: Directory containing .h5ad feature files
+        features_dir: Directory containing .zarr feature directories
         model: Model name (for organizing outputs)
         method: Aggregation method:
             - "mean": Simple mean pooling
@@ -494,13 +502,14 @@ def aggregate_features(
     if not LAZYSLIDE_AVAILABLE:
         raise ImportError("LazySlide is not installed")
 
-    import anndata as ad
+    from wsidata import open_wsi
 
     features_dir = Path(features_dir)
-    feature_files = list(features_dir.glob("*.h5ad"))
+    # Look for zarr directories
+    feature_files = [f for f in features_dir.iterdir() if f.is_dir() and f.suffix == ".zarr"]
 
     if not feature_files:
-        logger.warning(f"No feature files found in {features_dir}")
+        logger.warning(f"No .zarr feature files found in {features_dir}")
         return pd.DataFrame()
 
     # Validate PRISM requirements
@@ -512,9 +521,19 @@ def aggregate_features(
     logger.info(f"Aggregating {len(feature_files)} slides with {method}")
 
     embeddings = []
-    for feature_file in tqdm(feature_files, desc=f"Aggregating ({method})"):
+    feature_key = f"{model}_tiles"
+
+    for zarr_path in tqdm(feature_files, desc=f"Aggregating ({method})"):
         try:
-            adata = ad.read_h5ad(feature_file)
+            # Load WSI from zarr
+            wsi = open_wsi(str(zarr_path))
+
+            # Extract AnnData from tables
+            if hasattr(wsi, "tables") and feature_key in wsi.tables:
+                adata = wsi.tables[feature_key]
+            else:
+                logger.warning(f"No {feature_key} in {zarr_path.name}")
+                continue
 
             if method == "mean":
                 embedding = np.asarray(adata.X.mean(axis=0)).flatten()
@@ -538,13 +557,13 @@ def aggregate_features(
 
             embeddings.append(
                 {
-                    "slide_id": feature_file.stem,
+                    "slide_id": zarr_path.stem,  # Remove .zarr extension
                     "embedding": embedding,
                     "n_tiles": adata.n_obs,
                 }
             )
         except Exception as e:
-            logger.error(f"Failed to aggregate {feature_file.name}: {e}")
+            logger.error(f"Failed to aggregate {zarr_path.name}: {e}")
 
     if not embeddings:
         return pd.DataFrame()

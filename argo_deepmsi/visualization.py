@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 
 try:
     import lazyslide as zs
+    from wsidata import open_wsi
 
     LAZYSLIDE_AVAILABLE = True
 except ImportError:
@@ -58,7 +59,7 @@ def visualize_slide(
     slide_path = Path(slide_path)
 
     try:
-        wsi = zs.WSI(str(slide_path))
+        wsi = open_wsi(str(slide_path))
 
         fig, axes = plt.subplots(1, 3, figsize=figsize)
 
@@ -123,7 +124,7 @@ def visualize_features(
     slide_path = Path(slide_path)
 
     try:
-        wsi = zs.WSI(str(slide_path))
+        wsi = open_wsi(str(slide_path))
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
         zs.tl.feature_extraction(wsi, model=model)
@@ -456,7 +457,7 @@ def visualize_tile_clusters(
 
     try:
         # Load and process slide
-        wsi = zs.WSI(str(slide_path))
+        wsi = open_wsi(str(slide_path))
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
         zs.tl.feature_extraction(wsi, model=model, device=device)
@@ -533,7 +534,7 @@ def visualize_feature_heatmap(
     slide_path = Path(slide_path)
 
     try:
-        wsi = zs.WSI(str(slide_path))
+        wsi = open_wsi(str(slide_path))
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
         zs.tl.feature_extraction(wsi, model=model, device=device)

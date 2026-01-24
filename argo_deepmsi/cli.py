@@ -81,7 +81,7 @@ def extract(
     """
     import pandas as pd
     from .io_utils import setup_logging
-    from .feature_extraction import extract_features_multi_model, list_available_models
+    from .feature_extraction import list_available_models
 
     setup_logging("extract")
 
@@ -102,8 +102,10 @@ def extract(
     df = pd.read_csv(slide_table)
     console.print(f"Loaded {len(df)} slides")
 
-    # Extract features
-    results = extract_features_multi_model(
+    # Extract features (all models in one pass per slide)
+    from .feature_extraction import extract_features_batch
+
+    results = extract_features_batch(
         slide_table=df,
         models=models,
         tile_px=tile_px,
@@ -115,11 +117,10 @@ def extract(
     )
 
     # Summary
-    for model in models:
-        model_results = results[results["model"] == model]
-        success = model_results["success"].sum()
-        total = len(model_results)
-        console.print(f"[green]{model}[/green]: {success}/{total} successful")
+    success = results["success"].sum()
+    total = len(results)
+    console.print(f"[green]Complete![/green] {success}/{total} slides processed")
+    console.print(f"Each slide contains features from: {', '.join(models)}")
 
 
 @app.command()

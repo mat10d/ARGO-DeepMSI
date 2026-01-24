@@ -58,10 +58,11 @@ argo run slide_table.csv clinical_table.csv --model uni2
 
 ```python
 import lazyslide as zs
+from wsidata import open_wsi
 from argo_deepmsi import feature_extraction, visualization, training
 
 # Load slide
-wsi = zs.WSI("path/to/slide.svs")
+wsi = open_wsi("path/to/slide.svs")
 
 # Process slide
 zs.pp.find_tissues(wsi)

@@ -259,16 +259,14 @@ def verify_slides_exist(
 
     # Default directories if not specified
     if not slide_dirs:
-        # Search in all site-specific raw directories: data/*/raw/
+        # Search in all site-specific directories: data/*/
         data_root = get_project_root() / "data"
         slide_dirs = []
         if data_root.exists():
-            # Find all site directories with raw/ subdirectories
+            # Find all site directories
             for site_dir in data_root.iterdir():
                 if site_dir.is_dir():
-                    raw_dir = site_dir / "raw"
-                    if raw_dir.exists():
-                        slide_dirs.append(raw_dir)
+                    slide_dirs.append(site_dir)
     else:
         slide_dirs = [Path(d) for d in slide_dirs]
 
@@ -322,7 +320,7 @@ def verify_slides_exist(
         for _, row in found_slides.head(3).iterrows():
             logger.info(f"  - {row['FILENAME']} → {row['slide_path']}")
 
-    missing_slides = result[not result["slide_exists"]]
+    missing_slides = result[~result["slide_exists"]]
     if not missing_slides.empty:
         logger.warning("Examples of missing slides:")
         for _, row in missing_slides.head(3).iterrows():
