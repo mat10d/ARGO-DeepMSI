@@ -321,6 +321,10 @@ def extract_features_single_slide(
     Uses LazySlide's design: preprocess once, extract all models, write once.
     Saves a single Zarr next to the original slide with all features.
 
+    **Incremental Extraction:**
+    If zarr already exists, only extracts models that are not already present.
+    This allows adding new models to existing zarr files without reprocessing.
+
     Args:
         slide_path: Path to WSI file
         models: Model name(s) for feature extraction (string or list of strings)
@@ -328,10 +332,20 @@ def extract_features_single_slide(
         mpp: Microns per pixel
         amp: Use automatic mixed precision
         device: Device for inference
-        overwrite: Overwrite existing features
+        overwrite: If True, reprocess all models even if zarr exists.
+                   If False (default), only extract missing models.
 
     Returns:
         Path to saved Zarr directory (next to original slide)
+
+    Examples:
+        # First run: extract plip and ctranspath
+        extract_features_single_slide(slide, models=["plip", "ctranspath"])
+        # Creates: slide.zarr with plip_tiles and ctranspath_tiles
+
+        # Second run: add uni2 to existing zarr
+        extract_features_single_slide(slide, models=["plip", "ctranspath", "uni2"])
+        # Only extracts uni2, skips plip and ctranspath
     """
     if not LAZYSLIDE_AVAILABLE:
         raise ImportError("LazySlide is not installed")
@@ -348,22 +362,51 @@ def extract_features_single_slide(
     # Zarr will be saved next to the slide
     zarr_path = slide_path.parent / f"{slide_path.stem}.zarr"
 
+    # Check which models need extraction
+    models_to_extract = models.copy() if isinstance(models, list) else [models]
+
     if zarr_path.exists() and not overwrite:
-        logger.info(f"Zarr exists, skipping: {zarr_path}")
-        return zarr_path
+        # Zarr exists - check which models are already extracted
+        existing_models = []
+
+        if (zarr_path / "tables").exists():
+            for table_dir in (zarr_path / "tables").iterdir():
+                if table_dir.is_dir() and table_dir.name.endswith("_tiles"):
+                    model_name = table_dir.name.replace("_tiles", "")
+                    existing_models.append(model_name)
+
+        # Filter to only models we don't have yet
+        models_to_extract = [m for m in models_to_extract if m not in existing_models]
+
+        if not models_to_extract:
+            logger.info(
+                f"All requested models already extracted in {zarr_path.name}: "
+                f"{', '.join(existing_models)}"
+            )
+            return zarr_path
+
+        logger.info(
+            f"Found existing models {existing_models} in {zarr_path.name}, "
+            f"will extract: {models_to_extract}"
+        )
 
     try:
-        # Open WSI
-        logger.info(f"Processing {slide_path.name} with models: {', '.join(models)}")
-        wsi = open_wsi(str(slide_path))
+        # Open WSI (either new slide or existing zarr)
+        if zarr_path.exists():
+            logger.info(f"Loading existing zarr: {zarr_path.name}")
+            wsi = open_wsi(str(zarr_path))
+        else:
+            logger.info(f"Processing {slide_path.name} with models: {', '.join(models_to_extract)}")
+            wsi = open_wsi(str(slide_path))
 
-        # Preprocess ONCE: tissue detection and tiling
-        logger.info("Preprocessing: tissue detection and tiling...")
-        zs.pp.find_tissues(wsi)
-        zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
+        # Preprocess if needed (only for new slides)
+        if not zarr_path.exists():
+            logger.info("Preprocessing: tissue detection and tiling...")
+            zs.pp.find_tissues(wsi)
+            zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
 
-        # Extract ALL models (each adds to wsi.tables)
-        for model in models:
+        # Extract only the models we need
+        for model in models_to_extract:
             logger.info(f"Extracting features with {model}...")
             zs.tl.feature_extraction(wsi, model=model, amp=amp, device=device)
 
