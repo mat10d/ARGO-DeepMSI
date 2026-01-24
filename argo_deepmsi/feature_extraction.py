@@ -1,10 +1,19 @@
 """
 Feature extraction module using LazySlide.
 
-Supports:
-- Patch-level feature extraction (tile → embedding)
-- Slide-level aggregation (PRISM, TITAN, mean pooling)
-- Spatial analysis (Leiden clustering, neighborhood graphs)
+Architecture:
+- Patch-level features stored in {slide}.zarr/tables/{model}_tiles (AnnData)
+- Slide-level aggregation reads from zarr, outputs to results/embeddings/
+- All aggregation uses zarr-based workflow (no intermediate h5ad files)
+
+Workflow:
+1. Extract features: extract_features_batch() → {slide}.zarr with multiple models
+2. Aggregate: aggregate_features_new() → results/embeddings/{model}_{method}/
+3. Train: Use embeddings for MSI classification
+
+Aggregation Methods:
+- Simple pooling: mean, max, median, sum (fast, dataset-level)
+- Neural encoders: prism, titan, chief (slower, per-slide, needs spatial context)
 """
 
 import logging
@@ -109,15 +118,19 @@ PATCH_MODELS = {
     "rosie": ModelConfig("rosie", "patch", True, 256, 0.5, "Rosie pathology foundation model"),
 }
 
-# Slide-level aggregation encoders
+# Slide-level aggregation methods
 SLIDE_ENCODERS = {
-    "mean": "Mean pooling (default)",
-    "max": "Max pooling",
-    "prism": "PRISM slide encoder (requires Virchow features)",
-    "titan": "TITAN slide encoder",
-    "chief-slide-encoder": "CHIEF slide-level aggregator",
+    # Simple pooling (fast, no GPU required)
+    "mean": "Mean pooling across all tiles",
+    "max": "Max pooling across all tiles",
+    "median": "Median pooling across all tiles",
+    "sum": "Sum pooling across all tiles",
+    # Neural slide encoders (slower, GPU required, needs spatial context)
+    "prism": "PRISM slide encoder (requires virchow/virchow2 features)",
+    "titan": "TITAN slide encoder (requires conch_v1.5 features)",
+    "chief": "CHIEF slide encoder (requires chief features)",
+    "madeleine": "Madeleine slide encoder (requires conch features)",
     "gigapath-slide-encoder": "GigaPath slide-level aggregator",
-    "gigatime": "GigaTime slide-level encoder",
 }
 
 ALL_MODELS = {**PATCH_MODELS}
@@ -431,246 +444,31 @@ def extract_features_batch(
     return results_df
 
 
-def extract_features_multi_model(
-    slide_table: pd.DataFrame,
-    models: List[str],
-    slide_column: str = "FILENAME",
-    tile_px: int = 256,
-    mpp: float = 0.5,
-    amp: bool = True,
-    device: str = "cuda",
-    overwrite: bool = False,
-    max_slides: Optional[int] = None,
-) -> pd.DataFrame:
-    """Extract features from all slides using multiple models."""
-    all_results = []
-
-    for model in models:
-        logger.info(f"\n{'=' * 60}")
-        logger.info(f"Model: {model}")
-        logger.info(f"{'=' * 60}")
-
-        results = extract_features_batch(
-            slide_table=slide_table,
-            model=model,
-            slide_column=slide_column,
-            tile_px=tile_px,
-            mpp=mpp,
-            amp=amp,
-            device=device,
-            overwrite=overwrite,
-            max_slides=max_slides,
-        )
-        all_results.append(results)
-
-    return pd.concat(all_results, ignore_index=True)
-
-
 # ============================================================================
-# Slide-Level Aggregation
+# Slide-Level Aggregation (DEPRECATED - Use zarr-based functions below)
+# ============================================================================
+#
+# NOTE: The functions in this section are deprecated and kept for backwards
+# compatibility only. Use the new zarr-based aggregation functions instead:
+#   - aggregate_simple_pooling() for mean/max/median/sum
+#   - aggregate_neural_encoders() for PRISM/TITAN/etc.
+#   - aggregate_features_new() for unified interface
 # ============================================================================
 
 
-def aggregate_features(
-    features_dir: Union[str, Path],
-    model: str,
-    method: Literal[
-        "mean", "max", "prism", "titan", "chief-slide-encoder", "gigapath-slide-encoder", "gigatime"
-    ] = "mean",
-    output_dir: Optional[Path] = None,
-    device: str = "cuda",
-) -> pd.DataFrame:
-    """Aggregate patch features to slide-level embeddings.
-
-    Args:
-        features_dir: Directory containing .zarr feature directories
-        model: Model name (for organizing outputs)
-        method: Aggregation method:
-            - "mean": Simple mean pooling
-            - "max": Max pooling
-            - "prism": PRISM encoder (requires Virchow features)
-            - "titan": TITAN encoder
-            - "chief-slide-encoder": CHIEF slide aggregator
-            - "gigapath-slide-encoder": GigaPath slide aggregator
-            - "gigatime": GigaTime encoder
-        output_dir: Output directory for embeddings
-        device: Device for neural aggregators
-
-    Returns:
-        DataFrame with slide-level embeddings
-    """
-    if not LAZYSLIDE_AVAILABLE:
-        raise ImportError("LazySlide is not installed")
-
-    from wsidata import open_wsi
-
-    features_dir = Path(features_dir)
-    # Look for zarr directories
-    feature_files = [f for f in features_dir.iterdir() if f.is_dir() and f.suffix == ".zarr"]
-
-    if not feature_files:
-        logger.warning(f"No .zarr feature files found in {features_dir}")
-        return pd.DataFrame()
-
-    # Validate PRISM requirements
-    if method == "prism" and model not in ["virchow", "virchow2"]:
-        logger.warning(
-            f"PRISM encoder works best with Virchow features. Using {model} may give suboptimal results."
-        )
-
-    logger.info(f"Aggregating {len(feature_files)} slides with {method}")
-
-    embeddings = []
-    feature_key = f"{model}_tiles"
-
-    for zarr_path in tqdm(feature_files, desc=f"Aggregating ({method})"):
-        try:
-            # Load WSI from zarr
-            wsi = open_wsi(str(zarr_path))
-
-            # Extract AnnData from tables
-            if hasattr(wsi, "tables") and feature_key in wsi.tables:
-                adata = wsi.tables[feature_key]
-            else:
-                logger.warning(f"No {feature_key} in {zarr_path.name}")
-                continue
-
-            if method == "mean":
-                embedding = np.asarray(adata.X.mean(axis=0)).flatten()
-            elif method == "max":
-                embedding = np.asarray(adata.X.max(axis=0)).flatten()
-            elif method in [
-                "prism",
-                "titan",
-                "chief-slide-encoder",
-                "gigapath-slide-encoder",
-                "gigatime",
-            ]:
-                # Use LazySlide's neural aggregator
-                # Need to reload the slide for this
-                # For now, fall back to mean pooling
-                # TODO: Implement proper neural aggregation
-                logger.warning(f"{method} aggregation requires slide reload. Using mean pooling.")
-                embedding = np.asarray(adata.X.mean(axis=0)).flatten()
-            else:
-                embedding = np.asarray(adata.X.mean(axis=0)).flatten()
-
-            embeddings.append(
-                {
-                    "slide_id": zarr_path.stem,  # Remove .zarr extension
-                    "embedding": embedding,
-                    "n_tiles": adata.n_obs,
-                }
-            )
-        except Exception as e:
-            logger.error(f"Failed to aggregate {zarr_path.name}: {e}")
-
-    if not embeddings:
-        return pd.DataFrame()
-
-    df = pd.DataFrame(embeddings)
-
-    # Save embeddings
-    if output_dir is None:
-        output_dir = get_embeddings_dir(model)
-    ensure_dir(output_dir)
-
-    embedding_matrix = np.vstack(df["embedding"].values)
-
-    metadata_df = df[["slide_id", "n_tiles"]].copy()
-    metadata_df.to_csv(output_dir / "metadata.csv", index=False)
-    np.save(output_dir / "embeddings.npy", embedding_matrix)
-    np.save(output_dir / f"embeddings_{method}.npy", embedding_matrix)
-
-    logger.info(f"Saved {len(df)} embeddings ({embedding_matrix.shape[1]}D) to {output_dir}")
-
-    return df
-
-
-def aggregate_with_encoder(
-    slide_paths: List[Union[str, Path]],
-    patch_model: str = "virchow",
-    slide_encoder: str = "prism",
-    output_dir: Optional[Path] = None,
-    tile_px: int = 256,
-    mpp: float = 0.5,
-    amp: bool = True,
-    device: str = "cuda",
-) -> pd.DataFrame:
-    """Extract features and aggregate with neural encoder in one pass.
-
-    This is the proper way to use PRISM/TITAN - process each slide
-    end-to-end rather than loading saved features.
-
-    Args:
-        slide_paths: List of slide paths
-        patch_model: Patch feature model ('virchow' for PRISM)
-        slide_encoder: Slide encoder ('prism', 'titan')
-        output_dir: Output directory
-        tile_px: Tile size
-        mpp: Microns per pixel
-        amp: Use mixed precision
-        device: Device for inference
-
-    Returns:
-        DataFrame with slide-level embeddings
-    """
-    if not LAZYSLIDE_AVAILABLE:
-        raise ImportError("LazySlide is not installed")
-
-    if slide_encoder == "prism" and patch_model not in ["virchow", "virchow2"]:
-        raise ValueError("PRISM requires Virchow features. Set patch_model='virchow'")
-
-    logger.info(f"Processing {len(slide_paths)} slides with {patch_model} + {slide_encoder}")
-
-    embeddings = []
-    for slide_path in tqdm(slide_paths, desc=f"{patch_model}+{slide_encoder}"):
-        try:
-            wsi, slide_embedding = process_slide_with_aggregation(
-                slide_path=slide_path,
-                patch_model=patch_model,
-                slide_encoder=slide_encoder,
-                tile_px=tile_px,
-                mpp=mpp,
-                amp=amp,
-                device=device,
-            )
-
-            if slide_embedding is not None:
-                embeddings.append(
-                    {
-                        "slide_id": Path(slide_path).stem,
-                        "embedding": np.asarray(slide_embedding).flatten(),
-                        "patch_model": patch_model,
-                        "slide_encoder": slide_encoder,
-                    }
-                )
-        except Exception as e:
-            logger.error(f"Failed: {Path(slide_path).name}: {e}")
-
-    if not embeddings:
-        return pd.DataFrame()
-
-    df = pd.DataFrame(embeddings)
-
-    # Save
-    if output_dir is None:
-        output_dir = get_embeddings_dir(f"{patch_model}_{slide_encoder}")
-    ensure_dir(output_dir)
-
-    embedding_matrix = np.vstack(df["embedding"].values)
-    metadata_df = df[["slide_id", "patch_model", "slide_encoder"]].copy()
-
-    metadata_df.to_csv(output_dir / "metadata.csv", index=False)
-    np.save(output_dir / "embeddings.npy", embedding_matrix)
-
-    logger.info(f"Saved {len(df)} slide embeddings to {output_dir}")
-
-    return df
-
-
 # ============================================================================
-# New Zarr-Based Aggregation (Phase 1 Implementation)
+# Zarr-Based Aggregation (CANONICAL IMPLEMENTATION)
+# ============================================================================
+#
+# These functions implement the new zarr-based workflow:
+# 1. Read AnnData directly from {slide}.zarr/tables/{model}_tiles
+# 2. Apply aggregation (simple pooling or neural encoders)
+# 3. Save to results/embeddings/{model}_{method}/
+#
+# Functions:
+# - aggregate_simple_pooling(): Fast pooling (mean/max/median/sum)
+# - aggregate_neural_encoders(): Neural slide encoders (PRISM/TITAN)
+# - aggregate_features_new(): Unified interface (use this from CLI)
 # ============================================================================
 
 
@@ -937,7 +735,7 @@ def aggregate_neural_encoders(
     return df_result
 
 
-def aggregate_features_new(
+def aggregate_features(
     slide_table: Union[str, Path, pd.DataFrame],
     models: Union[str, List[str]],
     method: str = "mean",

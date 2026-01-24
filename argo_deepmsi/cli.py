@@ -125,13 +125,13 @@ def extract(
 
 @app.command()
 def models():
-    """List available feature extraction models."""
-    from .feature_extraction import PATCH_MODELS, SLIDE_MODELS
+    """List available feature extraction models and aggregation methods."""
+    from .feature_extraction import PATCH_MODELS, SLIDE_ENCODERS
 
-    console.print("[bold blue]Available Models[/bold blue]\n")
+    console.print("[bold blue]Available Models & Aggregation Methods[/bold blue]\n")
 
     # Patch models
-    table = Table(title="Patch-Level Extractors")
+    table = Table(title="Patch-Level Feature Extractors")
     table.add_column("Model", style="cyan")
     table.add_column("Auth Required", style="yellow")
     table.add_column("Description")
@@ -141,16 +141,24 @@ def models():
         table.add_row(name, auth, config.description)
 
     console.print(table)
+    console.print()
 
-    # Slide models
-    table = Table(title="Slide-Level Extractors")
-    table.add_column("Model", style="cyan")
-    table.add_column("Auth Required", style="yellow")
+    # Aggregation methods
+    table = Table(title="Slide-Level Aggregation Methods")
+    table.add_column("Method", style="cyan")
+    table.add_column("Type", style="yellow")
     table.add_column("Description")
 
-    for name, config in SLIDE_MODELS.items():
-        auth = "Yes" if config.requires_auth else "No"
-        table.add_row(name, auth, config.description)
+    # Simple pooling
+    for method in ["mean", "max", "median", "sum"]:
+        table.add_row(
+            method, "Simple Pooling", SLIDE_ENCODERS.get(method, f"{method.capitalize()} pooling")
+        )
+
+    # Neural encoders
+    for name, desc in SLIDE_ENCODERS.items():
+        if name not in ["mean", "max", "median", "sum"]:
+            table.add_row(name, "Neural Encoder", desc)
 
     console.print(table)
 
@@ -184,7 +192,7 @@ def aggregate(
         argo aggregate conch_v1.5 --method titan --device cuda
     """
     from .io_utils import setup_logging, get_data_dir
-    from .feature_extraction import aggregate_features_new
+    from .feature_extraction import aggregate_features
 
     setup_logging("aggregate")
 
@@ -206,7 +214,7 @@ def aggregate(
     console.print(f"Method: {method}")
 
     # Aggregate
-    results = aggregate_features_new(
+    results = aggregate_features(
         slide_table=slide_table,
         models=model_list,
         method=method,
@@ -373,26 +381,24 @@ def run(
 ):
     """Run the full pipeline: extract → aggregate → train."""
     import pandas as pd
-    import numpy as np
-    from .io_utils import setup_logging, get_features_dir, get_embeddings_dir, get_models_dir
-    from .feature_extraction import extract_features_multi_model, aggregate_features
-    from .training import compare_classifiers
+    from .io_utils import setup_logging, get_embeddings_dir, get_models_dir
+    from .feature_extraction import extract_features_batch, aggregate_features
+    from .training import compare_classifiers, load_training_data
 
     setup_logging("pipeline")
 
     console.print("[bold blue]ARGO-DeepMSI: Full Pipeline[/bold blue]")
     console.print(f"Models: {', '.join(models)}")
 
-    # Load tables
+    # Load slide table
     slide_df = pd.read_csv(slide_table)
-    clinical_df = pd.read_csv(clinical_table)
 
     for model in models:
         console.print(f"\n[bold cyan]Processing model: {model}[/bold cyan]")
 
         # 1. Extract features
         console.print("Step 1: Extracting features...")
-        extract_features_multi_model(
+        extract_features_batch(
             slide_table=slide_df,
             models=[model],
             device=device,
@@ -401,26 +407,33 @@ def run(
 
         # 2. Aggregate
         console.print("Step 2: Aggregating features...")
-        features_dir = get_features_dir(model)
         aggregate_features(
-            features_dir=features_dir,
-            model=model,
+            slide_table=slide_df,
+            models=[model],
             method="mean",
         )
 
         # 3. Train
         console.print("Step 3: Training classifiers...")
-        embeddings_dir = get_embeddings_dir(model)
-        embeddings = np.load(embeddings_dir / "embeddings.npy")
-        metadata = pd.read_csv(embeddings_dir / "metadata.csv")
+        embeddings_dir = get_embeddings_dir(f"{model}_mean")
 
-        # Match to labels (simplified)
-        merged = metadata.merge(clinical_df, left_on="slide_id", right_on="PATIENT", how="inner")
-        if len(merged) > 0:
-            X = embeddings[: len(merged)]
-            y = (merged["isMSIH"] == "MSI-H").astype(int).values
+        try:
+            X, y, merged = load_training_data(
+                embeddings_dir=embeddings_dir,
+                clinical_table=clinical_table,
+            )
+
+            console.print(f"Training on {len(X)} samples")
             results = compare_classifiers(X, y)
-            results.to_csv(get_models_dir() / f"{model}_results.csv", index=False)
+
+            model_output_dir = get_models_dir() / f"{model}_mean"
+            model_output_dir.mkdir(parents=True, exist_ok=True)
+            results.to_csv(model_output_dir / "classifier_comparison.csv", index=False)
+            merged.to_csv(model_output_dir / "training_data.csv", index=False)
+
+            console.print(f"✓ Best AUROC: {results['auroc_mean'].max():.3f}")
+        except Exception as e:
+            console.print(f"[red]✗ Training failed: {e}[/red]")
 
     console.print("\n[bold green]Pipeline complete![/bold green]")
 
