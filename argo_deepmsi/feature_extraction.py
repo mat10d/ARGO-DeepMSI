@@ -9,7 +9,7 @@ Supports:
 
 import logging
 from pathlib import Path
-from typing import Optional, List, Union, Literal
+from typing import Optional, List, Union, Literal, Dict
 from dataclasses import dataclass
 
 import numpy as np
@@ -667,3 +667,345 @@ def aggregate_with_encoder(
     logger.info(f"Saved {len(df)} slide embeddings to {output_dir}")
 
     return df
+
+
+# ============================================================================
+# New Zarr-Based Aggregation (Phase 1 Implementation)
+# ============================================================================
+
+
+def _save_embeddings(
+    df: pd.DataFrame,
+    model: str,
+    method: str,
+    output_dir: Optional[Path],
+) -> Path:
+    """Save embeddings in numpy + CSV format.
+
+    Args:
+        df: DataFrame with columns: slide_id, patient_id, site, n_tiles,
+            zarr_path, embedding
+        model: Model name
+        method: Aggregation method name
+        output_dir: Output directory (if None, uses default)
+
+    Returns:
+        Path to output directory
+    """
+    if output_dir is None:
+        output_dir = get_embeddings_dir(f"{model}_{method}")
+    ensure_dir(output_dir)
+
+    # Extract embedding matrix
+    embedding_matrix = np.vstack(df["embedding"].values)
+
+    # Save metadata (without embedding column)
+    metadata_cols = ["slide_id", "patient_id", "site", "n_tiles", "zarr_path"]
+    metadata_df = df[metadata_cols].copy()
+    metadata_df.to_csv(output_dir / "metadata.csv", index=False)
+
+    # Save embeddings as numpy array
+    np.save(output_dir / "embeddings.npy", embedding_matrix)
+
+    logger.info(
+        f"Saved {len(df)} embeddings ({embedding_matrix.shape[1]}D) to {output_dir}"
+    )
+
+    return output_dir
+
+
+def aggregate_simple_pooling(
+    slide_table: Union[str, Path, pd.DataFrame],
+    models: Union[str, List[str]],
+    method: Literal["mean", "max", "median", "sum"] = "mean",
+    output_dir: Optional[Path] = None,
+) -> Dict[str, pd.DataFrame]:
+    """Aggregate features using simple pooling.
+
+    Loads features from zarr files and applies numpy-based pooling.
+    Reads AnnData objects directly from zarr to avoid reader compatibility issues.
+
+    Args:
+        slide_table: Path to slide_table.csv or DataFrame with:
+                     PATIENT, FILENAME, SITE
+        models: Model(s) to aggregate (e.g., "plip" or ["plip", "ctranspath"])
+        method: Pooling method (mean, max, median, sum)
+        output_dir: Output directory (defaults to results/embeddings/)
+
+    Returns:
+        Dict mapping model -> results DataFrame
+    """
+    import anndata as ad
+
+    # Load slide table
+    if isinstance(slide_table, (str, Path)):
+        df = pd.read_csv(slide_table)
+    else:
+        df = slide_table.copy()
+
+    # Normalize models to list
+    models = [models] if isinstance(models, str) else models
+
+    results = {}
+    for model in models:
+        logger.info(f"Aggregating {model} with {method}...")
+
+        embeddings = []
+        feature_key = f"{model}_tiles"
+
+        for idx, row in tqdm(df.iterrows(), total=len(df), desc=f"{model} {method}"):
+            svs_path = Path(row["FILENAME"])
+            zarr_path = svs_path.with_suffix(".zarr")
+
+            if not zarr_path.exists():
+                logger.warning(f"Zarr not found: {zarr_path}")
+                continue
+
+            try:
+                # Load AnnData directly from zarr tables subdirectory
+                adata_path = zarr_path / "tables" / feature_key
+                if not adata_path.exists():
+                    logger.warning(f"No {feature_key} in {zarr_path.name}")
+                    continue
+
+                # Read AnnData from zarr
+                adata = ad.read_zarr(str(adata_path))
+
+                # Apply pooling method
+                if method == "mean":
+                    embedding = np.asarray(adata.X.mean(axis=0)).flatten()
+                elif method == "max":
+                    embedding = np.asarray(adata.X.max(axis=0)).flatten()
+                elif method == "median":
+                    embedding = np.median(np.asarray(adata.X), axis=0).flatten()
+                elif method == "sum":
+                    embedding = np.asarray(adata.X.sum(axis=0)).flatten()
+                else:
+                    embedding = np.asarray(adata.X.mean(axis=0)).flatten()
+
+                embeddings.append(
+                    {
+                        "slide_id": svs_path.stem,
+                        "patient_id": row["PATIENT"],
+                        "site": row["SITE"],
+                        "embedding": embedding,
+                        "n_tiles": adata.n_obs,
+                        "zarr_path": str(zarr_path),
+                    }
+                )
+
+            except Exception as e:
+                logger.error(f"Failed to aggregate {zarr_path.name}: {e}")
+                import traceback
+                logger.error(traceback.format_exc())
+                continue
+
+        if not embeddings:
+            logger.warning(f"No embeddings generated for {model}")
+            continue
+
+        # Convert to DataFrame and save
+        df_result = pd.DataFrame(embeddings)
+        _save_embeddings(df_result, model, method, output_dir)
+        results[model] = df_result
+
+    return results
+
+
+def aggregate_neural_encoders(
+    slide_table: Union[str, Path, pd.DataFrame],
+    model: str,
+    encoder: Literal["prism", "titan", "chief", "madeleine", "gigapath-slide-encoder"],
+    output_dir: Optional[Path] = None,
+    device: str = "cuda",
+) -> pd.DataFrame:
+    """Aggregate features using neural slide encoders.
+
+    Requires loading original slide files because neural encoders need
+    spatial context (not just patch features).
+
+    Args:
+        slide_table: Path to slide_table.csv with PATIENT, FILENAME, SITE
+        model: Model name (must match encoder requirements)
+                - prism: requires virchow or virchow2
+                - titan: requires conch_v1.5
+                - chief: requires chief
+                - madeleine: requires conch
+        encoder: Neural slide encoder name
+        output_dir: Output directory
+        device: Device for inference
+
+    Returns:
+        DataFrame with embeddings and metadata
+    """
+    if not LAZYSLIDE_AVAILABLE:
+        raise ImportError("LazySlide is not installed")
+
+    from wsidata import open_wsi
+
+    # Validate model-encoder compatibility
+    encoder_requirements = {
+        "prism": ["virchow", "virchow2"],
+        "titan": ["conch_v1.5"],
+        "chief": ["chief"],
+        "madeleine": ["conch"],
+    }
+
+    if encoder in encoder_requirements:
+        if model not in encoder_requirements[encoder]:
+            raise ValueError(
+                f"{encoder} requires {encoder_requirements[encoder]}, got {model}"
+            )
+
+    # Load slide table
+    if isinstance(slide_table, (str, Path)):
+        df = pd.read_csv(slide_table)
+    else:
+        df = slide_table.copy()
+
+    embeddings = []
+
+    for idx, row in tqdm(df.iterrows(), total=len(df), desc=f"{encoder}"):
+        svs_path = Path(row["FILENAME"])
+        zarr_path = svs_path.with_suffix(".zarr")
+
+        if not zarr_path.exists():
+            logger.warning(f"Zarr not found: {zarr_path}")
+            continue
+
+        try:
+            # Load original slide (needed for spatial context)
+            wsi = open_wsi(str(svs_path))
+
+            # Load pre-extracted features from Zarr (auto-detect reader)
+            zarr_wsi = open_wsi(str(zarr_path))
+            feature_key = f"{model}_tiles"
+
+            if feature_key not in zarr_wsi.tables:
+                logger.warning(f"No {feature_key} in {zarr_path}")
+                continue
+
+            # Copy features to avoid re-extraction
+            wsi.tables[feature_key] = zarr_wsi.tables[feature_key]
+
+            # Run neural aggregation
+            zs.tl.feature_aggregation(
+                wsi,
+                feature_key=model,  # Base name without "_tiles"
+                encoder=encoder,
+                device=device,
+            )
+
+            # Extract aggregated embedding from AnnData.uns
+            # LazySlide stores result in: wsi.tables['{model}_tiles'].uns['agg_slide']
+            adata = wsi.tables[feature_key]
+
+            if "agg_slide" in adata.uns:
+                # Extract embedding from uns
+                embedding = np.asarray(adata.uns["agg_slide"]).flatten()
+            elif "agg_slide" in adata.varm:
+                # Alternative storage location
+                embedding = np.asarray(adata.varm["agg_slide"]).flatten()
+            else:
+                raise ValueError(
+                    f"Aggregation result not found in .uns or .varm for {svs_path.name}"
+                )
+
+            embeddings.append(
+                {
+                    "slide_id": svs_path.stem,
+                    "patient_id": row["PATIENT"],
+                    "site": row["SITE"],
+                    "embedding": embedding,
+                    "n_tiles": adata.n_obs,
+                    "zarr_path": str(zarr_path),
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to aggregate {svs_path.name}: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            continue
+
+    # Convert to DataFrame and save
+    df_result = pd.DataFrame(embeddings)
+
+    if len(df_result) > 0:
+        _save_embeddings(df_result, model, encoder, output_dir)
+    else:
+        logger.warning("No embeddings generated")
+
+    return df_result
+
+
+def aggregate_features_new(
+    slide_table: Union[str, Path, pd.DataFrame],
+    models: Union[str, List[str]],
+    method: str = "mean",
+    output_dir: Optional[Path] = None,
+    device: str = "cuda",
+) -> Dict[str, pd.DataFrame]:
+    """Unified aggregation interface supporting both simple pooling and neural encoders.
+
+    Args:
+        slide_table: slide_table.csv path or DataFrame
+        models: Model(s) to aggregate
+        method: Aggregation method
+                - Simple: "mean", "max", "median", "sum"
+                - Neural: "prism", "titan", "chief", "madeleine"
+        output_dir: Output directory
+        device: Device for neural encoders
+
+    Returns:
+        Dict mapping model -> results DataFrame
+    """
+    # Simple pooling methods
+    simple_methods = ["mean", "max", "median", "sum", "std", "var"]
+
+    # Neural encoder methods
+    neural_encoders = [
+        "prism",
+        "titan",
+        "chief",
+        "madeleine",
+        "gigapath-slide-encoder",
+    ]
+
+    if method in simple_methods:
+        # Use agg_wsi() for simple pooling
+        return aggregate_simple_pooling(
+            slide_table=slide_table,
+            models=models,
+            method=method,
+            output_dir=output_dir,
+        )
+
+    elif method in neural_encoders:
+        # Use feature_aggregation() per slide
+        # Can only process one model at a time for neural encoders
+        if isinstance(models, list):
+            if len(models) > 1:
+                raise ValueError(
+                    f"Neural encoder {method} can only process one model at a time. "
+                    f"Got: {models}"
+                )
+            model = models[0]
+        else:
+            model = models
+
+        df = aggregate_neural_encoders(
+            slide_table=slide_table,
+            model=model,
+            encoder=method,
+            output_dir=output_dir,
+            device=device,
+        )
+
+        return {model: df}
+
+    else:
+        raise ValueError(
+            f"Unknown aggregation method: {method}. "
+            f"Available: {simple_methods + neural_encoders}"
+        )

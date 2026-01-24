@@ -162,29 +162,61 @@ def models():
 
 @app.command()
 def aggregate(
-    features_dir: Path = typer.Argument(..., help="Directory with .h5ad feature files"),
-    model: str = typer.Argument(..., help="Model name (for organizing outputs)"),
-    method: str = typer.Option("mean", "--method", help="Aggregation method (mean/max)"),
-    output_dir: Optional[Path] = typer.Option(None, "--output", "-o", help="Output directory"),
+    models: str = typer.Argument(..., help="Model(s) to aggregate (comma-separated)"),
+    slide_table: Optional[Path] = typer.Option(
+        None,
+        "--slide-table",
+        "-s",
+        help="slide_table.csv with PATIENT,FILENAME,SITE",
+    ),
+    method: str = typer.Option("mean", "--method", "-m", help="Aggregation method"),
+    output_dir: Optional[Path] = typer.Option(None, "--output", "-o"),
+    device: str = typer.Option("cuda", "--device", "-d"),
 ):
-    """Aggregate patch features to slide-level embeddings."""
-    from .io_utils import setup_logging
-    from .feature_extraction import aggregate_features
+    """Aggregate patch features to slide-level embeddings.
+
+    Simple pooling (fast):
+        argo aggregate plip --method mean
+        argo aggregate plip,ctranspath --method max
+
+    Neural slide encoders (slower, more accurate):
+        argo aggregate virchow --method prism --device cuda
+        argo aggregate conch_v1.5 --method titan --device cuda
+    """
+    from .io_utils import setup_logging, get_data_dir
+    from .feature_extraction import aggregate_features_new
 
     setup_logging("aggregate")
 
+    # Default to results/data/slide_table.csv
+    if slide_table is None:
+        slide_table = get_data_dir().parent / "results" / "data" / "slide_table.csv"
+
+    if not slide_table.exists():
+        console.print(f"[red]Slide table not found: {slide_table}[/red]")
+        console.print("Run 'argo ingest' first to create slide_table.csv")
+        raise typer.Exit(1)
+
+    # Parse models
+    model_list = [m.strip() for m in models.split(",")]
+
     console.print("[bold blue]ARGO-DeepMSI: Feature Aggregation[/bold blue]")
-    console.print(f"Features: {features_dir}")
+    console.print(f"Slide table: {slide_table}")
+    console.print(f"Models: {', '.join(model_list)}")
     console.print(f"Method: {method}")
 
-    results = aggregate_features(
-        features_dir=features_dir,
-        model=model,
+    # Aggregate
+    results = aggregate_features_new(
+        slide_table=slide_table,
+        models=model_list,
         method=method,
         output_dir=output_dir,
+        device=device,
     )
 
-    console.print(f"[green]Done![/green] Aggregated {len(results)} slides")
+    # Summary
+    for model, df in results.items():
+        console.print(f"[green]{model}:[/green] {len(df)} slides aggregated")
 
 
 # ============================================================================
@@ -257,55 +289,59 @@ def visualize(
 @app.command()
 def train(
     embeddings_dir: Path = typer.Argument(..., help="Directory with embeddings"),
-    clinical_table: Path = typer.Argument(..., help="Clinical table with labels"),
-    label_column: str = typer.Option("isMSIH", "--label", "-l", help="Label column"),
-    n_splits: int = typer.Option(5, "--splits", help="Number of CV folds"),
-    output_dir: Optional[Path] = typer.Option(None, "--output", "-o", help="Output directory"),
+    clinical_table: Optional[Path] = typer.Option(
+        None, "--clinical", "-c", help="Clinical table with labels"
+    ),
+    label_column: str = typer.Option("isMSIH", "--label", "-l"),
+    n_splits: int = typer.Option(5, "--splits"),
+    output_dir: Optional[Path] = typer.Option(None, "--output", "-o"),
 ):
-    """Train classifiers on slide embeddings."""
-    import pandas as pd
-    import numpy as np
-    from .io_utils import setup_logging, get_models_dir, ensure_dir
-    from .training import compare_classifiers
+    """Train classifiers on slide embeddings.
+
+    Example:
+        argo train results/embeddings/plip_mean \\
+            --clinical results/data/clinical_table.csv
+    """
+    from .io_utils import setup_logging, get_models_dir, get_data_dir, ensure_dir
+    from .training import compare_classifiers, load_training_data
 
     setup_logging("train")
 
+    # Default to results/data/clinical_table.csv
+    if clinical_table is None:
+        clinical_table = get_data_dir().parent / "results" / "data" / "clinical_table.csv"
+
+    if not clinical_table.exists():
+        console.print(f"[red]Clinical table not found: {clinical_table}[/red]")
+        raise typer.Exit(1)
+
     if output_dir is None:
-        output_dir = get_models_dir()
+        output_dir = get_models_dir() / embeddings_dir.name
     ensure_dir(output_dir)
 
     console.print("[bold blue]ARGO-DeepMSI: Training[/bold blue]")
+    console.print(f"Embeddings: {embeddings_dir}")
+    console.print(f"Clinical: {clinical_table}")
 
-    # Load data
-    embeddings = np.load(embeddings_dir / "embeddings.npy")
-    metadata = pd.read_csv(embeddings_dir / "metadata.csv")
-    clinical = pd.read_csv(clinical_table)
+    # Load data with robust matching
+    X, y, merged_df = load_training_data(
+        embeddings_dir=embeddings_dir,
+        clinical_table=clinical_table,
+        label_column=label_column,
+    )
 
-    console.print(f"Loaded {len(embeddings)} embeddings")
-    console.print(f"Loaded {len(clinical)} clinical records")
+    console.print(f"\nTraining on {len(X)} samples")
+    console.print(f"Features: {X.shape[1]}D")
 
-    # Match embeddings to labels
-    # (This is simplified - in practice need proper patient-slide matching)
-    merged = metadata.merge(clinical, left_on="slide_id", right_on="PATIENT", how="inner")
-
-    if len(merged) == 0:
-        console.print("[red]No matching records found between embeddings and clinical data[/red]")
-        raise typer.Exit(1)
-
-    X = embeddings[: len(merged)]  # simplified
-    y = (merged[label_column] == "MSI-H").astype(int).values
-
-    console.print(f"Training on {len(X)} samples")
-    console.print(f"Label distribution: MSI-H={y.sum()}, MSS={len(y) - y.sum()}")
-
-    # Compare classifiers
+    # Train classifiers
     results = compare_classifiers(X, y, n_splits=n_splits)
 
-    # Save results
+    # Save
     results.to_csv(output_dir / "classifier_comparison.csv", index=False)
+    merged_df.to_csv(output_dir / "training_data.csv", index=False)
 
-    # Print results table
-    table = Table(title="Classifier Comparison")
+    # Display results
+    table = Table(title="Classifier Performance")
     table.add_column("Classifier", style="cyan")
     table.add_column("AUROC", justify="right")
     table.add_column("Accuracy", justify="right")
@@ -318,6 +354,8 @@ def train(
         )
 
     console.print(table)
+
+    console.print(f"\n[green]Results saved to:[/green] {output_dir}")
 
 
 # ============================================================================

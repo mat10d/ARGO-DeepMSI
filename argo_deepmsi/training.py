@@ -6,7 +6,7 @@ Provides simple classifiers and lightweight ViT training on embeddings.
 
 import logging
 from pathlib import Path
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Tuple
 
 import numpy as np
 import pandas as pd
@@ -28,6 +28,81 @@ except ImportError:
 from .io_utils import get_models_dir, ensure_dir
 
 logger = logging.getLogger(__name__)
+
+
+# ============================================================================
+# Data loading with robust patient-slide matching
+# ============================================================================
+
+
+def load_training_data(
+    embeddings_dir: Path,
+    clinical_table: Path,
+    label_column: str = "isMSIH",
+    positive_label: str = "MSI-H",
+) -> Tuple[np.ndarray, np.ndarray, pd.DataFrame]:
+    """Load embeddings and labels with robust patient-slide matching.
+
+    Args:
+        embeddings_dir: Directory with embeddings.npy and metadata.csv
+        clinical_table: clinical_table.csv with PATIENT and labels
+        label_column: Column name for MSI status
+        positive_label: Value indicating MSI-H
+
+    Returns:
+        X: Embedding matrix (n_samples, n_features)
+        y: Binary labels (n_samples,)
+        merged: DataFrame with matched records
+    """
+    # Load data
+    embeddings = np.load(embeddings_dir / "embeddings.npy")
+    metadata = pd.read_csv(embeddings_dir / "metadata.csv")
+    clinical = pd.read_csv(clinical_table)
+
+    logger.info(f"Loaded {len(embeddings)} embeddings from {embeddings_dir}")
+    logger.info(f"Loaded {len(clinical)} clinical records")
+
+    # Robust merge on patient_id
+    merged = metadata.merge(
+        clinical,
+        left_on="patient_id",
+        right_on="PATIENT",
+        how="inner",
+        validate="many_to_one",  # Each patient can have multiple slides
+    )
+
+    if len(merged) == 0:
+        raise ValueError(
+            "No matching records between metadata and clinical table! "
+            "Check that:\n"
+            "  - metadata.csv has 'patient_id' column\n"
+            "  - clinical_table.csv has 'PATIENT' column\n"
+            "  - Values match (case-sensitive)"
+        )
+
+    # Get matched embeddings using index from metadata
+    # CRITICAL: We need to use the original index from metadata to get correct embeddings
+    # The merge preserves the index from the left DataFrame (metadata)
+    matched_indices = merged.index.tolist()
+    X = embeddings[matched_indices]
+
+    # Extract labels
+    y = (merged[label_column] == positive_label).astype(int).values
+
+    # Log statistics
+    logger.info(f"Matched {len(X)} samples")
+    logger.info(f"Label distribution:")
+    logger.info(f"  {positive_label}: {y.sum()} ({100*y.sum()/len(y):.1f}%)")
+    logger.info(f"  Other: {len(y)-y.sum()} ({100*(len(y)-y.sum())/len(y):.1f}%)")
+
+    # Warn if severely imbalanced
+    if y.sum() < 5 or (len(y) - y.sum()) < 5:
+        logger.warning(
+            "Severely imbalanced dataset! Consider stratified sampling or "
+            "collecting more data."
+        )
+
+    return X, y, merged
 
 
 # ============================================================================
