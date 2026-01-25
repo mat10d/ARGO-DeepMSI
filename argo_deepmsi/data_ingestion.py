@@ -11,6 +11,10 @@ from pathlib import Path
 from typing import Optional, List, Tuple
 from dotenv import load_dotenv
 import logging
+from datetime import datetime
+
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 from .io_utils import get_project_root, ensure_dir
 
@@ -67,16 +71,23 @@ def fetch_redcap_data(
     return df
 
 
-def create_clinical_table(redcap_data: pd.DataFrame) -> pd.DataFrame:
+def create_clinical_table(redcap_data: pd.DataFrame) -> Tuple[pd.DataFrame, dict]:
     """Create clinical table with patient IDs and MSI status.
+
+    Assigns sequential patient IDs (P_0001, P_0002, etc.) sorted by record_id.
+    For retrospective patients (batch 1, 2), uses crc_redcap_number to properly
+    merge patients with multiple slides processed at different locations.
 
     Args:
         redcap_data: DataFrame from REDCap API
 
     Returns:
-        DataFrame with columns: PATIENT, isMSIH, batch_number, redcap_data_access_group
+        Tuple of:
+        - DataFrame with columns: PATIENT, record_id, crc_redcap_number, isMSIH, batch_number, redcap_data_access_group
+        - dict mapping all record_ids to PATIENT IDs (for slide table creation)
     """
-    clinical_table = pd.DataFrame(columns=["PATIENT", "isMSIH"])
+    all_records = []
+    record_id_mapping = {}  # Maps all record_ids to their sequential PATIENT ID
 
     # Split data into prospective (batch != 1,2) and retrospective (batch = 1,2)
     prospective_data = redcap_data[
@@ -100,33 +111,86 @@ def create_clinical_table(redcap_data: pd.DataFrame) -> pd.DataFrame:
                 "Stable, Indeterminate": "MSS",
             }
         )
-        prospective_msi.rename(columns={"record_id": "PATIENT"}, inplace=True)
-        prospective_msi = prospective_msi[
-            ["PATIENT", "isMSIH", "batch_number", "redcap_data_access_group"]
-        ]
-        clinical_table = pd.concat([clinical_table, prospective_msi], ignore_index=True)
+        prospective_msi["crc_redcap_number"] = None  # No CRC number for prospective
+        prospective_msi["true_patient_id"] = prospective_msi["record_id"]  # For grouping
+        all_records.append(prospective_msi)
         logger.info(f"Processed {len(prospective_msi)} prospective patients")
 
     # Process retrospective data (uses msi_status_mmr field)
     if not retrospective_data.empty:
+        # Check if crc_redcap_number exists
+        if "crc_redcap_number" not in retrospective_data.columns:
+            logger.warning(
+                "crc_redcap_number not found in REDCap data - using record_id for retrospective patients"
+            )
+            retrospective_data["crc_redcap_number"] = retrospective_data["record_id"]
+
         retrospective_msi = retrospective_data[
-            ["record_id", "msi_status_mmr", "batch_number", "redcap_data_access_group"]
+            [
+                "record_id",
+                "crc_redcap_number",
+                "msi_status_mmr",
+                "batch_number",
+                "redcap_data_access_group",
+            ]
         ].copy()
         retrospective_msi["isMSIH"] = retrospective_msi["msi_status_mmr"].map(
             {"1": "MSI-H", "2": "MSS"}
         )
-        retrospective_msi.rename(columns={"record_id": "PATIENT"}, inplace=True)
-        retrospective_msi = retrospective_msi[
-            ["PATIENT", "isMSIH", "batch_number", "redcap_data_access_group"]
+        retrospective_msi["true_patient_id"] = retrospective_msi["crc_redcap_number"]
+        all_records.append(retrospective_msi)
+        logger.info(f"Processed {len(retrospective_msi)} retrospective records")
+
+    # Combine all records
+    combined = pd.concat(all_records, ignore_index=True)
+
+    # Group by true_patient_id to get unique patients
+    # Keep all record_ids for mapping later
+    patient_groups = combined.groupby("true_patient_id")
+
+    clinical_records = []
+    for true_id, group in patient_groups:
+        # Take first record as representative
+        record = group.iloc[0].copy()
+        # Store all record_ids for this patient for mapping
+        all_record_ids = group["record_id"].tolist()
+        record["all_record_ids"] = all_record_ids
+        clinical_records.append(record)
+
+    clinical_table = pd.DataFrame(clinical_records)
+
+    # Sort by the first (representative) record_id to ensure deterministic ordering
+    clinical_table = clinical_table.sort_values("record_id").reset_index(drop=True)
+
+    # Assign sequential patient IDs
+    clinical_table["PATIENT"] = [f"P_{i + 1:04d}" for i in range(len(clinical_table))]
+
+    # Create mapping from all record_ids to PATIENT
+    for _, row in clinical_table.iterrows():
+        patient_id = row["PATIENT"]
+        for record_id in row["all_record_ids"]:
+            record_id_mapping[str(record_id)] = patient_id
+
+    # Select final columns
+    clinical_table = clinical_table[
+        [
+            "PATIENT",
+            "record_id",
+            "crc_redcap_number",
+            "isMSIH",
+            "batch_number",
+            "redcap_data_access_group",
         ]
-        clinical_table = pd.concat([clinical_table, retrospective_msi], ignore_index=True)
-        logger.info(f"Processed {len(retrospective_msi)} retrospective patients")
+    ].copy()
 
-    # Ensure PATIENT column is string
+    # Ensure string types
     clinical_table["PATIENT"] = clinical_table["PATIENT"].astype(str)
+    clinical_table["record_id"] = clinical_table["record_id"].astype(str)
 
-    logger.info(f"Created clinical table with {len(clinical_table)} total patients")
-    return clinical_table
+    logger.info(f"Created clinical table with {len(clinical_table)} unique patients")
+    logger.info(f"Created mapping for {len(record_id_mapping)} record IDs")
+
+    return clinical_table, record_id_mapping
 
 
 def load_halo_link_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
@@ -176,6 +240,8 @@ def load_halo_link_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
         "Name": "filename",
         "Image Location": "image_location",
         "Pathology REDCap ID": "redcap_id",
+        "Cut location": "cut_location",
+        "Stain location": "stain_location",
     }
 
     combined_halo.rename(
@@ -187,25 +253,45 @@ def load_halo_link_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
     return combined_halo
 
 
-def create_slide_table(halo_data: pd.DataFrame) -> pd.DataFrame:
+def create_slide_table(
+    halo_data: pd.DataFrame, record_id_mapping: Optional[dict] = None
+) -> pd.DataFrame:
     """Create slide table relating patients to their slide files.
+
+    Uses record_id_mapping to convert Halo's record_ids to sequential PATIENT IDs.
 
     Args:
         halo_data: DataFrame with Halo Link data
+        record_id_mapping: dict mapping record_ids to PATIENT IDs (from create_clinical_table)
 
     Returns:
-        DataFrame with columns: PATIENT, FILENAME, SITE
+        DataFrame with columns: PATIENT, record_id, FILENAME, SITE,
+                               cut_location, stain_location, image_location
     """
-    slide_table = pd.DataFrame(columns=["PATIENT", "FILENAME", "SITE"])
+    slide_table = pd.DataFrame(
+        columns=[
+            "PATIENT",
+            "record_id",
+            "FILENAME",
+            "SITE",
+            "cut_location",
+            "stain_location",
+            "image_location",
+        ]
+    )
 
     # Check if we have the necessary columns
-    if "redcap_id" not in halo_data.columns or "filename" not in halo_data.columns:
+    required_cols = ["redcap_id", "filename", "site"]
+
+    if not all(col in halo_data.columns for col in required_cols):
         logger.warning("Missing required columns in Halo data for slide table")
 
         if "redcap_id" not in halo_data.columns:
             logger.warning("- Missing 'redcap_id' column (Pathology REDCap ID)")
         if "filename" not in halo_data.columns:
             logger.warning("- Missing 'filename' column (Name)")
+        if "site" not in halo_data.columns:
+            logger.warning("- Missing 'site' column")
 
         # Try to find alternative columns
         patient_id_cols = [
@@ -218,23 +304,85 @@ def create_slide_table(halo_data: pd.DataFrame) -> pd.DataFrame:
         if patient_id_cols and filename_cols:
             logger.info(f"Using alternative columns: {patient_id_cols[0]} and {filename_cols[0]}")
             temp_df = halo_data[[patient_id_cols[0], filename_cols[0]]].copy()
-            temp_df.columns = ["PATIENT", "FILENAME"]
+            temp_df.columns = ["record_id", "FILENAME"]
+            temp_df["PATIENT"] = "Unknown"
+            # Fill missing columns with defaults
+            temp_df["SITE"] = "Unknown"
+            temp_df["cut_location"] = "Unknown"
+            temp_df["stain_location"] = "Unknown"
+            temp_df["image_location"] = "Nigeria"
             slide_table = pd.concat([slide_table, temp_df], ignore_index=True)
         else:
             return slide_table
     else:
         # Extract relevant columns
-        temp_df = halo_data[["redcap_id", "filename", "site"]].copy()
-        temp_df.columns = ["PATIENT", "FILENAME", "SITE"]
+        extract_cols = ["redcap_id", "filename", "site"]
+
+        # Add processing columns if available
+        if "cut_location" in halo_data.columns:
+            extract_cols.append("cut_location")
+        if "stain_location" in halo_data.columns:
+            extract_cols.append("stain_location")
+
+        temp_df = halo_data[extract_cols].copy()
+
+        # Rename columns to match slide table schema
+        temp_df.rename(
+            columns={"redcap_id": "record_id", "filename": "FILENAME", "site": "SITE"}, inplace=True
+        )
+
+        # Add image_location (all slides imaged in Nigeria)
+        temp_df["image_location"] = "Nigeria"
+
+        # Fill missing processing metadata with "Unknown"
+        if "cut_location" not in temp_df.columns:
+            temp_df["cut_location"] = "Unknown"
+        if "stain_location" not in temp_df.columns:
+            temp_df["stain_location"] = "Unknown"
+
+        # Map record_id to PATIENT using the provided mapping
+        if record_id_mapping:
+            temp_df["PATIENT"] = temp_df["record_id"].astype(str).map(record_id_mapping)
+            mapped_count = temp_df["PATIENT"].notna().sum()
+            unmapped_count = temp_df["PATIENT"].isna().sum()
+            logger.info(f"Mapped {mapped_count} slides to PATIENT IDs")
+            if unmapped_count > 0:
+                logger.warning(
+                    f"Warning: {unmapped_count} slides could not be mapped to PATIENT IDs"
+                )
+                # Keep original record_id for unmapped slides
+                temp_df.loc[temp_df["PATIENT"].isna(), "PATIENT"] = temp_df.loc[
+                    temp_df["PATIENT"].isna(), "record_id"
+                ]
+        else:
+            logger.warning("No record_id mapping provided - using record_id as PATIENT")
+            temp_df["PATIENT"] = temp_df["record_id"]
+
         slide_table = pd.concat([slide_table, temp_df], ignore_index=True)
 
-    # Drop rows with missing values
+    # Drop rows with missing values in core columns
     slide_table = slide_table.dropna(subset=["PATIENT", "FILENAME"])
 
-    # Ensure PATIENT column is string
+    # Ensure string types
     slide_table["PATIENT"] = slide_table["PATIENT"].astype(str)
+    slide_table["record_id"] = slide_table["record_id"].astype(str)
 
-    logger.info(f"Created slide table with {len(slide_table)} slides")
+    # Reorder columns
+    slide_table = slide_table[
+        [
+            "PATIENT",
+            "record_id",
+            "FILENAME",
+            "SITE",
+            "cut_location",
+            "stain_location",
+            "image_location",
+        ]
+    ]
+
+    logger.info(
+        f"Created slide table with {len(slide_table)} slides for {slide_table['PATIENT'].nunique()} patients"
+    )
     return slide_table
 
 
@@ -388,6 +536,343 @@ def clean_tables(
     return clinical, slides
 
 
+def plot_ingestion_diagnostics(
+    clinical_table: pd.DataFrame,
+    slide_table: pd.DataFrame,
+    slide_table_full: pd.DataFrame,
+    output_dir: Path,
+) -> None:
+    """Generate diagnostic plots for data ingestion.
+
+    Creates publication-ready plots showing:
+    - Slides/patients per processing location (grouped by site with MSI breakdown)
+    - MSI status distribution (overall and by site)
+    - Missing slides summary
+
+    Args:
+        clinical_table: Clinical data (one row per patient)
+        slide_table: Slide data (cleaned, only existing slides)
+        slide_table_full: Slide data before cleaning (includes missing slides)
+        output_dir: Directory to save plots (results/data/)
+    """
+    # Set publication-ready style
+    sns.set_style("whitegrid")
+    sns.set_context("paper", font_scale=1.2)
+    plt.rcParams["font.family"] = "sans-serif"
+    plt.rcParams["font.sans-serif"] = ["Arial", "DejaVu Sans"]
+    plt.rcParams["pdf.fonttype"] = 42  # TrueType fonts for publications
+    plt.rcParams["ps.fonttype"] = 42
+
+    # Fix site labels: All MSKCC slides are from OAUTHC patients
+    def fix_site_labels(df):
+        """Map retrospective MSKCC sites to OAUTHC."""
+        df = df.copy()
+        site_mapping = {
+            "retrospective_msk": "OAUTHC",
+            "retrospective_oau": "OAUTHC",
+            "OAU": "OAUTHC",  # Consolidate any OAU to OAUTHC
+        }
+        df["SITE"] = df["SITE"].replace(site_mapping)
+        return df
+
+    # Apply site fixes
+    slide_table = fix_site_labels(slide_table)
+    clinical_table = clinical_table.copy()
+
+    # Add MSI status to slide table by merging with clinical
+    slide_table = slide_table.merge(clinical_table[["PATIENT", "isMSIH"]], on="PATIENT", how="left")
+    # Fill missing MSI with "Unknown"
+    slide_table["isMSIH"] = slide_table["isMSIH"].fillna("Unknown")
+
+    # Map processing locations to site for coloring
+    # MSKCC cut/stain locations are OAUTHC patients
+    def get_site_for_location(row, location_col):
+        """Get site for coloring based on processing location."""
+        location = row[location_col]
+        if location == "MSKCC":
+            return "OAUTHC"
+        else:
+            return row["SITE"]
+
+    slide_table["cut_site"] = slide_table.apply(
+        lambda x: get_site_for_location(x, "cut_location"), axis=1
+    )
+    slide_table["stain_site"] = slide_table.apply(
+        lambda x: get_site_for_location(x, "stain_location"), axis=1
+    )
+    slide_table["image_site"] = slide_table["SITE"]  # Image location is always by actual site
+
+    # Plot 1: Slides per Location (4 panels: cut, stain, image, MSI)
+    logger.info("Creating slides per location plot...")
+    fig, axes = plt.subplots(1, 4, figsize=(24, 5))
+
+    # First 3 panels: processing locations colored by site
+    for ax, col, site_col, title in zip(
+        axes[:3],
+        ["cut_location", "stain_location", "image_location"],
+        ["cut_site", "stain_site", "image_site"],
+        ["Cut Location", "Stain Location", "Image Location"],
+    ):
+        # Count slides per location, grouped by site
+        counts = slide_table.groupby([col, site_col]).size().reset_index(name="count")
+
+        sns.barplot(data=counts, x=col, y="count", hue=site_col, ax=ax, dodge=True)
+        ax.set_title(f"Slides per {title}", fontsize=12, fontweight="bold")
+        ax.set_xlabel(title, fontsize=11)
+        ax.set_ylabel("Number of Slides", fontsize=11)
+        ax.tick_params(axis="x", rotation=45)
+        ax.legend(title="Site", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=9)
+
+    # 4th panel: MSI status colored by site
+    msi_counts = slide_table.groupby(["isMSIH", "SITE"]).size().reset_index(name="count")
+    sns.barplot(data=msi_counts, x="isMSIH", y="count", hue="SITE", ax=axes[3], dodge=True)
+    axes[3].set_title("Slides per MSI Status", fontsize=12, fontweight="bold")
+    axes[3].set_xlabel("MSI Status", fontsize=11)
+    axes[3].set_ylabel("Number of Slides", fontsize=11)
+    axes[3].tick_params(axis="x", rotation=0)
+    axes[3].legend(title="Site", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=9)
+
+    plt.suptitle("Slide Distribution", fontsize=14, y=1.02)
+    plt.tight_layout()
+    fig.savefig(output_dir / "ingestion_slides_distribution.png", dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    logger.info("  - Created ingestion_slides_distribution.png")
+
+    # Plot 2: Patients per Location (4 panels: cut, stain, image, MSI)
+    logger.info("Creating patients per location plot...")
+    fig, axes = plt.subplots(1, 4, figsize=(24, 5))
+
+    # First 3 panels: processing locations colored by site
+    for ax, col, site_col, title in zip(
+        axes[:3],
+        ["cut_location", "stain_location", "image_location"],
+        ["cut_site", "stain_site", "image_site"],
+        ["Cut Location", "Stain Location", "Image Location"],
+    ):
+        # Get unique patient-location-site combinations
+        unique_patients = slide_table[[col, site_col, "PATIENT"]].drop_duplicates()
+        # Count unique patients per location and site
+        patient_counts = unique_patients.groupby([col, site_col])["PATIENT"].nunique().reset_index()
+        patient_counts.columns = [col, site_col, "count"]
+
+        sns.barplot(data=patient_counts, x=col, y="count", hue=site_col, ax=ax, dodge=True)
+        ax.set_title(f"Patients per {title}", fontsize=12, fontweight="bold")
+        ax.set_xlabel(title, fontsize=11)
+        ax.set_ylabel("Number of Patients", fontsize=11)
+        ax.tick_params(axis="x", rotation=45)
+        ax.legend(title="Site", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=9)
+
+    # 4th panel: MSI status colored by site
+    # Get unique patient-MSI-site combinations
+    unique_patient_msi = slide_table[["PATIENT", "isMSIH", "SITE"]].drop_duplicates()
+    msi_patient_counts = (
+        unique_patient_msi.groupby(["isMSIH", "SITE"])["PATIENT"].nunique().reset_index()
+    )
+    msi_patient_counts.columns = ["isMSIH", "SITE", "count"]
+
+    sns.barplot(data=msi_patient_counts, x="isMSIH", y="count", hue="SITE", ax=axes[3], dodge=True)
+    axes[3].set_title("Patients per MSI Status", fontsize=12, fontweight="bold")
+    axes[3].set_xlabel("MSI Status", fontsize=11)
+    axes[3].set_ylabel("Number of Patients", fontsize=11)
+    axes[3].tick_params(axis="x", rotation=0)
+    axes[3].legend(title="Site", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=9)
+
+    plt.suptitle("Patient Distribution", fontsize=14, y=1.02)
+    plt.tight_layout()
+    fig.savefig(output_dir / "ingestion_patients_distribution.png", dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    logger.info("  - Created ingestion_patients_distribution.png")
+
+
+def generate_ingestion_report(
+    clinical_table: pd.DataFrame,
+    slide_table: pd.DataFrame,
+    slide_table_full: pd.DataFrame,
+    output_dir: Path,
+) -> None:
+    """Generate markdown report with ingestion statistics.
+
+    Args:
+        clinical_table: Clinical data (one row per patient)
+        slide_table: Slide data (cleaned, only existing slides)
+        slide_table_full: Slide data before cleaning (includes missing slides)
+        output_dir: Directory to save report (results/data/)
+    """
+
+    # Fix site labels in tables
+    def fix_site_labels(df):
+        df = df.copy()
+        site_mapping = {
+            "retrospective_msk": "OAUTHC",
+            "retrospective_oau": "OAUTHC",
+            "OAU": "OAUTHC",  # Consolidate any OAU to OAUTHC
+        }
+        df["SITE"] = df["SITE"].replace(site_mapping)
+        return df
+
+    slide_table = fix_site_labels(slide_table)
+    slide_table_full = fix_site_labels(slide_table_full)
+
+    # Calculate statistics
+    n_patients = len(clinical_table)
+    n_slides = len(slide_table)
+
+    # Get full table counts for cleaning summary (before cleaning)
+    # Read the saved clinical_table_full to get pre-cleaning count
+    clinical_full_path = output_dir / "clinical_table_full.csv"
+    if clinical_full_path.exists():
+        clinical_full = pd.read_csv(clinical_full_path)
+        n_patients_full = len(clinical_full)
+    else:
+        n_patients_full = n_patients
+
+    n_slides_full = len(slide_table_full)
+
+    # Count slides that exist
+    if "slide_exists" in slide_table_full.columns:
+        n_slides_found = slide_table_full["slide_exists"].sum()
+        n_slides_missing = n_slides_full - n_slides_found
+    else:
+        n_slides_found = n_slides_full
+        n_slides_missing = 0
+
+    # Include Unknown MSI status for reporting
+    clinical_report = clinical_table.copy()
+    clinical_report["isMSIH"] = clinical_report["isMSIH"].fillna("Unknown")
+    msi_counts = clinical_report["isMSIH"].value_counts()
+
+    slides_per_patient = slide_table.groupby("PATIENT").size()
+    mean_slides = slides_per_patient.mean()
+    median_slides = slides_per_patient.median()
+    max_slides = slides_per_patient.max()
+    n_multi = (slides_per_patient > 1).sum()
+
+    # Missing slides
+    if "slide_exists" in slide_table_full.columns:
+        missing_by_site = slide_table_full.groupby("SITE")["slide_exists"].agg(["count", "sum"])
+        missing_by_site["missing"] = missing_by_site["count"] - missing_by_site["sum"]
+        missing_by_site["pct_found"] = missing_by_site["sum"] / missing_by_site["count"] * 100
+    else:
+        missing_by_site = None
+
+    # Calculate patients removed
+    n_patients_removed = n_patients_full - n_patients
+
+    # Generate markdown
+    report = f"""# Data Ingestion Report
+
+Generated: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+## Summary Statistics
+
+- **Total Patients (final):** {n_patients}
+- **Total Slides (final):** {n_slides}
+
+### MSI Status Distribution
+
+- **MSI-H Patients:** {msi_counts.get("MSI-H", 0)} ({msi_counts.get("MSI-H", 0) / n_patients * 100:.1f}%)
+- **MSS Patients:** {msi_counts.get("MSS", 0)} ({msi_counts.get("MSS", 0) / n_patients * 100:.1f}%)
+- **Unknown MSI:** {msi_counts.get("Unknown", 0)} ({msi_counts.get("Unknown", 0) / n_patients * 100:.1f}%)
+
+## Data Cleaning Summary
+
+The cleaning step removes patients without MSI status and slides that don't exist on disk:
+
+### Patients
+- **Initial (from REDCap):** {n_patients_full} patients
+- **Removed (no MSI status or no slides):** {n_patients_removed} patients
+- **Final (ready for ML):** {n_patients} patients
+
+### Slides
+- **Initial (from Halo Link):** {n_slides_full} slides
+- **Missing (not found on disk):** {n_slides_missing} slides
+- **Removed (patients without MSI):** {n_slides_found - n_slides} slides
+- **Final (ready for feature extraction):** {n_slides} slides
+
+## Slides per Patient
+
+- **Mean:** {mean_slides:.2f}
+- **Median:** {median_slides:.0f}
+- **Max:** {max_slides}
+- **Patients with >1 slide:** {n_multi} ({n_multi / n_patients * 100:.1f}%)
+
+## Patients with Multiple Processing Locations
+
+"""
+
+    # Multi-processing patients
+    patient_stains = slide_table.groupby("PATIENT")["stain_location"].nunique()
+    multi_stain = patient_stains[patient_stains > 1]
+    report += f"- **Patients with multiple staining locations:** {len(multi_stain)}\n"
+
+    if len(multi_stain) > 0:
+        example = multi_stain.index[0]
+        locs = slide_table[slide_table["PATIENT"] == example]["stain_location"].unique()
+        report += f"  - Example: Patient {example} has slides stained at {', '.join(locs)}\n"
+
+    report += "\n## Missing Slides\n\n"
+
+    if missing_by_site is not None:
+        report += "| Site | Total Slides | Found | Missing | Found % |\n"
+        report += "|------|--------------|-------|---------|---------|\\n"
+        for site, row in missing_by_site.iterrows():
+            report += f"| {site} | {int(row['count'])} | {int(row['sum'])} | {int(row['missing'])} | {row['pct_found']:.1f}% |\n"
+
+        total_missing = missing_by_site["missing"].sum()
+        total_slides = missing_by_site["count"].sum()
+        pct_missing = (total_missing / total_slides * 100) if total_slides > 0 else 0
+        report += f"\n**Total missing:** {int(total_missing)} slides ({pct_missing:.1f}%)\n"
+    else:
+        report += "*No slide verification data available.*\n"
+
+    # Processing location summary
+    report += "\n## Processing Location Summary\n\n"
+
+    report += "### Cut Locations\n"
+    cut_counts = slide_table["cut_location"].value_counts()
+    for loc, count in cut_counts.items():
+        report += f"- {loc}: {count} slides\n"
+
+    report += "\n### Stain Locations\n"
+    stain_counts = slide_table["stain_location"].value_counts()
+    for loc, count in stain_counts.items():
+        report += f"- {loc}: {count} slides\n"
+
+    report += "\n### Image Locations\n"
+    image_counts = slide_table["image_location"].value_counts()
+    for loc, count in image_counts.items():
+        report += f"- {loc}: {count} slides\n"
+
+    # MSI status by site
+    report += "\n## MSI Status by Site\n\n"
+    # Merge slide table with clinical to get MSI per site
+    slide_with_msi = slide_table.merge(
+        clinical_report[["PATIENT", "isMSIH"]], on="PATIENT", how="left"
+    )
+    slide_with_msi["isMSIH"] = slide_with_msi["isMSIH"].fillna("Unknown")
+
+    # Get unique patients per site
+    site_patient_msi = slide_with_msi[["SITE", "PATIENT", "isMSIH"]].drop_duplicates()
+
+    report += "| Site | MSI-H | MSS | Unknown | Total |\n"
+    report += "|------|-------|-----|---------|-------|\n"
+
+    for site in sorted(site_patient_msi["SITE"].unique()):
+        site_data = site_patient_msi[site_patient_msi["SITE"] == site]
+        msih = (site_data["isMSIH"] == "MSI-H").sum()
+        mss = (site_data["isMSIH"] == "MSS").sum()
+        unknown = (site_data["isMSIH"] == "Unknown").sum()
+        total = len(site_data)
+        report += f"| {site} | {msih} | {mss} | {unknown} | {total} |\n"
+
+    # Save report
+    report_path = output_dir / "ingestion_report.md"
+    with open(report_path, "w") as f:
+        f.write(report)
+
+    logger.info(f"Saved ingestion report: {report_path}")
+
+
 def process_redcap_data(
     output_dir: Optional[Path] = None,
     api_url: Optional[str] = None,
@@ -425,7 +910,7 @@ def process_redcap_data(
 
     # Step 2: Create clinical table
     logger.info("Extracting clinical information...")
-    clinical_table = create_clinical_table(redcap_data)
+    clinical_table, record_id_mapping = create_clinical_table(redcap_data)
     clinical_table.to_csv(output_dir / "clinical_table_full.csv", index=False)
     logger.info(f"Saved clinical table with {len(clinical_table)} patients")
 
@@ -435,15 +920,19 @@ def process_redcap_data(
 
     # Step 4: Create slide table
     logger.info("Creating slide table...")
-    slide_table = create_slide_table(halo_data)
+    slide_table = create_slide_table(halo_data, record_id_mapping)
 
     # Step 5: Verify slides exist
     logger.info("Verifying slides exist...")
     slide_table = verify_slides_exist(slide_table)
+
+    # Save full table with slide_exists column for diagnostics (BEFORE dropping columns)
+    slide_table.to_csv(output_dir / "slide_table_full.csv", index=False)
+
+    # Update FILENAME to absolute path and clean for final table
     slide_table["FILENAME"] = slide_table["slide_path"]
     slide_table = slide_table.drop(columns=["slide_path", "slide_exists"])
-    slide_table.to_csv(output_dir / "slide_table_full.csv", index=False)
-    logger.info(f"Saved slide table with {len(slide_table)} slides")
+    logger.info(f"Verified {len(slide_table)} slides")
 
     # Step 6: Clean tables
     logger.info("Cleaning tables...")
@@ -452,6 +941,29 @@ def process_redcap_data(
     # Save final cleaned tables
     clinical_table.to_csv(output_dir / "clinical_table.csv", index=False)
     slide_table.to_csv(output_dir / "slide_table.csv", index=False)
+
+    # Step 7: Generate diagnostic plots and report
+    logger.info("Generating diagnostic visualizations...")
+    try:
+        # Read slide_table_full that was saved earlier (has slide_exists column)
+        slide_table_full = pd.read_csv(output_dir / "slide_table_full.csv")
+
+        plot_ingestion_diagnostics(
+            clinical_table=clinical_table,
+            slide_table=slide_table,
+            slide_table_full=slide_table_full,
+            output_dir=output_dir,
+        )
+        generate_ingestion_report(
+            clinical_table=clinical_table,
+            slide_table=slide_table,
+            slide_table_full=slide_table_full,
+            output_dir=output_dir,
+        )
+        logger.info("Diagnostic plots and report saved")
+    except Exception as e:
+        logger.warning(f"Failed to generate diagnostics: {e}")
+        # Continue execution even if plotting fails
 
     logger.info("Data ingestion complete")
     logger.info(f"  - Clinical table: {len(clinical_table)} patients")

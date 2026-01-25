@@ -22,13 +22,26 @@ cp .env.template .env
 
 ### 1. Data Ingestion
 
+Fetch clinical data from REDCap and slide metadata from Halo Link:
+
 ```bash
 argo ingest
 ```
 
 Creates:
-- `results/data/clinical_table.csv` - Patient MSI labels
-- `results/data/slide_table.csv` - Slide paths and metadata
+- `results/data/clinical_table.csv` - Patient MSI labels (one row per patient)
+- `results/data/slide_table.csv` - Slide paths and processing metadata
+
+**Slide table columns:**
+- `PATIENT` - Patient ID (matches clinical_table)
+- `FILENAME` - Absolute path to slide file
+- `SITE` - Site identifier (e.g., UITH, retrospective_msk, retrospective_oau)
+- `cut_location` - Where slide was sectioned (e.g., MSKCC, UITH, OAUTHC)
+- `stain_location` - Where slide was stained (e.g., MSKCC, UITH, OAUTHC)
+- `image_location` - Where slide was scanned (always Nigeria for this dataset)
+
+**Note:** Retrospective patients (142-series) may have multiple slides with different
+staining locations (MSK vs Nigeria), but they remain the same patient in clinical_table.
 
 ### 2. Feature Extraction
 
