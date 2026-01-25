@@ -27,35 +27,34 @@
 
 # Models to aggregate (must match extracted models from extract.sh)
 MODELS=(
-    # ===== Recommended Gated Models =====
-    "uni2"
-    "virchow2"
-    "conch_v1.5"
-    "h-optimus-0"
-    "h-optimus-1"
-    "gigapath"
-    "hibou-b"
-    "chief"
+    # ===== Recommended Gated Models (HuggingFace auth required) =====
+    "uni2"              # UNI v2 (1024D) - latest version
+    "virchow2"          # Virchow v2 (1280D) - latest version
+    "conch_v1.5"        # CONCH v1.5 (512D) - latest version
+    "h-optimus-1"       # H-Optimus 1 (768D) - newer version
+    "gigapath"          # GigaPath (1536D)
+    "hibou-b"           # Hibou-B (768D)
+    "musk"              # MUSK (1024D)
 
-    # ===== Non-Gated Models =====
-    "plip"
-    "ctranspath"
-    "phikon"
-    "phikonv2"
+    # ===== Non-Gated Models (no auth required) =====
+    "chief"             # CHIEF (768D)
+    "plip"              # PLIP vision-language (512D)
+    "ctranspath"        # CTransPath (768D)
+    "phikonv2"          # Phikon v2 (768D)
 
-    # ===== Older Versions (uncomment if you extracted them) =====
-    # "uni"
-    # "virchow"
-    # "conch"
+    # ===== Older Versions (superseded, keep commented) =====
+    # "uni"             # UNI v1 (1024D) - use uni2 instead
+    # "virchow"         # Virchow v1 (1280D) - use virchow2 instead
+    # "conch"           # CONCH v1 (512D) - use conch_v1.5 instead
 
-    # ===== Model Variants =====
-    # "h0-mini"
-    # "hibou-l"
+    # ===== Model Variants (different sizes) =====
+    # "h0-mini"         # H-Optimus 0 Mini (384D) - smaller/faster
+    # "hibou-l"         # Hibou-L (1024D) - larger variant
 
     # ===== Less Common Models =====
-    # "gpfm"
-    # "path_orchestra"
-    # "midnight"
+    # "gpfm"            # GPFM (768D)
+    # "path_orchestra"  # PathOrchestra (768D)
+    # "midnight"        # Midnight (768D)
 )
 
 # Aggregation method

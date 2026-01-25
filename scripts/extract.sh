@@ -2,10 +2,10 @@
 #SBATCH --job-name=argo_extract
 #SBATCH --output=scripts/logs/extract_%A_%a.out
 #SBATCH --time=72:00:00
-#SBATCH --partition=nvidia-A6000-20
+#SBATCH --partition=nvidia-2080ti-20
 #SBATCH --gres=gpu:1
-#SBATCH --mem=128G
-#SBATCH --cpus-per-task=16
+#SBATCH --mem=64G
+#SBATCH --cpus-per-task=8
 #SBATCH --array=0-2
 
 # =============================================================================
@@ -37,16 +37,15 @@ MODELS=(
     "uni2"              # UNI v2 (1024D) - latest version
     "virchow2"          # Virchow v2 (1280D) - latest version
     "conch_v1.5"        # CONCH v1.5 (512D) - latest version
-    "h-optimus-0"       # H-Optimus 0 (768D)
     "h-optimus-1"       # H-Optimus 1 (768D) - newer version
     "gigapath"          # GigaPath (1536D)
     "hibou-b"           # Hibou-B (768D)
-    "chief"             # CHIEF (768D)
+    "musk"              # MUSK (1024D)
 
     # ===== Non-Gated Models (no auth required) =====
+    "chief"             # CHIEF (768D)
     "plip"              # PLIP vision-language (512D)
     "ctranspath"        # CTransPath (768D)
-    "phikon"            # Phikon (768D)
     "phikonv2"          # Phikon v2 (768D)
 
     # ===== Older Versions (superseded, keep commented) =====

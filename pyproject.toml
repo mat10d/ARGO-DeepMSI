@@ -45,6 +45,8 @@ dependencies = [
     "scikit-learn>=1.3.0",
     "torch>=2.0.0",
     "transformers>=4.30.0",
+    "einops>=0.7.0",  # Required by gigapath and other vision models
+    "einops-exts>=0.0.4",  # Extensions for einops
 
     # Utilities
     "tqdm>=4.65.0",
