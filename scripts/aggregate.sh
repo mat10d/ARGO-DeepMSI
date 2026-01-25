@@ -34,11 +34,9 @@ MODELS=(
     "h-optimus-1"       # H-Optimus 1 (768D) - newer version
     "gigapath"          # GigaPath (1536D)
     "hibou-b"           # Hibou-B (768D)
-    "musk"              # MUSK (1024D)
 
     # ===== Non-Gated Models (no auth required) =====
     "chief"             # CHIEF (768D)
-    "plip"              # PLIP vision-language (512D)
     "ctranspath"        # CTransPath (768D)
     "phikonv2"          # Phikon v2 (768D)
 
