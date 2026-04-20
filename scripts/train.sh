@@ -5,7 +5,7 @@
 #SBATCH --partition=short
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=4
-#SBATCH --array=0-14%5
+#SBATCH --array=0-11%5
 
 # =============================================================================
 # ARGO-DeepMSI: Classifier Training
@@ -62,6 +62,11 @@ EMBEDDINGS=(
 
 # Get embedding for this array task
 EMBEDDING=${EMBEDDINGS[$SLURM_ARRAY_TASK_ID]}
+
+if [ -z "$EMBEDDING" ]; then
+    echo "No embedding at array index $SLURM_ARRAY_TASK_ID (only ${#EMBEDDINGS[@]} enabled). Exiting."
+    exit 0
+fi
 
 echo "========================================="
 echo "ARGO-DeepMSI: Training"

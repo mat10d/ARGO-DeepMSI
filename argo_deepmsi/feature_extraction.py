@@ -163,6 +163,8 @@ def process_slide(
     mpp: float = 0.5,
     amp: bool = True,
     device: str = "cuda",
+    num_workers: int = 4,
+    batch_size: int = 64,
 ):
     """Load and process a slide through LazySlide pipeline.
 
@@ -183,15 +185,23 @@ def process_slide(
     slide_path = Path(slide_path)
     logger.info(f"Processing: {slide_path.name}")
 
-    # Load slide
-    wsi = open_wsi(str(slide_path))
+    # Load slide (skip thumbnail to speed up batch jobs)
+    wsi = open_wsi(str(slide_path), attach_thumbnail=False)
 
     # Preprocessing: tissue detection and tiling
     zs.pp.find_tissues(wsi)
     zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
 
-    # Patch-level feature extraction
-    zs.tl.feature_extraction(wsi, model=patch_model, amp=amp, device=device)
+    # Patch-level feature extraction (num_workers enables CPU/GPU overlap)
+    zs.tl.feature_extraction(
+        wsi,
+        model=patch_model,
+        amp=amp,
+        device=device,
+        num_workers=num_workers,
+        batch_size=batch_size,
+        pbar=False,
+    )
 
     return wsi
 
@@ -235,11 +245,11 @@ def process_slide_with_aggregation(
     )
 
     # Slide-level aggregation
+    feature_key = f"{patch_model}_tiles"
     if slide_encoder == "mean":
         # Simple mean pooling
-        feature_key = f"{patch_model}_tiles"
-        if feature_key in wsi:
-            slide_embedding = wsi[feature_key].X.mean(axis=0)
+        if feature_key in wsi.tables:
+            slide_embedding = np.asarray(wsi.tables[feature_key].X).mean(axis=0)
         else:
             slide_embedding = None
     else:
@@ -250,10 +260,10 @@ def process_slide_with_aggregation(
             encoder=slide_encoder,
             device=device,
         )
-        # Get the aggregated embedding
-        agg_key = f"{patch_model}_{slide_encoder}"
-        if agg_key in wsi.sdata:
-            slide_embedding = wsi.sdata[agg_key]
+        # LazySlide stores aggregation in wsi.tables[feature_key].uns['agg_slide']
+        adata = wsi.tables.get(feature_key)
+        if adata is not None and "agg_slide" in adata.uns:
+            slide_embedding = np.asarray(adata.uns["agg_slide"]).flatten()
         else:
             slide_embedding = None
 
@@ -315,6 +325,8 @@ def extract_features_single_slide(
     amp: bool = True,
     device: str = "cuda",
     overwrite: bool = False,
+    num_workers: int = 4,
+    batch_size: int = 64,
 ) -> Optional[Path]:
     """Extract patch features from a single slide using one or more models.
 
@@ -391,13 +403,13 @@ def extract_features_single_slide(
         )
 
     try:
-        # Open WSI (either new slide or existing zarr)
+        # Open WSI (either new slide or existing zarr) — skip thumbnail for batch jobs
         if zarr_path.exists():
             logger.info(f"Loading existing zarr: {zarr_path.name}")
-            wsi = open_wsi(str(zarr_path))
+            wsi = open_wsi(str(zarr_path), attach_thumbnail=False)
         else:
             logger.info(f"Processing {slide_path.name} with models: {', '.join(models_to_extract)}")
-            wsi = open_wsi(str(slide_path))
+            wsi = open_wsi(str(slide_path), attach_thumbnail=False)
 
         # Preprocess if needed (only for new slides)
         if not zarr_path.exists():
@@ -408,7 +420,15 @@ def extract_features_single_slide(
         # Extract only the models we need
         for model in models_to_extract:
             logger.info(f"Extracting features with {model}...")
-            zs.tl.feature_extraction(wsi, model=model, amp=amp, device=device)
+            zs.tl.feature_extraction(
+                wsi,
+                model=model,
+                amp=amp,
+                device=device,
+                num_workers=num_workers,
+                batch_size=batch_size,
+                pbar=False,
+            )
 
         # Write ONCE → saves next to original slide
         logger.info("Saving WSI with all features...")
@@ -440,6 +460,8 @@ def extract_features_batch(
     device: str = "cuda",
     overwrite: bool = False,
     max_slides: Optional[int] = None,
+    num_workers: int = 4,
+    batch_size: int = 64,
 ) -> pd.DataFrame:
     """Extract features from all slides using one or more models.
 
@@ -470,6 +492,8 @@ def extract_features_batch(
             amp=amp,
             device=device,
             overwrite=overwrite,
+            num_workers=num_workers,
+            batch_size=batch_size,
         )
         results.append(
             {
@@ -553,6 +577,14 @@ def _save_embeddings(
     return output_dir
 
 
+_POOL_FNS = {
+    "mean": lambda X: np.asarray(X).mean(axis=0),
+    "max": lambda X: np.asarray(X).max(axis=0),
+    "median": lambda X: np.median(np.asarray(X), axis=0),
+    "sum": lambda X: np.asarray(X).sum(axis=0),
+}
+
+
 def aggregate_simple_pooling(
     slide_table: Union[str, Path, pd.DataFrame],
     models: Union[str, List[str]],
@@ -561,8 +593,9 @@ def aggregate_simple_pooling(
 ) -> Dict[str, pd.DataFrame]:
     """Aggregate features using simple pooling.
 
-    Loads features from zarr files and applies numpy-based pooling.
-    Reads AnnData objects directly from zarr to avoid reader compatibility issues.
+    Reads each slide's zarr store once and aggregates all requested models
+    from it (slide-outer / model-inner loop). Reads the X matrix directly
+    from zarr, skipping full AnnData construction.
 
     Args:
         slide_table: Path to slide_table.csv or DataFrame with:
@@ -574,7 +607,7 @@ def aggregate_simple_pooling(
     Returns:
         Dict mapping model -> results DataFrame
     """
-    import anndata as ad
+    import zarr as _zarr
 
     # Load slide table
     if isinstance(slide_table, (str, Path)):
@@ -583,69 +616,70 @@ def aggregate_simple_pooling(
         df = slide_table.copy()
 
     # Normalize models to list
-    models = [models] if isinstance(models, str) else models
+    models = [models] if isinstance(models, str) else list(models)
 
-    results = {}
-    for model in models:
-        logger.info(f"Aggregating {model} with {method}...")
+    if method not in _POOL_FNS:
+        raise ValueError(
+            f"Unknown pooling method: {method}. Supported: {list(_POOL_FNS)}"
+        )
+    pool_fn = _POOL_FNS[method]
 
-        embeddings = []
-        feature_key = f"{model}_tiles"
+    # Accumulator per model — open each zarr exactly once per slide
+    # (outer=slide, inner=model) so we don't re-open N_models times.
+    per_model: Dict[str, List[dict]] = {m: [] for m in models}
 
-        for idx, row in tqdm(df.iterrows(), total=len(df), desc=f"{model} {method}"):
-            svs_path = Path(row["FILENAME"])
-            zarr_path = svs_path.with_suffix(".zarr")
+    for _, row in tqdm(df.iterrows(), total=len(df), desc=f"pool:{method}"):
+        svs_path = Path(row["FILENAME"])
+        zarr_path = svs_path.with_suffix(".zarr")
 
-            if not zarr_path.exists():
-                logger.warning(f"Zarr not found: {zarr_path}")
-                continue
+        if not zarr_path.exists():
+            logger.warning(f"Zarr not found: {zarr_path}")
+            continue
 
+        try:
+            store = _zarr.open(str(zarr_path), mode="r")
+        except Exception as e:
+            logger.error(f"Failed to open zarr {zarr_path.name}: {e}")
+            continue
+
+        for model in models:
+            feature_key = f"{model}_tiles"
             try:
-                # Load AnnData directly from zarr tables subdirectory
-                adata_path = zarr_path / "tables" / feature_key
-                if not adata_path.exists():
-                    logger.warning(f"No {feature_key} in {zarr_path.name}")
-                    continue
+                # Zarr layout: {zarr}/tables/{feature_key}/X
+                X_group = store["tables"][feature_key]["X"]
+                # X may be a sparse-backed group or a dense array
+                try:
+                    X = X_group[:]
+                except Exception:
+                    # Sparse fallback via anndata
+                    import anndata as ad
+                    adata = ad.read_zarr(str(zarr_path / "tables" / feature_key))
+                    X = np.asarray(adata.X.toarray() if hasattr(adata.X, "toarray") else adata.X)
 
-                # Read AnnData from zarr
-                adata = ad.read_zarr(str(adata_path))
-
-                # Apply pooling method
-                if method == "mean":
-                    embedding = np.asarray(adata.X.mean(axis=0)).flatten()
-                elif method == "max":
-                    embedding = np.asarray(adata.X.max(axis=0)).flatten()
-                elif method == "median":
-                    embedding = np.median(np.asarray(adata.X), axis=0).flatten()
-                elif method == "sum":
-                    embedding = np.asarray(adata.X.sum(axis=0)).flatten()
-                else:
-                    embedding = np.asarray(adata.X.mean(axis=0)).flatten()
-
-                embeddings.append(
+                embedding = np.asarray(pool_fn(X)).flatten()
+                per_model[model].append(
                     {
                         "slide_id": svs_path.stem,
                         "patient_id": row["PATIENT"],
                         "site": row["SITE"],
                         "embedding": embedding,
-                        "n_tiles": adata.n_obs,
+                        "n_tiles": int(X.shape[0]),
                         "zarr_path": str(zarr_path),
                     }
                 )
-
+            except KeyError:
+                logger.warning(f"No {feature_key} in {zarr_path.name}")
+                continue
             except Exception as e:
-                logger.error(f"Failed to aggregate {zarr_path.name}: {e}")
-                import traceback
-
-                logger.error(traceback.format_exc())
+                logger.error(f"Failed to aggregate {zarr_path.name} / {model}: {e}")
                 continue
 
-        if not embeddings:
+    results: Dict[str, pd.DataFrame] = {}
+    for model, rows in per_model.items():
+        if not rows:
             logger.warning(f"No embeddings generated for {model}")
             continue
-
-        # Convert to DataFrame and save
-        df_result = pd.DataFrame(embeddings)
+        df_result = pd.DataFrame(rows)
         _save_embeddings(df_result, model, method, output_dir)
         results[model] = df_result
 
@@ -712,19 +746,15 @@ def aggregate_neural_encoders(
             continue
 
         try:
-            # Load original slide (needed for spatial context)
-            wsi = open_wsi(str(svs_path))
-
-            # Load pre-extracted features from Zarr (auto-detect reader)
-            zarr_wsi = open_wsi(str(zarr_path))
+            # Open the zarr directly — it already contains tiles, spatial coords,
+            # and features. No need to re-open the SVS (the old double-open path
+            # cost an SVS read per slide for no benefit).
+            wsi = open_wsi(str(zarr_path), attach_thumbnail=False)
             feature_key = f"{model}_tiles"
 
-            if feature_key not in zarr_wsi.tables:
+            if feature_key not in wsi.tables:
                 logger.warning(f"No {feature_key} in {zarr_path}")
                 continue
-
-            # Copy features to avoid re-extraction
-            wsi.tables[feature_key] = zarr_wsi.tables[feature_key]
 
             # Run neural aggregation
             zs.tl.feature_aggregation(
@@ -800,7 +830,7 @@ def aggregate_features(
         Dict mapping model -> results DataFrame
     """
     # Simple pooling methods
-    simple_methods = ["mean", "max", "median", "sum", "std", "var"]
+    simple_methods = ["mean", "max", "median", "sum"]
 
     # Neural encoder methods
     neural_encoders = [

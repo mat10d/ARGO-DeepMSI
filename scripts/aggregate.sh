@@ -5,7 +5,7 @@
 #SBATCH --partition=short
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=8
-#SBATCH --array=0-14%5
+#SBATCH --array=0-8%5
 
 # =============================================================================
 # ARGO-DeepMSI: Feature Aggregation
@@ -61,6 +61,11 @@ METHOD="mean"
 
 # Get model for this array task
 MODEL=${MODELS[$SLURM_ARRAY_TASK_ID]}
+
+if [ -z "$MODEL" ]; then
+    echo "No model at array index $SLURM_ARRAY_TASK_ID (only ${#MODELS[@]} models enabled). Exiting."
+    exit 0
+fi
 
 echo "========================================="
 echo "ARGO-DeepMSI: Aggregation"

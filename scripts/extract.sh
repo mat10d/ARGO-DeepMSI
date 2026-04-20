@@ -1,24 +1,30 @@
 #!/bin/bash
 #SBATCH --job-name=argo_extract
 #SBATCH --output=scripts/logs/extract_%A_%a.out
-#SBATCH --time=72:00:00
-#SBATCH --partition=nvidia-2080ti-20
+#SBATCH --time=168:00:00
+#SBATCH --partition=nvidia-A6000-20
 #SBATCH --gres=gpu:1
-#SBATCH --mem=64G
-#SBATCH --cpus-per-task=8
-#SBATCH --array=0-2
+#SBATCH --mem=128G
+#SBATCH --cpus-per-task=16
+#SBATCH --array=0-1
 
 # =============================================================================
 # ARGO-DeepMSI: Feature Extraction (Group-based Parallelization)
 # =============================================================================
-# Splits slides into 3 groups. Each group processes all its slides with
+# Splits slides into 2 groups. Each group processes all its slides with
 # ALL models in a single pass (per slide).
+#
+# Configuration:
+# - Partition: nvidia-A6000-20 (80GB VRAM, 768G RAM available)
+# - Memory: 128G per job (2 jobs × 128G = 256G total)
+# - Time: 168 hours (7 days)
+# - Array: 2 parallel jobs (0-1)
 #
 # Benefits:
 # - Each slide preprocessed exactly once
-# - All models extracted per slide in one GPU session
-# - Simple: only 3 array tasks
-# - Natural incremental support
+# - All 11 models extracted per slide in one GPU session
+# - 128G memory handles feature accumulation comfortably
+# - A6000 80GB VRAM for large model support
 #
 # Usage:
 #   sbatch scripts/extract.sh
@@ -29,7 +35,7 @@
 # =============================================================================
 
 # Number of groups (must match --array parameter)
-NUM_GROUPS=3
+NUM_GROUPS=2
 
 # Models to extract (all in one pass per slide)
 MODELS=(
@@ -40,11 +46,13 @@ MODELS=(
     "h-optimus-1"       # H-Optimus 1 (768D) - newer version
     "gigapath"          # GigaPath (1536D)
     "hibou-b"           # Hibou-B (768D)
+    "musk"              # MUSK pathology foundation model
 
     # ===== Non-Gated Models (no auth required) =====
     "chief"             # CHIEF (768D)
     "ctranspath"        # CTransPath (768D)
     "phikonv2"          # Phikon v2 (768D)
+    "plip"              # PLIP vision-language model
 
     # ===== Older Versions (superseded, keep commented) =====
     # "uni"             # UNI v1 (1024D) - use uni2 instead
@@ -82,6 +90,11 @@ fi
 
 NUM_SLIDES=$((END_LINE - START_LINE + 1))
 
+if [ $NUM_SLIDES -le 0 ]; then
+    echo "No slides assigned to group $((GROUP_ID + 1))/$NUM_GROUPS. Exiting."
+    exit 0
+fi
+
 echo "========================================="
 echo "ARGO-DeepMSI: Feature Extraction"
 echo "========================================="
@@ -93,8 +106,8 @@ echo "Node: $SLURM_NODELIST"
 echo "Start time: $(date)"
 echo "========================================="
 
-# Create temp table for this group (in current directory, not /tmp)
-TEMP_TABLE=$(mktemp -p . slide_group_${GROUP_ID}_XXXXX.csv)
+# Create group table in logs directory (for record-keeping)
+TEMP_TABLE="scripts/logs/slide_group_${GROUP_ID}_job${SLURM_JOB_ID}.csv"
 
 # Extract header
 head -n 1 "$SLIDE_TABLE" > "$TEMP_TABLE"
@@ -103,7 +116,7 @@ head -n 1 "$SLIDE_TABLE" > "$TEMP_TABLE"
 tail -n +$START_LINE "$SLIDE_TABLE" | head -n $NUM_SLIDES >> "$TEMP_TABLE"
 
 echo ""
-echo "Created temp table: $TEMP_TABLE"
+echo "Created group table: $TEMP_TABLE"
 echo "Contains $(tail -n +2 "$TEMP_TABLE" | wc -l) slides"
 echo ""
 
@@ -146,11 +159,9 @@ python -m argo_deepmsi.cli extract \
     --device cuda \
     --amp
 
-# Cleanup temp file
-rm -f "$TEMP_TABLE"
-
 echo ""
 echo "========================================="
 echo "✓ Extraction complete for group $((GROUP_ID + 1))/$NUM_GROUPS"
+echo "Slide list saved: $TEMP_TABLE"
 echo "End time: $(date)"
 echo "========================================="

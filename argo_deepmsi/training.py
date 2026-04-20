@@ -10,7 +10,7 @@ from typing import Optional, Dict, List, Any, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.model_selection import StratifiedGroupKFold, cross_val_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
@@ -56,13 +56,20 @@ def load_training_data(
     """
     # Load data
     embeddings = np.load(embeddings_dir / "embeddings.npy")
-    metadata = pd.read_csv(embeddings_dir / "metadata.csv")
+    metadata = pd.read_csv(embeddings_dir / "metadata.csv").reset_index(drop=True)
     clinical = pd.read_csv(clinical_table)
 
     logger.info(f"Loaded {len(embeddings)} embeddings from {embeddings_dir}")
     logger.info(f"Loaded {len(clinical)} clinical records")
 
-    # Robust merge on patient_id
+    if len(metadata) != len(embeddings):
+        raise ValueError(
+            f"Row count mismatch: metadata has {len(metadata)} rows but "
+            f"embeddings array has {len(embeddings)} rows."
+        )
+
+    # Robust merge on patient_id — metadata index (0..N-1) is preserved by merge,
+    # so the resulting index directly indexes the embeddings matrix.
     merged = metadata.merge(
         clinical,
         left_on="patient_id",
@@ -80,11 +87,7 @@ def load_training_data(
             "  - Values match (case-sensitive)"
         )
 
-    # Get matched embeddings using index from metadata
-    # CRITICAL: We need to use the original index from metadata to get correct embeddings
-    # The merge preserves the index from the left DataFrame (metadata)
-    matched_indices = merged.index.tolist()
-    X = embeddings[matched_indices]
+    X = embeddings[merged.index.values]
 
     # Extract labels
     y = (merged[label_column] == positive_label).astype(int).values
@@ -112,6 +115,7 @@ def load_training_data(
 def train_logistic_regression(
     X: np.ndarray,
     y: np.ndarray,
+    groups: Optional[np.ndarray] = None,
     n_splits: int = 5,
     random_state: int = 42,
 ) -> Dict[str, Any]:
@@ -135,10 +139,19 @@ def train_logistic_regression(
         class_weight="balanced",
     )
 
-    cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    if groups is None:
+        raise ValueError(
+            "`groups` (patient IDs) must be provided to avoid patient-level data leakage. "
+            "Pass merged_df['patient_id'].values."
+        )
 
-    auroc_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="roc_auc")
-    accuracy_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="accuracy")
+    auroc_scores = cross_val_score(
+        model, X_scaled, y, cv=cv, groups=groups, scoring="roc_auc"
+    )
+    accuracy_scores = cross_val_score(
+        model, X_scaled, y, cv=cv, groups=groups, scoring="accuracy"
+    )
 
     # Fit final model on all data
     model.fit(X_scaled, y)
@@ -158,6 +171,7 @@ def train_logistic_regression(
 def train_random_forest(
     X: np.ndarray,
     y: np.ndarray,
+    groups: Optional[np.ndarray] = None,
     n_splits: int = 5,
     n_estimators: int = 100,
     random_state: int = 42,
@@ -181,10 +195,14 @@ def train_random_forest(
         n_jobs=-1,
     )
 
-    cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    if groups is None:
+        raise ValueError(
+            "`groups` (patient IDs) must be provided to avoid patient-level data leakage."
+        )
 
-    auroc_scores = cross_val_score(model, X, y, cv=cv, scoring="roc_auc")
-    accuracy_scores = cross_val_score(model, X, y, cv=cv, scoring="accuracy")
+    auroc_scores = cross_val_score(model, X, y, cv=cv, groups=groups, scoring="roc_auc")
+    accuracy_scores = cross_val_score(model, X, y, cv=cv, groups=groups, scoring="accuracy")
 
     model.fit(X, y)
 
@@ -203,6 +221,7 @@ def train_random_forest(
 def train_svm(
     X: np.ndarray,
     y: np.ndarray,
+    groups: Optional[np.ndarray] = None,
     n_splits: int = 5,
     random_state: int = 42,
 ) -> Dict[str, Any]:
@@ -227,10 +246,18 @@ def train_svm(
         class_weight="balanced",
     )
 
-    cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
+    if groups is None:
+        raise ValueError(
+            "`groups` (patient IDs) must be provided to avoid patient-level data leakage."
+        )
 
-    auroc_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="roc_auc")
-    accuracy_scores = cross_val_score(model, X_scaled, y, cv=cv, scoring="accuracy")
+    auroc_scores = cross_val_score(
+        model, X_scaled, y, cv=cv, groups=groups, scoring="roc_auc"
+    )
+    accuracy_scores = cross_val_score(
+        model, X_scaled, y, cv=cv, groups=groups, scoring="accuracy"
+    )
 
     model.fit(X_scaled, y)
 
@@ -249,6 +276,7 @@ def train_svm(
 def compare_classifiers(
     X: np.ndarray,
     y: np.ndarray,
+    groups: Optional[np.ndarray] = None,
     n_splits: int = 5,
     random_state: int = 42,
 ) -> pd.DataFrame:
@@ -266,7 +294,7 @@ def compare_classifiers(
     results = []
 
     logger.info("Training Logistic Regression...")
-    lr_results = train_logistic_regression(X, y, n_splits, random_state)
+    lr_results = train_logistic_regression(X, y, groups=groups, n_splits=n_splits, random_state=random_state)
     results.append(
         {
             "classifier": "Logistic Regression",
@@ -278,7 +306,7 @@ def compare_classifiers(
     )
 
     logger.info("Training Random Forest...")
-    rf_results = train_random_forest(X, y, n_splits, random_state=random_state)
+    rf_results = train_random_forest(X, y, groups=groups, n_splits=n_splits, random_state=random_state)
     results.append(
         {
             "classifier": "Random Forest",
@@ -290,7 +318,7 @@ def compare_classifiers(
     )
 
     logger.info("Training SVM...")
-    svm_results = train_svm(X, y, n_splits, random_state)
+    svm_results = train_svm(X, y, groups=groups, n_splits=n_splits, random_state=random_state)
     results.append(
         {
             "classifier": "SVM",

@@ -632,8 +632,8 @@ def plot_ingestion_diagnostics(
     axes[3].tick_params(axis="x", rotation=0)
     axes[3].legend(title="Site", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=9)
 
-    plt.suptitle("Slide Distribution", fontsize=14, y=1.02)
-    plt.tight_layout()
+    fig.suptitle("Slide Distribution", fontsize=14, y=1.02)
+    fig.tight_layout()
     fig.savefig(output_dir / "ingestion_slides_distribution.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
     logger.info("  - Created ingestion_slides_distribution.png")
@@ -677,8 +677,8 @@ def plot_ingestion_diagnostics(
     axes[3].tick_params(axis="x", rotation=0)
     axes[3].legend(title="Site", bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=9)
 
-    plt.suptitle("Patient Distribution", fontsize=14, y=1.02)
-    plt.tight_layout()
+    fig.suptitle("Patient Distribution", fontsize=14, y=1.02)
+    fig.tight_layout()
     fig.savefig(output_dir / "ingestion_patients_distribution.png", dpi=300, bbox_inches="tight")
     plt.close(fig)
     logger.info("  - Created ingestion_patients_distribution.png")

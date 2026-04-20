@@ -26,6 +26,46 @@ logger = logging.getLogger(__name__)
 
 
 # ============================================================================
+# Cached loading — avoid re-running GPU inference when zarr already exists
+# ============================================================================
+
+
+def _open_cached(
+    slide_path: Path,
+    tile_px: int = 256,
+    mpp: float = 0.5,
+    model: Optional[str] = None,
+    ensure_tiles: bool = True,
+    device: str = "cuda",
+):
+    """Open a WSI, preferring the cached zarr if it exists.
+
+    - If `{slide}.zarr` exists, open it (preprocessing/features already cached).
+    - Otherwise open the raw slide and run the minimum preprocessing required.
+    - If `model` is given and the feature table is missing, run extraction and
+      persist it back to zarr so subsequent calls are cheap.
+    """
+    zarr_path = slide_path.with_suffix(".zarr")
+    if zarr_path.exists():
+        wsi = open_wsi(str(zarr_path))
+    else:
+        wsi = open_wsi(str(slide_path))
+        zs.pp.find_tissues(wsi)
+        if ensure_tiles or model is not None:
+            zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
+
+    if model is not None:
+        feature_key = f"{model}_tiles"
+        if not hasattr(wsi, "tables") or feature_key not in wsi.tables:
+            zs.tl.feature_extraction(
+                wsi, model=model, device=device, num_workers=4, batch_size=64, pbar=False
+            )
+            wsi.write()
+
+    return wsi
+
+
+# ============================================================================
 # Slide visualization
 # ============================================================================
 
@@ -59,7 +99,7 @@ def visualize_slide(
     slide_path = Path(slide_path)
 
     try:
-        wsi = open_wsi(str(slide_path))
+        wsi = _open_cached(slide_path, tile_px=tile_px, mpp=mpp, ensure_tiles=show_tiles)
 
         fig, axes = plt.subplots(1, 3, figsize=figsize)
 
@@ -67,21 +107,19 @@ def visualize_slide(
         axes[0].set_title("Original Slide")
         zs.pl.wsi(wsi, ax=axes[0])
 
-        # 2. Tissue detection
-        zs.pp.find_tissues(wsi)
+        # 2. Tissue detection (already run by _open_cached)
         axes[1].set_title("Tissue Detection")
         zs.pl.tissues(wsi, ax=axes[1])
 
         # 3. Tiling
         if show_tiles:
-            zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
             axes[2].set_title(f"Tiling ({tile_px}px @ {mpp} mpp)")
             zs.pl.tiles(wsi, ax=axes[2])
         else:
             axes[2].axis("off")
 
-        plt.suptitle(slide_path.name, fontsize=14)
-        plt.tight_layout()
+        fig.suptitle(slide_path.name, fontsize=14)
+        fig.tight_layout()
 
         if output_path:
             ensure_dir(output_path.parent)
@@ -124,10 +162,7 @@ def visualize_features(
     slide_path = Path(slide_path)
 
     try:
-        wsi = open_wsi(str(slide_path))
-        zs.pp.find_tissues(wsi)
-        zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
-        zs.tl.feature_extraction(wsi, model=model)
+        wsi = _open_cached(slide_path, tile_px=tile_px, mpp=mpp, model=model)
 
         n_features = len(feature_indices)
         fig, axes = plt.subplots(1, n_features + 1, figsize=figsize)
@@ -141,8 +176,8 @@ def visualize_features(
             axes[i + 1].set_title(f"Feature {feat_idx}")
             zs.pl.tiles(wsi, feature_key=model, color=[str(feat_idx)], ax=axes[i + 1])
 
-        plt.suptitle(f"{slide_path.name} - {model} features", fontsize=14)
-        plt.tight_layout()
+        fig.suptitle(f"{slide_path.name} - {model} features", fontsize=14)
+        fig.tight_layout()
 
         if output_path:
             ensure_dir(output_path.parent)
@@ -456,11 +491,8 @@ def visualize_tile_clusters(
     slide_path = Path(slide_path)
 
     try:
-        # Load and process slide
-        wsi = open_wsi(str(slide_path))
-        zs.pp.find_tissues(wsi)
-        zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
-        zs.tl.feature_extraction(wsi, model=model, device=device)
+        # Load cached zarr if available; only run GPU extraction if truly missing
+        wsi = _open_cached(slide_path, tile_px=tile_px, mpp=mpp, model=model, device=device)
 
         # Get features and perform clustering
         feature_key = f"{model}_tiles"
@@ -486,8 +518,8 @@ def visualize_tile_clusters(
         axes[2].set_title("Tile UMAP")
         sc.pl.umap(adata, color="leiden", ax=axes[2], show=False)
 
-        plt.suptitle(f"{slide_path.name} - {model}", fontsize=14)
-        plt.tight_layout()
+        fig.suptitle(f"{slide_path.name} - {model}", fontsize=14)
+        fig.tight_layout()
 
         if output_path:
             ensure_dir(output_path.parent)
@@ -534,10 +566,7 @@ def visualize_feature_heatmap(
     slide_path = Path(slide_path)
 
     try:
-        wsi = open_wsi(str(slide_path))
-        zs.pp.find_tissues(wsi)
-        zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
-        zs.tl.feature_extraction(wsi, model=model, device=device)
+        wsi = _open_cached(slide_path, tile_px=tile_px, mpp=mpp, model=model, device=device)
 
         fig, axes = plt.subplots(1, 2, figsize=figsize)
 
@@ -556,8 +585,8 @@ def visualize_feature_heatmap(
             ax=axes[1],
         )
 
-        plt.suptitle(f"{slide_path.name} - {model} Feature {feature_idx}", fontsize=14)
-        plt.tight_layout()
+        fig.suptitle(f"{slide_path.name} - {model} Feature {feature_idx}", fontsize=14)
+        fig.tight_layout()
 
         if output_path:
             ensure_dir(output_path.parent)

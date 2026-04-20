@@ -272,14 +272,18 @@ def visualize(
     if embeddings_dir:
         console.print(f"Visualizing embeddings: {embeddings_dir}")
 
-        embeddings = np.load(embeddings_dir / "embeddings.npy")
-        pd.read_csv(embeddings_dir / "metadata.csv")
-
         labels = None
         if clinical_table:
-            pd.read_csv(clinical_table)
-            # Match labels to embeddings
-            # (simplified - assumes slide_id matches PATIENT)
+            from .training import load_training_data
+
+            X, y, merged = load_training_data(
+                embeddings_dir=embeddings_dir,
+                clinical_table=clinical_table,
+            )
+            embeddings = X
+            labels = merged["isMSIH"].values if "isMSIH" in merged.columns else y
+        else:
+            embeddings = np.load(embeddings_dir / "embeddings.npy")
 
         viz.plot_embedding_umap(
             embeddings=embeddings,
@@ -341,8 +345,9 @@ def train(
     console.print(f"\nTraining on {len(X)} samples")
     console.print(f"Features: {X.shape[1]}D")
 
-    # Train classifiers
-    results = compare_classifiers(X, y, n_splits=n_splits)
+    # Train classifiers — group CV by patient_id to prevent leakage
+    groups = merged_df["patient_id"].values
+    results = compare_classifiers(X, y, groups=groups, n_splits=n_splits)
 
     # Save
     results.to_csv(output_dir / "classifier_comparison.csv", index=False)
@@ -424,7 +429,7 @@ def run(
             )
 
             console.print(f"Training on {len(X)} samples")
-            results = compare_classifiers(X, y)
+            results = compare_classifiers(X, y, groups=merged["patient_id"].values)
 
             model_output_dir = get_models_dir() / f"{model}_mean"
             model_output_dir.mkdir(parents=True, exist_ok=True)
