@@ -66,6 +66,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest>=7.4.0",
+    "pytest-xdist>=3.5.0",  # parallel test execution (`pytest -n <N>`)
     "black>=23.7.0",
     "ruff>=0.1.0",
 ]

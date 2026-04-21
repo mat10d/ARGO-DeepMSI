@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+# Import the package first so its HF_HOME default is applied BEFORE any test
+# module, fixture, or downstream dep pulls in huggingface_hub / transformers.
+# Without this, model-download tests could write to ~/.cache/huggingface
+# instead of the repo-local .huggingface_cache.
+import argo_deepmsi  # noqa: F401
+
 import shutil
 import tempfile
 from pathlib import Path

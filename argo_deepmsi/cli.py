@@ -565,5 +565,35 @@ def version():
     console.print("LazySlide-based MSI prediction pipeline")
 
 
+@app.command()
+def env():
+    """Show effective HuggingFace cache / environment info."""
+    import os
+    import shutil as _shutil
+
+    def _disk(path: str) -> str:
+        try:
+            total, used, free = _shutil.disk_usage(path)
+            return f"{free / 1e9:.1f} GB free of {total / 1e9:.1f} GB"
+        except FileNotFoundError:
+            return "(path does not exist)"
+
+    table = Table(title="HuggingFace cache environment")
+    table.add_column("Var", style="cyan")
+    table.add_column("Value")
+    table.add_column("Disk")
+
+    for var in ("HF_HOME", "HF_HUB_CACHE", "TRANSFORMERS_CACHE", "HF_TOKEN"):
+        val = os.environ.get(var, "")
+        if var == "HF_TOKEN":
+            shown = "(set)" if val else "(unset)"
+            table.add_row(var, shown, "")
+        else:
+            disk = _disk(val) if val else ""
+            table.add_row(var, val or "(unset — HF defaults to ~/.cache/huggingface)", disk)
+
+    console.print(table)
+
+
 if __name__ == "__main__":
     app()
