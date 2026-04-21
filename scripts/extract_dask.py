@@ -86,13 +86,19 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
         zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
 
     for model in to_extract:
+        # num_workers=2, batch_size=32: lower than the sensible defaults
+        # (4 / 64) because we're sharing the worker's RAM with the model
+        # weights + accumulated feature tables for all 11 models. With
+        # nanny=False (required so DataLoader can fork) an OOM kills the
+        # SLURM worker outright — no auto-restart — so we stay
+        # conservative on memory.
         zs.tl.feature_extraction(
             wsi,
             model=model,
             amp=True,
             device="cuda",
-            num_workers=4,
-            batch_size=64,
+            num_workers=2,
+            batch_size=32,
             pbar=False,
         )
 
