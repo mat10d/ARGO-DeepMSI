@@ -55,6 +55,7 @@ dependencies = [
     "einops>=0.7.0",  # Required by gigapath and other vision models
     "einops-exts>=0.0.4",  # Extensions for einops
     "fairscale>=0.4.13",  # Required by MUSK
+    "sentencepiece>=0.1.99",  # MUSK uses XLMRobertaTokenizer which requires it
     "musk @ git+https://github.com/lilab-stanford/MUSK",  # MUSK pathology foundation model
 
     # Utilities

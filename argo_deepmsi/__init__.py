@@ -75,6 +75,21 @@ def _configure_hf_env() -> None:
             except ImportError:  # python-dotenv is a core dep, shouldn't happen
                 pass
 
+    # Step 3: if we now have an HF token, call huggingface_hub.login() so
+    # downstream code that uses lazyslide's hf_access() context (MUSK and
+    # some other gated models) picks it up. The standard hf_hub_download
+    # path reads HF_TOKEN from env, but hf_access specifically checks the
+    # cached-login token. login(add_to_git_credential=False) is the same
+    # pattern scripts/extract.sh already uses.
+    token = os.environ.get("HF_TOKEN")
+    if token:
+        try:
+            from huggingface_hub import login as _hf_login
+
+            _hf_login(token=token, add_to_git_credential=False)
+        except Exception:  # login failures shouldn't break imports
+            pass
+
 
 _configure_hf_env()
 del _configure_hf_env
