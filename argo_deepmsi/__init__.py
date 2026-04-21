@@ -32,38 +32,52 @@ __version__ = "0.2.0"
 # ---------------------------------------------------------------------------
 
 
-def _configure_hf_cache() -> None:
+def _configure_hf_env() -> None:
+    """Set HF_HOME + load .env so HF_TOKEN / HF_HOME are consistent across
+    argo CLI, pytest, and SLURM jobs started from a checkout. See module
+    docstring for rules."""
     import os
     from pathlib import Path
     import warnings
 
-    if os.environ.get("HF_HOME"):
-        return  # user chose explicitly; don't second-guess
-
     here = Path(__file__).resolve().parent
     repo_root = here.parent
-    if not (repo_root / "pyproject.toml").exists():
-        warnings.warn(
-            "argo_deepmsi: HF_HOME is not set and the package is not in a "
-            "checkout layout — HuggingFace will default to "
-            "~/.cache/huggingface. Export HF_HOME to a large scratch volume "
-            "before using gated or large models.",
-            stacklevel=2,
-        )
-        return
+    in_checkout = (repo_root / "pyproject.toml").exists()
 
-    cache = repo_root / ".huggingface_cache"
-    cache.mkdir(parents=True, exist_ok=True)
-    cache_str = str(cache)
-    os.environ["HF_HOME"] = cache_str
-    # huggingface_hub >= 0.20 reads HF_HUB_CACHE; transformers reads
-    # TRANSFORMERS_CACHE. Set both so pre-existing shells behave the same.
-    os.environ.setdefault("HF_HUB_CACHE", str(cache / "hub"))
-    os.environ.setdefault("TRANSFORMERS_CACHE", str(cache / "hub"))
+    # Step 1: HF_HOME default (only applies in a checkout; user override wins)
+    if not os.environ.get("HF_HOME"):
+        if not in_checkout:
+            warnings.warn(
+                "argo_deepmsi: HF_HOME is not set and the package is not in "
+                "a checkout layout — HuggingFace will default to "
+                "~/.cache/huggingface. Export HF_HOME to a large scratch "
+                "volume before using gated or large models.",
+                stacklevel=2,
+            )
+        else:
+            cache = repo_root / ".huggingface_cache"
+            cache.mkdir(parents=True, exist_ok=True)
+            os.environ["HF_HOME"] = str(cache)
+            os.environ.setdefault("HF_HUB_CACHE", str(cache / "hub"))
+            os.environ.setdefault("TRANSFORMERS_CACHE", str(cache / "hub"))
+
+    # Step 2: load .env from the repo root so HF_TOKEN (+ any REDCAP_* vars)
+    # are available in pytest, `argo env`, and sbatch scripts that import
+    # argo_deepmsi without running their own dotenv logic. Existing
+    # environment variables always win — we only fill in what's missing.
+    if in_checkout:
+        env_file = repo_root / ".env"
+        if env_file.exists():
+            try:
+                from dotenv import load_dotenv
+
+                load_dotenv(env_file, override=False)
+            except ImportError:  # python-dotenv is a core dep, shouldn't happen
+                pass
 
 
-_configure_hf_cache()
-del _configure_hf_cache
+_configure_hf_env()
+del _configure_hf_env
 
 
 from . import io_utils
