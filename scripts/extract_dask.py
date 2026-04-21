@@ -1,23 +1,33 @@
 """Elastic SLURM feature extraction with dask-jobqueue.
 
-Alternative to `scripts/extract.sh` (fixed 2-group array). This script submits
-one Dask worker per slide and auto-scales GPU workers within the given bounds,
-so we don't pay the walltime cost of whichever group is slowest.
+Submits one Dask worker per slide and auto-scales GPU workers within the
+given bounds. Per-slide failure isolation — a single OOM doesn't kill
+other slides.
 
 Usage
 -----
     conda activate argo
+    pip install -e ".[dask]"
+
+    # Full extraction (foundation models)
     python scripts/extract_dask.py \
         --slide-table results/data/slide_table.csv \
         --partition nvidia-A6000-20 \
-        --max-workers 10
+        --memory "256 GB" \
+        --max-workers 3
 
-The pattern mirrors the recipe in docs/lazyslide_reference_guide.md section 7.
+    # QC-only pass (fast, can use more workers)
+    python scripts/extract_dask.py \
+        --slide-table results/data/slide_table.csv \
+        --models grandqc-artifact grandqc-tissue \
+        --memory "64 GB" \
+        --max-workers 5
 """
 
 from __future__ import annotations
 
 import argparse
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -39,8 +49,11 @@ DEFAULT_MODELS = [
 
 
 def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float) -> dict:
-    """Worker-side: run extraction for a single slide. Imports inside the
-    function so they happen on the worker, not the submit process."""
+    """Worker-side: extract features for a single slide.
+
+    Imports happen inside the function so they execute on the Dask worker,
+    not the submit process.
+    """
     from pathlib import Path as _Path
     from wsidata import open_wsi
     import lazyslide as zs
@@ -48,7 +61,7 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
     p = _Path(slide_path)
     zarr_path = p.with_suffix(".zarr")
 
-    # Decide which models are missing
+    # Check which models are already extracted
     existing: set[str] = set()
     if zarr_path.exists() and (zarr_path / "tables").exists():
         existing = {
@@ -60,7 +73,14 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
     if not to_extract:
         return {"slide": p.name, "status": "skipped", "models": []}
 
-    wsi = open_wsi(str(zarr_path if zarr_path.exists() else p), attach_thumbnail=False)
+    # Open WSI — use svs path + store=parent to avoid fastslide KeyError
+    # when the zarr was created by a different reader backend.
+    if zarr_path.exists():
+        wsi = open_wsi(str(p), store=str(p.parent), attach_thumbnail=False)
+    else:
+        wsi = open_wsi(str(p), attach_thumbnail=False)
+
+    # Preprocess only for new slides (existing zarr already has tissues/tiles)
     if not zarr_path.exists():
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
@@ -81,44 +101,65 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
 
 
 def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__)
+    ap = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--slide-table", type=Path, required=True)
     ap.add_argument("--partition", default="nvidia-A6000-20")
-    ap.add_argument("--max-workers", type=int, default=10)
+    ap.add_argument("--max-workers", type=int, default=3)
     ap.add_argument("--min-workers", type=int, default=1)
-    ap.add_argument("--walltime", default="12:00:00")
-    ap.add_argument("--cores", type=int, default=8)
-    ap.add_argument("--memory", default="64 GB")
+    ap.add_argument("--walltime", default="24:00:00")
+    ap.add_argument("--cores", type=int, default=16)
+    ap.add_argument("--memory", default="256 GB")
     ap.add_argument("--tile-px", type=int, default=256)
     ap.add_argument("--mpp", type=float, default=0.5)
     ap.add_argument("--models", nargs="+", default=DEFAULT_MODELS)
-    ap.add_argument("--project-dir", default="/lab/barcheese01/mdiberna/ARGO-DeepMSI")
+    ap.add_argument(
+        "--conda-env", default="argo",
+        help="Conda environment name to activate on workers",
+    )
+    ap.add_argument(
+        "--project-dir",
+        default="/lab/barcheese01/mdiberna/ARGO-DeepMSI",
+        help="Repo root (for HF cache + conda activation)",
+    )
     args = ap.parse_args()
 
     from dask_jobqueue import SLURMCluster
     from dask.distributed import Client, as_completed
     from tqdm.auto import tqdm
 
+    project = Path(args.project_dir)
+    log_dir = project / "scripts" / "logs" / "dask"
+    log_dir.mkdir(parents=True, exist_ok=True)
+
     cluster = SLURMCluster(
         queue=args.partition,
         cores=args.cores,
         processes=1,
         memory=args.memory,
-        job_extra_directives=[f"--gres=gpu:1", f"--time={args.walltime}"],
+        job_extra_directives=[
+            "--gres=gpu:1",
+            f"--time={args.walltime}",
+        ],
         worker_extra_args=["--resources GPU=1"],
-        log_directory=str(Path(args.project_dir) / "scripts" / "logs" / "dask"),
+        log_directory=str(log_dir),
         job_script_prologue=[
-            f"source /lab/barcheese01/mdiberna/miniconda3/etc/profile.d/conda.sh",
-            "conda activate argo",
-            f"export HF_HOME={args.project_dir}/.huggingface_cache",
+            f"source $(conda info --base)/etc/profile.d/conda.sh",
+            f"conda activate {args.conda_env}",
+            f"export HF_HOME={project}/.huggingface_cache",
+            f"cd {project}",
         ],
     )
     client = Client(cluster)
     cluster.adapt(minimum=args.min_workers, maximum=args.max_workers)
 
     slides = pd.read_csv(args.slide_table)
-    print(f"Submitting {len(slides)} slides × {len(args.models)} models")
+    print(f"Slides: {len(slides)}")
+    print(f"Models: {', '.join(args.models)}")
+    print(f"Workers: {args.min_workers}–{args.max_workers} × {args.memory}")
     print(f"Dashboard: {client.dashboard_link}")
+    print()
 
     futures = [
         client.submit(
@@ -134,6 +175,9 @@ def main() -> None:
     ]
 
     n_ok = n_skip = n_fail = 0
+    failed_slides = []
+    t0 = time.time()
+
     for fut in tqdm(as_completed(futures), total=len(futures)):
         try:
             result = fut.result()
@@ -141,11 +185,20 @@ def main() -> None:
                 n_ok += 1
             else:
                 n_skip += 1
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             n_fail += 1
-            print(f"  FAIL: {e}")
+            failed_slides.append(str(e)[:200])
+            tqdm.write(f"  FAIL: {e}")
 
-    print(f"Done. success={n_ok} skipped={n_skip} failed={n_fail}")
+    elapsed = time.time() - t0
+    print(f"\nDone in {elapsed/3600:.1f}h. success={n_ok} skipped={n_skip} failed={n_fail}")
+
+    if failed_slides:
+        fail_log = log_dir / "failed_slides.txt"
+        with open(fail_log, "w") as f:
+            f.write("\n".join(failed_slides))
+        print(f"Failed slides logged to: {fail_log}")
+
     client.close()
     cluster.close()
 
