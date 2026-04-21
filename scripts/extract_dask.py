@@ -86,12 +86,17 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
         zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
 
     for model in to_extract:
+        # num_workers=0: dask's worker processes are daemonic, and
+        # DataLoader(num_workers>0) forks daemonic children, which the
+        # stdlib forbids ("daemonic processes are not allowed to have
+        # children"). The dask parallelism already gives us slide-level
+        # concurrency, so tile-level DataLoader workers aren't needed.
         zs.tl.feature_extraction(
             wsi,
             model=model,
             amp=True,
             device="cuda",
-            num_workers=4,
+            num_workers=0,
             batch_size=64,
             pbar=False,
         )
