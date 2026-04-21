@@ -116,7 +116,21 @@ PATCH_MODELS = {
         "histoplus", "patch", True, 256, 0.5, "HistoPlus pathology foundation model"
     ),
     "rosie": ModelConfig("rosie", "patch", True, 256, 0.5, "Rosie pathology foundation model"),
+    # ---- Quality-control models (LazySlide) ----
+    "grandqc-artifact": ModelConfig(
+        "grandqc-artifact", "qc", False, 256, 0.5, "GrandQC artifact detection (bubbles/folds/pen)"
+    ),
+    "grandqc-tissue": ModelConfig(
+        "grandqc-tissue", "qc", False, 256, 0.5, "GrandQC tissue-quality assessment"
+    ),
+    "pathprofilerqc": ModelConfig(
+        "pathprofilerqc", "qc", False, 256, 0.5, "PathProfilerQC tile-level QC"
+    ),
+    "focus": ModelConfig("focus", "qc", False, 256, 0.5, "Focus/sharpness score"),
+    "focuslitenn": ModelConfig("focuslitenn", "qc", False, 256, 0.5, "FocusLiteNN focus metric"),
 }
+
+QC_MODELS = {k: v for k, v in PATCH_MODELS.items() if v.type == "qc"}
 
 # Slide-level aggregation methods
 SLIDE_ENCODERS = {
@@ -572,6 +586,20 @@ def _save_embeddings(
     # Save embeddings as numpy array
     np.save(output_dir / "embeddings.npy", embedding_matrix)
 
+    # Also save as AnnData for scverse interop (scanpy UMAP/leiden/etc.)
+    try:
+        import anndata as ad
+
+        obs = metadata_df.set_index("slide_id", drop=False).astype(
+            {"slide_id": str, "patient_id": str, "site": str, "zarr_path": str}
+        )
+        adata = ad.AnnData(X=embedding_matrix.astype(np.float32), obs=obs)
+        adata.uns["model"] = model
+        adata.uns["aggregation"] = method
+        adata.write_h5ad(output_dir / "embeddings.h5ad")
+    except Exception as e:
+        logger.warning(f"Could not write AnnData output: {e}")
+
     logger.info(f"Saved {len(df)} embeddings ({embedding_matrix.shape[1]}D) to {output_dir}")
 
     return output_dir
@@ -805,6 +833,119 @@ def aggregate_neural_encoders(
     else:
         logger.warning("No embeddings generated")
 
+    return df_result
+
+
+def filter_slides_by_qc(
+    slide_table: Union[str, Path, pd.DataFrame],
+    qc_model: str = "grandqc-artifact",
+    threshold: float = 0.5,
+    reduce: Literal["mean", "max", "median"] = "mean",
+    output_csv: Optional[Path] = None,
+) -> pd.DataFrame:
+    """Filter slides using QC scores already extracted into the zarr.
+
+    For each slide, loads ``wsi.tables[f'{qc_model}_tiles'].X`` and reduces
+    across tiles (mean/max/median). Slides with a reduced score <= ``threshold``
+    are kept (lower = cleaner for artifact-style models — flip ``threshold``
+    semantics as needed for tissue-quality models).
+
+    Returns a DataFrame with an added ``qc_score`` column and a ``passes_qc``
+    boolean; optionally writes a filtered CSV.
+    """
+    import zarr as _zarr
+
+    if isinstance(slide_table, (str, Path)):
+        df = pd.read_csv(slide_table)
+    else:
+        df = slide_table.copy()
+
+    feature_key = f"{qc_model}_tiles"
+    scores = []
+    for _, row in tqdm(df.iterrows(), total=len(df), desc=f"qc:{qc_model}"):
+        zarr_path = Path(row["FILENAME"]).with_suffix(".zarr")
+        if not zarr_path.exists():
+            scores.append(np.nan)
+            continue
+        try:
+            store = _zarr.open(str(zarr_path), mode="r")
+            X = store["tables"][feature_key]["X"][:]
+            X = np.asarray(X).astype(np.float32)
+            if reduce == "mean":
+                s = float(X.mean())
+            elif reduce == "max":
+                s = float(X.max())
+            else:
+                s = float(np.median(X))
+            scores.append(s)
+        except Exception as e:
+            logger.warning(f"QC read failed for {zarr_path.name}: {e}")
+            scores.append(np.nan)
+
+    df = df.copy()
+    df["qc_score"] = scores
+    df["passes_qc"] = (df["qc_score"] <= threshold) & df["qc_score"].notna()
+
+    kept = int(df["passes_qc"].sum())
+    logger.info(f"QC ({qc_model}, reduce={reduce}, thr={threshold}): {kept}/{len(df)} slides pass")
+
+    if output_csv is not None:
+        df.to_csv(output_csv, index=False)
+
+    return df
+
+
+def aggregate_with_agg_wsi(
+    slide_table: Union[str, Path, pd.DataFrame],
+    model: str,
+    agg_key: str = "agg_slide",
+    output_dir: Optional[Path] = None,
+) -> Optional[pd.DataFrame]:
+    """Batch-retrieve pre-computed slide embeddings via ``wsidata.agg_wsi``.
+
+    Use when each zarr has ``wsi.tables[f'{model}_tiles'].uns[agg_key]``
+    (populated by a prior ``zs.tl.feature_aggregation`` call). This skips
+    per-slide AnnData construction entirely and returns an AnnData of shape
+    (n_slides x n_features).
+
+    Returns None if ``wsidata.agg_wsi`` is unavailable.
+    """
+    if not LAZYSLIDE_AVAILABLE:
+        raise ImportError("LazySlide is not installed")
+
+    try:
+        from wsidata import agg_wsi
+    except ImportError:
+        logger.warning("wsidata.agg_wsi not available; skipping fast path")
+        return None
+
+    if isinstance(slide_table, (str, Path)):
+        df = pd.read_csv(slide_table)
+    else:
+        df = slide_table.copy()
+
+    df = df.reset_index(drop=True)
+    df["store"] = df["FILENAME"].apply(lambda f: str(Path(f).with_suffix(".zarr")))
+
+    adata = agg_wsi(df, feature_key=model, store_col="store", agg_key=agg_key)
+
+    # Build the canonical per-slide rows expected by _save_embeddings
+    rows = []
+    X = np.asarray(adata.X)
+    for i, (_, row) in enumerate(df.iterrows()):
+        svs_path = Path(row["FILENAME"])
+        rows.append(
+            {
+                "slide_id": svs_path.stem,
+                "patient_id": row["PATIENT"],
+                "site": row["SITE"],
+                "embedding": X[i],
+                "n_tiles": int(adata.obs.iloc[i].get("n_tiles", 0)) if "n_tiles" in adata.obs.columns else 0,
+                "zarr_path": row["store"],
+            }
+        )
+    df_result = pd.DataFrame(rows)
+    _save_embeddings(df_result, model, agg_key, output_dir)
     return df_result
 
 

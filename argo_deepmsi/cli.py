@@ -228,6 +228,52 @@ def aggregate(
 
 
 # ============================================================================
+# Quality control
+# ============================================================================
+
+
+@app.command()
+def qc(
+    slide_table: Path = typer.Argument(..., help="slide_table.csv"),
+    qc_model: str = typer.Option("grandqc-artifact", "--model", "-m", help="QC model name"),
+    threshold: float = typer.Option(0.5, "--threshold", "-t", help="Pass if reduced score <= threshold"),
+    reduce: str = typer.Option("mean", "--reduce", "-r", help="Per-tile reduction: mean/max/median"),
+    output_csv: Optional[Path] = typer.Option(
+        None, "--output", "-o", help="Filtered slide table output path"
+    ),
+):
+    """Filter a slide table by QC scores already extracted into the zarr.
+
+    Run ``argo extract <table> --model grandqc-artifact`` first to populate
+    QC features, then this command to produce a filtered table for downstream
+    feature extraction.
+    """
+    from .io_utils import setup_logging
+    from .feature_extraction import filter_slides_by_qc
+
+    setup_logging("qc")
+
+    if output_csv is None:
+        output_csv = slide_table.parent / f"{slide_table.stem}_qc_filtered.csv"
+
+    console.print("[bold blue]ARGO-DeepMSI: QC Filter[/bold blue]")
+    console.print(f"Slide table: {slide_table}")
+    console.print(f"QC model: {qc_model} (reduce={reduce}, threshold<= {threshold})")
+
+    df = filter_slides_by_qc(
+        slide_table=slide_table,
+        qc_model=qc_model,
+        threshold=threshold,
+        reduce=reduce,  # type: ignore[arg-type]
+        output_csv=output_csv,
+    )
+
+    kept = int(df["passes_qc"].sum())
+    console.print(f"[green]{kept}/{len(df)} slides pass QC[/green]")
+    console.print(f"Filtered table: {output_csv}")
+
+
+# ============================================================================
 # Visualization
 # ============================================================================
 

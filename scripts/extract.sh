@@ -67,6 +67,14 @@ MODELS=(
     # "gpfm"            # GPFM (768D)
     # "path_orchestra"  # PathOrchestra (768D)
     # "midnight"        # Midnight (768D)
+
+    # ===== Quality Control Models (non-gated) =====
+    # Run these first, then `argo qc <slide_table>` to filter low-quality slides.
+    # "grandqc-artifact"
+    # "grandqc-tissue"
+    # "focus"
+    # "focuslitenn"
+    # "pathprofilerqc"
 )
 
 # Group ID for this task

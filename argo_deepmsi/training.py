@@ -54,9 +54,18 @@ def load_training_data(
         y: Binary labels (n_samples,)
         merged: DataFrame with matched records
     """
-    # Load data
-    embeddings = np.load(embeddings_dir / "embeddings.npy")
-    metadata = pd.read_csv(embeddings_dir / "metadata.csv").reset_index(drop=True)
+    # Load data — prefer AnnData (scverse-native) when present, fall back to npy+csv
+    h5ad_path = embeddings_dir / "embeddings.h5ad"
+    if h5ad_path.exists():
+        import anndata as ad
+
+        adata = ad.read_h5ad(h5ad_path)
+        embeddings = np.asarray(adata.X)
+        metadata = adata.obs.reset_index(drop=True)
+        logger.info(f"Loaded AnnData embeddings: {h5ad_path}")
+    else:
+        embeddings = np.load(embeddings_dir / "embeddings.npy")
+        metadata = pd.read_csv(embeddings_dir / "metadata.csv").reset_index(drop=True)
     clinical = pd.read_csv(clinical_table)
 
     logger.info(f"Loaded {len(embeddings)} embeddings from {embeddings_dir}")
