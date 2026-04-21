@@ -126,10 +126,10 @@ class TestSlideOpening:
         assert wsi is not None
         # Should have properties accessible
         assert wsi.properties.mpp is not None
-        assert wsi.properties.width > 0
-        assert wsi.properties.height > 0
-        print(f"  Slide: {wsi.properties.width}x{wsi.properties.height}, "
-              f"{wsi.properties.mpp:.4f} mpp")
+        # wsidata 0.8 exposes shape (W, H) on properties rather than width/height
+        w, h = wsi.properties.shape
+        assert w > 0 and h > 0
+        print(f"  Slide: {w}x{h}, {wsi.properties.mpp:.4f} mpp")
 
     def test_open_wsi_no_thumbnail(self, sample_slide):
         """open_wsi with attach_thumbnail=False skips thumbnail generation."""
@@ -501,8 +501,9 @@ class TestFeatureAggregation:
         # Add labels to obs
         agg_data.obs["label"] = dataset["label"].values
 
-        # Scanpy integration — this should work on AnnData
-        sc.pp.neighbors(agg_data, n_neighbors=3)
+        # Scanpy integration — this should work on AnnData. With only 5 "slides",
+        # fall back to use_rep='X' so scanpy doesn't try 50-component PCA.
+        sc.pp.neighbors(agg_data, n_neighbors=3, use_rep="X")
         sc.tl.umap(agg_data)
 
         assert "X_umap" in agg_data.obsm
@@ -565,9 +566,11 @@ class TestVisualizationFromZarr:
         # Reopen and plot (NO feature extraction here)
         wsi2 = open_wsi(str(sample_slide), store=str(store_dir))
 
+        # lazyslide 0.10 exposes zs.pl.tissue (singular). Plain-slide view =
+        # tissue plot with contours/ids off; tissue overlay = defaults.
         fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-        zs.pl.wsi(wsi2, ax=axes[0])
-        zs.pl.tissues(wsi2, ax=axes[1])
+        zs.pl.tissue(wsi2, ax=axes[0], show_contours=False, show_id=False)
+        zs.pl.tissue(wsi2, ax=axes[1])
         plt.close(fig)
         print("  Plotting from zarr succeeded (no GPU needed)")
 

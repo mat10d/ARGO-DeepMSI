@@ -47,9 +47,19 @@ def _open_cached(
     """
     zarr_path = slide_path.with_suffix(".zarr")
     if zarr_path.exists():
-        wsi = open_wsi(str(zarr_path))
+        # Open the SVS and point wsidata at the store dir containing the
+        # cached zarr. Opening the zarr path directly (`open_wsi(zarr_path)`)
+        # fails in wsidata 0.8 when the zarr's recorded reader (e.g.
+        # "fastslide") isn't installed — this pattern sidesteps that by
+        # letting wsidata pick an installed reader for the svs and pick up
+        # the existing zarr from the store.
+        wsi = open_wsi(
+            str(slide_path),
+            store=str(slide_path.parent),
+            attach_thumbnail=False,
+        )
     else:
-        wsi = open_wsi(str(slide_path))
+        wsi = open_wsi(str(slide_path), attach_thumbnail=False)
         zs.pp.find_tissues(wsi)
         if ensure_tiles or model is not None:
             zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
@@ -105,11 +115,11 @@ def visualize_slide(
 
         # 1. Original slide thumbnail
         axes[0].set_title("Original Slide")
-        zs.pl.wsi(wsi, ax=axes[0])
+        zs.pl.tissue(wsi, ax=axes[0], show_contours=False, show_id=False)
 
         # 2. Tissue detection (already run by _open_cached)
         axes[1].set_title("Tissue Detection")
-        zs.pl.tissues(wsi, ax=axes[1])
+        zs.pl.tissue(wsi, ax=axes[1])
 
         # 3. Tiling
         if show_tiles:
@@ -169,7 +179,7 @@ def visualize_features(
 
         # Original slide
         axes[0].set_title("Original")
-        zs.pl.wsi(wsi, ax=axes[0])
+        zs.pl.tissue(wsi, ax=axes[0], show_contours=False, show_id=False)
 
         # Feature maps
         for i, feat_idx in enumerate(feature_indices):
@@ -508,7 +518,7 @@ def visualize_tile_clusters(
 
         # 1. Original slide
         axes[0].set_title("Original Slide")
-        zs.pl.wsi(wsi, ax=axes[0])
+        zs.pl.tissue(wsi, ax=axes[0], show_contours=False, show_id=False)
 
         # 2. Spatial cluster map
         axes[1].set_title(f"Tile Clusters (Leiden, res={resolution})")
@@ -572,7 +582,7 @@ def visualize_feature_heatmap(
 
         # Original slide
         axes[0].set_title("Original Slide")
-        zs.pl.wsi(wsi, ax=axes[0])
+        zs.pl.tissue(wsi, ax=axes[0], show_contours=False, show_id=False)
 
         # Feature heatmap
         axes[1].set_title(f"Feature {feature_idx} Heatmap")
