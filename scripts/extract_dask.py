@@ -54,6 +54,8 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
     Imports happen inside the function so they execute on the Dask worker,
     not the submit process.
     """
+    import gc
+
     from pathlib import Path as _Path
     from wsidata import open_wsi
     import lazyslide as zs
@@ -73,25 +75,36 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
     if not to_extract:
         return {"slide": p.name, "status": "skipped", "models": []}
 
-    # Open WSI — use svs path + store=parent to avoid fastslide KeyError
-    # when the zarr was created by a different reader backend.
-    if zarr_path.exists():
-        wsi = open_wsi(str(p), store=str(p.parent), attach_thumbnail=False)
-    else:
-        wsi = open_wsi(str(p), attach_thumbnail=False)
+    def _open(fresh_preprocess: bool):
+        """Open the WSI, preprocessing if the zarr doesn't exist yet.
 
-    # Preprocess only for new slides (existing zarr already has tissues/tiles)
+        Uses svs path + store=parent to avoid the fastslide KeyError on
+        zarrs recorded with a reader backend we don't have installed.
+        """
+        if zarr_path.exists():
+            w = open_wsi(str(p), store=str(p.parent), attach_thumbnail=False)
+        else:
+            w = open_wsi(str(p), attach_thumbnail=False)
+        if fresh_preprocess and not zarr_path.exists():
+            zs.pp.find_tissues(w)
+            zs.pp.tile_tissues(w, tile_px=tile_px, mpp=mpp)
+            w.write()
+        return w
+
+    # Preprocess once (creates the initial zarr with tissues/tiles) so
+    # every subsequent open reads from a persistent store.
     if not zarr_path.exists():
-        zs.pp.find_tissues(wsi)
-        zs.pp.tile_tissues(wsi, tile_px=tile_px, mpp=mpp)
+        w0 = _open(fresh_preprocess=True)
+        del w0
+        gc.collect()
 
+    # Extract one model at a time — open fresh, write, drop. This caps
+    # the worker's RAM footprint at one model's feature table instead
+    # of accumulating all 11 in memory before a single final write()
+    # (observed ~190 GiB peak → OOM with the accumulate-then-write
+    # pattern even with DataLoader num_workers trimmed).
     for model in to_extract:
-        # num_workers=2, batch_size=32: lower than the sensible defaults
-        # (4 / 64) because we're sharing the worker's RAM with the model
-        # weights + accumulated feature tables for all 11 models. With
-        # nanny=False (required so DataLoader can fork) an OOM kills the
-        # SLURM worker outright — no auto-restart — so we stay
-        # conservative on memory.
+        wsi = _open(fresh_preprocess=False)
         zs.tl.feature_extraction(
             wsi,
             model=model,
@@ -101,8 +114,10 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
             batch_size=32,
             pbar=False,
         )
+        wsi.write()
+        del wsi
+        gc.collect()
 
-    wsi.write()
     return {"slide": p.name, "status": "success", "models": to_extract}
 
 
