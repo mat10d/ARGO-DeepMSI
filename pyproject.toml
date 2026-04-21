@@ -97,4 +97,6 @@ target-version = "py311"
 [tool.pytest.ini_options]
 markers = [
     "gpu: tests that require a CUDA device",
+    "model_download: tests that download model weights from HuggingFace",
+    "requires_hf_token: tests that need $HF_TOKEN set (gated models)",
 ]

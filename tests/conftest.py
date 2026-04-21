@@ -9,6 +9,22 @@ from pathlib import Path
 import pytest
 
 
+# Opt-in marks: skip by default unless the user asks for them explicitly via
+# `-m <mark>` or a boolean expression that mentions the mark.
+_OPT_IN_MARKS = ("model_download", "requires_hf_token")
+
+
+def pytest_collection_modifyitems(config, items):
+    selected = config.getoption("-m") or ""
+    for item in items:
+        for mark in _OPT_IN_MARKS:
+            if mark in item.keywords and mark not in selected:
+                item.add_marker(
+                    pytest.mark.skip(reason=f"opt-in: run with `-m {mark}`")
+                )
+                break
+
+
 @pytest.fixture(scope="session")
 def data_dir() -> Path:
     d = Path(tempfile.mkdtemp(prefix="argo_pipe_", dir="."))

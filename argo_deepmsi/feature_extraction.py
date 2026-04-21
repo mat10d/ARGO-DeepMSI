@@ -83,7 +83,7 @@ PATCH_MODELS = {
         "gigapath", "patch", True, 256, 0.5, "GigaPath pathology foundation model"
     ),
     "h-optimus-0": ModelConfig(
-        "h-optimus-0", "patch", True, 256, 0.5, "H-Optimus-0 pathology model"
+        "h-optimus-0", "patch", False, 256, 0.5, "H-Optimus-0 pathology model"
     ),
     "h-optimus-1": ModelConfig(
         "h-optimus-1", "patch", True, 256, 0.5, "H-Optimus-1 pathology model"
@@ -95,9 +95,9 @@ PATCH_MODELS = {
     "hibou-l": ModelConfig(
         "hibou-l", "patch", True, 256, 0.5, "Hibou-L pathology foundation model"
     ),
-    "chief": ModelConfig("chief", "patch", True, 256, 0.5, "CHIEF pathology foundation model"),
+    "chief": ModelConfig("chief", "patch", False, 256, 0.5, "CHIEF pathology foundation model"),
     "madeleine": ModelConfig(
-        "madeleine", "patch", True, 256, 0.5, "Madeleine pathology foundation model"
+        "madeleine", "patch", False, 256, 0.5, "Madeleine pathology foundation model"
     ),
     "medsiglip": ModelConfig(
         "medsiglip", "patch", True, 256, 0.5, "MedSigLIP vision-language model"
@@ -107,11 +107,11 @@ PATCH_MODELS = {
         "path_orchestra", "patch", True, 256, 0.5, "PathOrchestra pathology model"
     ),
     "pathprofiler": ModelConfig(
-        "pathprofiler", "patch", True, 256, 0.5, "PathProfiler pathology model"
+        "pathprofiler", "patch", False, 256, 0.5, "PathProfiler pathology model"
     ),
     "musk": ModelConfig("musk", "patch", True, 256, 0.5, "MUSK pathology foundation model"),
-    "nulite": ModelConfig("nulite", "patch", True, 256, 0.5, "NuLite pathology foundation model"),
-    "gpfm": ModelConfig("gpfm", "patch", True, 256, 0.5, "GPFM pathology foundation model"),
+    "nulite": ModelConfig("nulite", "patch", False, 256, 0.5, "NuLite pathology foundation model"),
+    "gpfm": ModelConfig("gpfm", "patch", False, 256, 0.5, "GPFM pathology foundation model"),
     "histoplus": ModelConfig(
         "histoplus", "patch", True, 256, 0.5, "HistoPlus pathology foundation model"
     ),

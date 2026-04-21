@@ -124,9 +124,26 @@ def extract(
 
 
 @app.command()
-def models():
-    """List available feature extraction models and aggregation methods."""
+def models(
+    check: bool = typer.Option(
+        False, "--check", help="Instantiate each model (downloads weights) and report pass/fail"
+    ),
+    non_gated_only: bool = typer.Option(
+        False, "--non-gated-only", help="With --check, skip gated models"
+    ),
+):
+    """List available feature extraction models and aggregation methods.
+
+    With ``--check``, also instantiate each model to verify the HF weights
+    are accessible. This downloads weights (slow on first run, cached
+    after) but does not run inference. Gated models are skipped if
+    ``HF_TOKEN`` isn't set.
+    """
     from .feature_extraction import PATCH_MODELS, SLIDE_ENCODERS
+
+    if check:
+        _models_check(PATCH_MODELS, non_gated_only=non_gated_only)
+        return
 
     console.print("[bold blue]Available Models & Aggregation Methods[/bold blue]\n")
 
@@ -225,6 +242,53 @@ def aggregate(
     # Summary
     for model, df in results.items():
         console.print(f"[green]{model}:[/green] {len(df)} slides aggregated")
+
+
+def _models_check(patch_models, non_gated_only: bool = False) -> None:
+    """Walk PATCH_MODELS and try to instantiate each via LazySlide's registry."""
+    import os
+
+    try:
+        import lazyslide as zs
+    except ImportError:  # pragma: no cover
+        console.print("[red]lazyslide not installed[/red]")
+        raise typer.Exit(1)
+
+    registry = zs.models.MODEL_REGISTRY
+    hf_token_set = bool(os.environ.get("HF_TOKEN"))
+
+    table = Table(title="Model availability check")
+    table.add_column("Model", style="cyan")
+    table.add_column("Gated", justify="center")
+    table.add_column("Status")
+    table.add_column("Detail", overflow="fold")
+
+    n_ok = n_skip = n_fail = 0
+    for name, cfg in patch_models.items():
+        gated = cfg.requires_auth
+        if non_gated_only and gated:
+            continue
+        if name not in registry:
+            table.add_row(name, "?" if gated else "-", "[red]missing[/red]", "not in lazyslide registry")
+            n_fail += 1
+            continue
+        if gated and not hf_token_set:
+            table.add_row(
+                name, "yes", "[yellow]skipped[/yellow]", "HF_TOKEN not set"
+            )
+            n_skip += 1
+            continue
+        try:
+            registry[name]()
+            table.add_row(name, "yes" if gated else "no", "[green]ok[/green]", "")
+            n_ok += 1
+        except Exception as e:  # noqa: BLE001
+            msg = str(e).splitlines()[0][:120]
+            table.add_row(name, "yes" if gated else "no", "[red]fail[/red]", msg)
+            n_fail += 1
+
+    console.print(table)
+    console.print(f"\n[green]ok={n_ok}[/green]  [yellow]skipped={n_skip}[/yellow]  [red]fail={n_fail}[/red]")
 
 
 # ============================================================================
