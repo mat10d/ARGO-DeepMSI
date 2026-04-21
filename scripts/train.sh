@@ -5,7 +5,7 @@
 #SBATCH --partition=short
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=4
-#SBATCH --array=0-11%5
+#SBATCH --array=0-10%5
 
 # =============================================================================
 # ARGO-DeepMSI: Classifier Training
@@ -28,16 +28,15 @@ EMBEDDINGS=(
     "uni2_mean"
     "virchow2_mean"
     "conch_v1.5_mean"
-    "h-optimus-0_mean"
     "h-optimus-1_mean"
     "gigapath_mean"
     "hibou-b_mean"
+    "musk_mean"
     "chief_mean"
 
     # ===== Non-Gated Models =====
     "plip_mean"
     "ctranspath_mean"
-    "phikon_mean"
     "phikonv2_mean"
 
     # ===== Older Versions (uncomment if aggregated) =====

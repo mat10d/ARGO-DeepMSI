@@ -88,7 +88,7 @@ wsi.write()
 features = wsi["uni2_tiles"]
 ```
 
-**Reopening a cached zarr:** use the `open_wsi(svs_path, store=svs_path.parent, attach_thumbnail=False)` pattern. Opening the `.zarr` directory directly (`open_wsi(zarr_path)`) can KeyError on the recorded reader (e.g. `fastslide`) if that reader isn't installed locally.
+**Reopening a cached zarr:** use the `open_wsi(svs_path, store=svs_path.parent, attach_thumbnail=False)` pattern. Opening the `.zarr` directory directly (`open_wsi(zarr_path)`) can KeyError on the recorded reader (e.g. `fastslide`) if that reader isn't installed locally. `extract_features_single_slide` uses this pattern in the "zarr already exists" branch (applied 2026-04-20 after the prior direct-zarr-open variant tripped the `fastslide` KeyError on every already-extracted slide in the first full-cohort run).
 
 ## Supported Models
 
@@ -172,10 +172,21 @@ argo extract results/data/slide_table_qc.csv --model uni2 --model virchow2
 
 Two paths:
 
-1. **`scripts/extract.sh`** — static 2-group SLURM array (default). Simple, resilient, each job owns ~half the slides and all models. Guards against empty groups.
-2. **`scripts/extract_dask.py`** — elastic dask-jobqueue, one worker per slide, auto-adapts GPU worker count between `--min-workers` and `--max-workers`. Requires `pip install -e ".[dask]"`.
+1. **`scripts/extract.sh`** — static 2-group SLURM array (default). Simple, resilient, each job owns ~half the slides and all models. Guards against empty groups. Mem currently `256G` per task (bumped from 128G after the first full run OOM'd); A6000-20 user cap is 768G total across 3 GPUs, so ≤384G per task is safe if we ever go to 2-task + headroom.
+2. **`scripts/extract_dask.py`** — elastic dask-jobqueue, one worker per slide, auto-adapts GPU worker count between `--min-workers` and `--max-workers`. Requires `pip install -e ".[dask]"`. Not yet used in a production run.
+3. **`scripts/extract_retry_g0.sh`** — single-task retry template for when one SLURM-array group fails and you want to resume it without cancelling the healthy sibling. Takes a pre-filtered CSV (e.g. `scripts/logs/slide_group_0_retry.csv`) and runs all models against it at 384G.
 
-`scripts/aggregate.sh` and `scripts/train.sh` are array jobs (one task per model / embedding dir) with bounds that match the enabled lists, and guards for empty array slots.
+`scripts/aggregate.sh` and `scripts/train.sh` are array jobs (one task per model / embedding dir) with bounds that match the enabled lists, and guards for empty array slots. Keep the three arrays in sync — extract/aggregate/train should all reference the same 11 models (currently `uni2, virchow2, conch_v1.5, h-optimus-1, gigapath, hibou-b, musk, chief, ctranspath, phikonv2, plip`).
+
+## Known Problem Slides
+
+Some slides blow up extraction memory regardless of model choice. Keep a running list here; reintroduce after pyramidal conversion with `vips`/`bioformats`, or drop from the cohort.
+
+| Slide | Dimensions | Symptom | Status |
+|---|---|---|---|
+| `LASUTH/HP1353_21_1.svs` | 78048 × 75453, not pyramidal (n_level=1) | OOM during `zs.pp.find_tissues` at both 128G and 256G; kills the SLURM task before the per-slide `except` can swallow it | Excluded from `scripts/logs/slide_group_0_retry.csv` during the 2026-04-20 run. Revisit by generating a pyramidal copy before re-extracting. |
+
+**Why per-slide `try/except` doesn't save you here:** the process itself gets `Killed` by the OOM killer, so `extract_features_single_slide`'s exception handler never runs — the whole SLURM task dies. Pre-filter known offenders out of the slide table before submitting.
 
 ## Testing
 

@@ -417,10 +417,17 @@ def extract_features_single_slide(
         )
 
     try:
-        # Open WSI (either new slide or existing zarr) — skip thumbnail for batch jobs
+        # Open WSI (either new slide or existing zarr) — skip thumbnail for batch jobs.
+        # For cached zarrs, open from the SVS path with store=parent so the reader is
+        # whatever is installed locally (avoids KeyError when the recorded reader
+        # — e.g. 'fastslide' — isn't available).
         if zarr_path.exists():
             logger.info(f"Loading existing zarr: {zarr_path.name}")
-            wsi = open_wsi(str(zarr_path), attach_thumbnail=False)
+            wsi = open_wsi(
+                str(slide_path),
+                store=str(slide_path.parent),
+                attach_thumbnail=False,
+            )
         else:
             logger.info(f"Processing {slide_path.name} with models: {', '.join(models_to_extract)}")
             wsi = open_wsi(str(slide_path), attach_thumbnail=False)

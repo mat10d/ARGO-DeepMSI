@@ -5,7 +5,7 @@
 #SBATCH --partition=short
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=8
-#SBATCH --array=0-8%5
+#SBATCH --array=0-10%5
 
 # =============================================================================
 # ARGO-DeepMSI: Feature Aggregation
@@ -34,11 +34,13 @@ MODELS=(
     "h-optimus-1"       # H-Optimus 1 (768D) - newer version
     "gigapath"          # GigaPath (1536D)
     "hibou-b"           # Hibou-B (768D)
+    "musk"              # MUSK pathology foundation model
 
     # ===== Non-Gated Models (no auth required) =====
     "chief"             # CHIEF (768D)
     "ctranspath"        # CTransPath (768D)
     "phikonv2"          # Phikon v2 (768D)
+    "plip"              # PLIP vision-language model
 
     # ===== Older Versions (superseded, keep commented) =====
     # "uni"             # UNI v1 (1024D) - use uni2 instead

@@ -4,7 +4,7 @@
 #SBATCH --time=168:00:00
 #SBATCH --partition=nvidia-A6000-20
 #SBATCH --gres=gpu:1
-#SBATCH --mem=128G
+#SBATCH --mem=256G
 #SBATCH --cpus-per-task=16
 #SBATCH --array=0-1
 
