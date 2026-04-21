@@ -259,7 +259,9 @@ Hand back to the user when:
   efficiency + ecosystem-integration work against the pre-existing pipeline.
   See `docs/code_review.md`, `docs/efficiency_analysis.md`,
   `docs/lazyslide_gap_analysis.md`, `docs/lazyslide_reference_guide.md` for
-  the analyses that drove it.
+  the analyses that drove it, and `docs/refactor_status.md` for a full
+  cross-reference of every recommendation against what landed (plus what's
+  explicitly deferred — none of it blocks the full run).
 - Tests: `tests/test_lazyslide_api.py` (18 CPU), `tests/test_argo_pipeline.py`
   (12 end-to-end), `tests/test_model_registry.py` (6 static + 32 opt-in
   download). Run with `pytest tests/ -v` (static + pipeline only).

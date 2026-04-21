@@ -191,7 +191,7 @@ These are LazySlide capabilities we don't yet exploit. They're net-new features,
 - **Vision-language queries** — `zs.tl.text_embedding` + `zs.tl.text_image_similarity` on CONCH/PLIP for zero-shot tissue characterization and interpretable features.
 - **Multimodal fusion** — combining image embeddings with clinical text (pathology reports, demographics).
 
-See `docs/lazyslide_gap_analysis.md` for the gap against the full ecosystem, `docs/lazyslide_reference_guide.md` for the verified API recipes.
+See `docs/lazyslide_gap_analysis.md` for the gap against the full ecosystem, `docs/lazyslide_reference_guide.md` for the verified API recipes, and `docs/refactor_status.md` for the full cross-reference of every Operon-review recommendation against what landed.
 
 ## Notes on Specific Models
 
