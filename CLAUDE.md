@@ -22,8 +22,9 @@ argo_deepmsi/
 scripts/
 ├── pyramidal.sh        # SLURM wrapper for `argo pyramidal` (CPU, one-shot)
 ├── extract_dask.py     # elastic SLURM via dask-jobqueue (GPU, per-slide)
-├── aggregate.sh        # SLURM array (one task per model)
-└── train.sh            # SLURM array (one task per embedding dir)
+├── extract_dask.sh     # SLURM wrapper so the dask driver isn't on the head node
+├── aggregate.sh        # auto-discovers models from zarrs; loops argo aggregate
+└── train.sh            # auto-discovers embeddings dirs; loops argo train
 
 tests/
 ├── conftest.py            # shared GTEx fixture download
@@ -173,23 +174,29 @@ argo extract results/data/slide_table_qc.csv --model uni2 --model virchow2
 ## SLURM Parallelization
 
 - **`scripts/pyramidal.sh`** — one-shot CPU job wrapping `argo pyramidal`. Run once on a new slide table; serial (the vips tile/compress step is cheap relative to extraction).
-- **`scripts/extract_dask.py`** — elastic dask-jobqueue for feature extraction. One worker per slide, auto-adapts GPU worker count between `--min-workers` and `--max-workers`. Per-slide failure isolation: one OOM or runtime error fails only that slide (logged to `scripts/logs/dask/failed_slides.txt`), the other workers keep going. Requires `pip install -e ".[dask]"`. Uses `open_wsi(svs_path, store=parent)` internally (zarr-reopen fix).
-- **`scripts/aggregate.sh` / `scripts/train.sh`** — SLURM arrays, one task per model / embedding dir. Bounds match the enabled lists, with guards for empty array slots. Keep the two in sync with the extract model set (currently `uni2, virchow2, conch_v1.5, h-optimus-1, gigapath, hibou-b, musk, chief, ctranspath, phikonv2, plip`).
+- **`scripts/extract_dask.py`** — elastic dask-jobqueue for feature extraction. One worker per slide, auto-adapts GPU worker count between `--min-workers` and `--max-workers`. Per-slide failure isolation via future exceptions. Uses `open_wsi(svs_path, store=parent)` internally (zarr-reopen fix), preprocesses once then extracts one-model-per-open to cap RAM, and applies three-layer cleanup between models (`gc.collect → torch.cuda.empty_cache → malloc_trim`). Worker prologue sets `MALLOC_ARENA_MAX=2` to stop glibc from hoarding freed pages. Dask's own memory watermark is disabled (`--memory-limit 0`) — SLURM cgroup is the only backstop. Requires `pip install -e ".[dask]"`.
+- **`scripts/extract_dask.sh`** — SLURM wrapper so the dask driver itself doesn't sit on the head node.
+- **`scripts/aggregate.sh` / `scripts/train.sh`** — auto-discovery (no hardcoded model list). `aggregate.sh` scans the first zarr's `tables/*_tiles` dirs; `train.sh` scans `results/embeddings/*/` for anything with `embeddings.npy`/`embeddings.h5ad`. Works with 3 models or 30 — no edits between Phase 1 and Phase 2.
 
-## Full-Cohort Execution Order
+## Execution Plan (two-phase)
 
-See `docs/remaining_tasks.md` for the detailed rationale. Summary:
+Full rationale + iterate-while-waiting list in `docs/remaining_tasks.md`.
+
+**Phase 1 — baseline on the current 3 GPUs (~1 day):**
 
 ```
-1. Convert non-pyramidal slides    sbatch scripts/pyramidal.sh [results/data/slide_table.csv]
-2. Extract QC models               python scripts/extract_dask.py --slide-table results/data/slide_table_pyramidal.csv \
-                                         --models grandqc-artifact grandqc-tissue
-3. Filter by QC                    argo qc results/data/slide_table_pyramidal.csv --model grandqc-artifact \
-                                         --threshold 0.5 --output results/data/slide_table_qc.csv
-4. Extract foundation models       python scripts/extract_dask.py --slide-table results/data/slide_table_qc.csv
-5. Aggregate                       sbatch scripts/aggregate.sh
-6. Train                           sbatch scripts/train.sh
+1. sbatch scripts/pyramidal.sh results/data/slide_table.csv
+2. sbatch scripts/extract_dask.sh results/data/slide_table_pyramidal.csv \
+       --models uni2 virchow2 conch_v1.5 --max-workers 3 --memory "256 GB"
+3. sbatch scripts/aggregate.sh
+4. sbatch scripts/train.sh
 ```
+
+**Phase 1e (iterate while Phase 2 queues):** neural aggregators (PRISM on virchow2, TITAN on conch_v1.5), XGBoost / attention-MIL classifiers, fix QC via `zs.seg.artifact()` polygons, scanpy UMAP on h5ads, spatial analysis.
+
+**Phase 2 — full sweep on MSK cluster (10-20 GPUs):** same `extract_dask.sh` with the full 11-model list and higher `--max-workers`. The 3 Phase-1 models are already in every zarr → extraction skips them, only the 8 new models run. Aggregate/train scripts auto-discover the new models with zero edits.
+
+QC filtering (`grandqc`) is deferred — LazySlide's `zs.tl.feature_extraction(model="grandqc-artifact")` dispatch is broken upstream. Proper fix is to refactor `filter_slides_by_qc` against `zs.seg.artifact()` polygon output; done during Phase 1e.
 
 ## Known Problem Slides
 
