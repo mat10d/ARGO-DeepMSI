@@ -24,35 +24,26 @@ sbatch scripts/pyramidal.sh results/data/slide_table.csv
 
 ---
 
-## 2. Extract QC models (Dask)
+## 2–3. QC — currently disabled (upstream LazySlide bug)
 
-Fast, lightweight — runs the two `grandqc` scorers per tile so we can
-prune garbage before burning GPU time on foundation models.
+**Status:** skipped for the first full-cohort run (2026-04-21).
 
-```bash
-python scripts/extract_dask.py \
-    --slide-table results/data/slide_table_pyramidal.csv \
-    --models grandqc-artifact grandqc-tissue \
-    --memory "64 GB" \
-    --max-workers 5
-```
+**Why:** `zs.tl.feature_extraction(wsi, model="grandqc-artifact")` is broken
+in this LazySlide version. The dispatcher in
+`lazyslide/tools/_features.py` calls
+`MODEL_REGISTRY["grandqc-artifact"](model_path=model_path, token=token)`
+but `GrandQCArtifact.__init__(variant='7x')` doesn't accept those kwargs
+— every slide fails with
+`GrandQCArtifact.__init__() got an unexpected keyword argument 'model_path'`.
 
-QC features land in each slide's `<slide>.zarr/tables/grandqc-*_tiles/`.
+**Proper fix (future work):** switch `filter_slides_by_qc` to consume
+shapes produced by `zs.seg.artifact(wsi, tile_key=..., model="grandqc",
+variant="7x")` — that API works but yields polygon shapes, not the
+per-tile AnnData table our current reducer expects. Leave for after the
+first baseline training run.
 
----
-
-## 3. Filter by QC scores
-
-```bash
-argo qc results/data/slide_table_pyramidal.csv \
-    --model grandqc-artifact \
-    --reduce mean --threshold 0.5 \
-    --output results/data/slide_table_qc.csv
-```
-
-- `--reduce mean` averages the per-tile QC score across each slide.
-- Threshold is cohort-dependent; start at 0.5 and adjust after looking
-  at the score distribution (`argo qc --dry-run` prints histograms).
+**Workaround for now:** extract foundation models directly on
+`slide_table_pyramidal.csv` (next step).
 
 ---
 
@@ -60,7 +51,7 @@ argo qc results/data/slide_table_pyramidal.csv \
 
 ```bash
 python scripts/extract_dask.py \
-    --slide-table results/data/slide_table_qc.csv \
+    --slide-table results/data/slide_table_pyramidal.csv \
     --max-workers 3
 ```
 
