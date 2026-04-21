@@ -3,7 +3,9 @@ CLI entry point for ARGO-DeepMSI.
 
 Single command interface for the entire pipeline:
     argo ingest      - Data ingestion from REDCap
+    argo pyramidal   - Convert non-pyramidal WSIs to tiled pyramidal TIFFs
     argo extract     - Feature extraction with LazySlide
+    argo qc          - Filter slides by QC scores
     argo aggregate   - Aggregate patch features to slide embeddings
     argo visualize   - Generate visualizations
     argo train       - Train classifiers on embeddings
@@ -55,6 +57,69 @@ def ingest(
     )
 
     console.print(f"[green]Done![/green] {len(clinical_table)} patients, {len(slide_table)} slides")
+
+
+# ============================================================================
+# Slide preprocessing (pyramidal conversion)
+# ============================================================================
+
+
+@app.command()
+def pyramidal(
+    slide_table: Path = typer.Argument(..., help="Path to slide table CSV"),
+    output: Optional[Path] = typer.Option(
+        None, "--output", "-o",
+        help="Output CSV path (default: <slide_table>_pyramidal.csv)",
+    ),
+    slide_column: str = typer.Option(
+        "FILENAME", "--slide-column", help="Column in the CSV that holds the slide path"
+    ),
+    tile_size: int = typer.Option(256, "--tile-size", help="Pyramid tile size (px)"),
+    quality: int = typer.Option(90, "--quality", help="JPEG quality for tiles"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Report what would be converted without writing files"
+    ),
+):
+    """Convert non-pyramidal WSIs to tiled pyramidal TIFFs.
+
+    LazySlide's ``find_tissues`` OOMs on slides with ``n_levels == 1`` because
+    it loads the full-resolution image. This command scans the slide table,
+    converts any non-pyramidal slides via ``vips tiffsave --pyramid --tile``,
+    and writes an updated slide table pointing at the converted files. Runs
+    serially — submit via ``scripts/pyramidal.sh`` for anything cohort-sized.
+    """
+    from .io_utils import setup_logging
+    from .slide_prep import convert_non_pyramidal_slides, summarize
+
+    setup_logging("pyramidal")
+    console.print("[bold blue]ARGO-DeepMSI: Pyramidal Conversion[/bold blue]")
+    console.print(f"Slide table: {slide_table}")
+    if dry_run:
+        console.print("[yellow]Dry run — no files will be written.[/yellow]")
+
+    results = convert_non_pyramidal_slides(
+        slide_table=slide_table,
+        output_table=output,
+        slide_column=slide_column,
+        tile_size=tile_size,
+        quality=quality,
+        dry_run=dry_run,
+    )
+
+    counts = summarize(results)
+    table = Table(title="Conversion summary")
+    table.add_column("Status")
+    table.add_column("Count", justify="right")
+    for status in ("ok", "converted", "already_converted", "would_convert", "unreadable", "failed"):
+        table.add_row(status, str(counts.get(status, 0)))
+    console.print(table)
+
+    for r in results:
+        if r.status in {"failed", "unreadable"}:
+            console.print(f"  [red]{r.status}[/red]: {r.slide} — {r.detail or ''}")
+
+    out_table = output or slide_table.with_name(slide_table.stem + "_pyramidal.csv")
+    console.print(f"Updated slide table: [green]{out_table}[/green]")
 
 
 # ============================================================================

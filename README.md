@@ -43,30 +43,35 @@ Creates:
 **Note:** Retrospective patients (142-series) may have multiple slides with different
 staining locations (MSK vs Nigeria), but they remain the same patient in clinical_table.
 
-### 2. Feature Extraction
+### 2. Pyramidal Conversion
 
-Extract features from ALL models in 3 parallel groups:
+Convert any non-pyramidal slides to tiled pyramidal TIFFs (`argo pyramidal` under the hood — requires `libvips`):
 
 ```bash
-sbatch scripts/extract.sh
+sbatch scripts/pyramidal.sh results/data/slide_table.csv
 ```
 
-This splits slides into 3 groups (~270 slides each):
-- **Group 1**: slides 1-270 with all 12 models
-- **Group 2**: slides 271-540 with all 12 models
-- **Group 3**: slides 541-808 with all 12 models
+Writes `results/data/slide_table_pyramidal.csv` pointing at the converted files; originals are preserved.
 
-Each slide is preprocessed once, all models extracted in one pass.
+### 3. Feature Extraction
+
+One Dask worker per slide, auto-scaling between 1–N GPU workers, per-slide failure isolation:
+
+```bash
+python scripts/extract_dask.py \
+    --slide-table results/data/slide_table_pyramidal.csv \
+    --max-workers 3
+```
 
 Monitor progress:
 ```bash
 squeue -u $USER
-tail -f scripts/logs/extract_*.out
+tail -f scripts/logs/dask/*.err
 ```
 
-Creates: `data/SITE/slide.zarr/tables/{model}_tiles/` for each slide
+Creates: `data/SITE/slide.zarr/tables/{model}_tiles/` for each slide.
 
-### 3. Aggregation
+### 4. Aggregation
 
 Edit `scripts/aggregate.sh` to match your extracted models, then submit:
 
@@ -78,7 +83,7 @@ Creates: `results/embeddings/{model}_{method}/`
 - `embeddings.npy` - Slide embedding matrix
 - `metadata.csv` - Slide metadata
 
-### 4. Training
+### 5. Training
 
 Edit `scripts/train.sh` to match your embeddings, then submit:
 
@@ -94,27 +99,7 @@ Creates: `results/models/{embedding_type}/`
 
 ### Feature Extraction
 
-Edit the `MODELS` array in `scripts/extract.sh` to select which models to extract:
-
-```bash
-# scripts/extract.sh
-MODELS=(
-    "uni2"
-    "virchow2"
-    "plip"
-    # Add or remove models here
-)
-```
-
-To change the number of parallel groups, update both:
-1. `#SBATCH --array=0-N` (where N = num_groups - 1)
-2. `NUM_GROUPS=N` variable in the script
-
-For example, to use 5 groups instead of 3:
-```bash
-#SBATCH --array=0-4
-NUM_GROUPS=5
-```
+Edit `DEFAULT_MODELS` in `scripts/extract_dask.py` to change the models extracted by default, or pass `--models m1 m2 ...` on the command line. Scale parallelism with `--min-workers` / `--max-workers` (cap: 3 GPUs/user on `nvidia-A6000-20`).
 
 ### Aggregation and Training
 

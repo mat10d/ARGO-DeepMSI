@@ -1,113 +1,107 @@
-# Remaining Tasks
+# Full-Cohort Run — Execution Runbook
 
-Three things to fix before the next full-cohort run.
+Step-by-step to take the ingested slide table through to trained
+classifiers. The pieces (pyramidal conversion, dask extraction, QC
+filtering) are all in place; this file is about the **order** and the
+**commands**.
 
 ---
 
-## 1. Switch to Dask extraction (`extract_dask.py`)
+## 1. Convert non-pyramidal slides
 
-**Problem:** `extract.sh` runs 2 static SLURM groups of ~400 slides each.
-If one group finishes early, that GPU idles. If one slide OOMs, it kills
-the entire group (400 slides lost until retry). Walltime: 7 days.
-
-**Solution:** `scripts/extract_dask.py` submits one Dask worker per slide,
-auto-scales 1–N GPUs, and isolates failures to individual slides. A single
-OOM doesn't kill anything else. Already built, now with the zarr-reopen
-fix applied.
+LazySlide's `find_tissues` OOMs on slides with `n_levels == 1` because it
+loads the full-resolution image. Convert them once, up front.
 
 ```bash
-pip install -e ".[dask]"
-
-python scripts/extract_dask.py \
-    --slide-table results/data/slide_table.csv \
-    --partition nvidia-A6000-20 \
-    --memory "256 GB" \
-    --max-workers 3 \
-    --walltime 24:00:00
+sbatch scripts/pyramidal.sh results/data/slide_table.csv
 ```
 
-Key differences from `extract.sh`:
-- One slide per worker — no group splitting, no temp CSVs
-- `cluster.adapt(min=1, max=N)` — auto-scales based on queue availability
-- Per-slide failure isolation — exceptions are caught per-future, not per-group
-- Dashboard URL printed on start for live monitoring
-- Same incremental logic — skips already-extracted models per slide
-- Uses `open_wsi(svs_path, store=parent)` — no fastslide KeyError
-
-`--max-workers 3` stays within the A6000-20 partition's 768G cap (256G × 3).
-Increase if the partition allows more.
+- Wraps `argo pyramidal` on a SLURM CPU node with 64G RAM (big conversions
+  read the whole slide into memory).
+- Writes `results/data/slide_table_pyramidal.csv` with `FILENAME` rewritten
+  to the converted TIFFs; originals untouched.
+- Idempotent: re-running skips slides that already have a `.pyramidal.tiff`.
 
 ---
 
-## 2. Convert non-pyramidal slides before extraction
+## 2. Extract QC models (Dask)
 
-**Problem:** `HP1353_21_1.svs` (78K×75K, 1 pyramid level) OOMs during
-`find_tissues` at 256G because LazySlide tries to load the full image.
-Any non-pyramidal slide will hit this. We currently exclude it — but we
-shouldn't lose data.
-
-**Solution:** `scripts/convert_pyramidal.sh` scans for non-pyramidal slides
-and converts them to pyramidal TIFFs with `vips`. Run once before extraction.
+Fast, lightweight — runs the two `grandqc` scorers per tile so we can
+prune garbage before burning GPU time on foundation models.
 
 ```bash
-bash scripts/convert_pyramidal.sh results/data/slide_table.csv
-```
-
-What it does:
-1. Reads each slide path from the slide table
-2. Checks pyramid levels via `openslide-show-properties` (or Python fallback)
-3. Non-pyramidal slides (n_levels <= 1) get converted:
-   `vips tiffsave input.svs output.tiff --pyramid --tile --compression jpeg --Q 90`
-4. Updates the slide table FILENAME to point to the converted TIFF
-5. Preserves the original SVS (renamed to `.svs.original`)
-
-Requires `libvips` (`conda install -c conda-forge libvips` or `apt install libvips-tools`).
-
----
-
-## 3. Run QC before feature extraction
-
-**Problem:** QC models (`grandqc-artifact`, `grandqc-tissue`) are built and
-tested (`argo qc` CLI + `filter_slides_by_qc()`) but commented out in the
-production flow. We extract expensive foundation models on every slide
-regardless of quality.
-
-**Solution:** Two-pass flow, already supported:
-
-```bash
-# Pass 1: Extract QC models only (fast, lightweight)
 python scripts/extract_dask.py \
-    --slide-table results/data/slide_table.csv \
+    --slide-table results/data/slide_table_pyramidal.csv \
     --models grandqc-artifact grandqc-tissue \
+    --memory "64 GB" \
     --max-workers 5
+```
 
-# Pass 2: Filter by QC scores
-argo qc results/data/slide_table.csv \
+QC features land in each slide's `<slide>.zarr/tables/grandqc-*_tiles/`.
+
+---
+
+## 3. Filter by QC scores
+
+```bash
+argo qc results/data/slide_table_pyramidal.csv \
     --model grandqc-artifact \
     --reduce mean --threshold 0.5 \
     --output results/data/slide_table_qc.csv
+```
 
-# Pass 3: Extract foundation models on clean slides only
+- `--reduce mean` averages the per-tile QC score across each slide.
+- Threshold is cohort-dependent; start at 0.5 and adjust after looking
+  at the score distribution (`argo qc --dry-run` prints histograms).
+
+---
+
+## 4. Extract foundation models (Dask)
+
+```bash
 python scripts/extract_dask.py \
     --slide-table results/data/slide_table_qc.csv \
     --max-workers 3
 ```
 
-The QC pass is fast (small models, CPU-viable) and filters out slides that
-would waste hours of GPU time on feature extraction.
+- Defaults to the 11 production models (see `DEFAULT_MODELS` in
+  `extract_dask.py`).
+- One worker per slide; failed slides are logged to
+  `scripts/logs/dask/failed_slides.txt` but don't stop the run.
+- Incremental: a slide whose zarr already has all requested models is
+  skipped.
 
 ---
 
-## Execution Order
+## 5. Aggregate
 
-```
-1. Convert non-pyramidal slides    (scripts/convert_pyramidal.sh)
-2. Extract QC models               (extract_dask.py --models grandqc-artifact grandqc-tissue)
-3. Filter by QC                    (argo qc --threshold 0.5 --output slide_table_qc.csv)
-4. Extract foundation models       (extract_dask.py --slide-table slide_table_qc.csv)
-5. Aggregate                       (sbatch scripts/aggregate.sh)
-6. Train                           (sbatch scripts/train.sh)
+```bash
+sbatch scripts/aggregate.sh
 ```
 
-Steps 2–4 use the Dask path. Steps 5–6 are short CPU jobs that stay as
-SLURM arrays (no benefit from Dask for 30-min tasks).
+SLURM array, one task per model; produces
+`results/embeddings/{model}_mean/` with `embeddings.npy`,
+`metadata.csv`, and `embeddings.h5ad`.
+
+---
+
+## 6. Train
+
+```bash
+sbatch scripts/train.sh
+```
+
+SLURM array, one task per embedding dir; produces
+`results/models/{embedding_dir}/classifier_comparison.csv` with mean/std
+AUROC across LogReg, RandomForest, and SVM. Cross-validation uses
+`StratifiedGroupKFold(groups=patient_id)` to prevent slide-level leakage.
+
+---
+
+## Driver location for the Dask script
+
+The `extract_dask.py` driver submits SLURM workers via `dask-jobqueue`
+and blocks on futures. The driver itself is light-weight but runs for
+hours — submit it inside `tmux` on the head node **or** wrap it in a
+tiny CPU sbatch job. Do not run it bare in a foreground shell that you
+might lose.

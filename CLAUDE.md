@@ -11,16 +11,17 @@ ARGO-DeepMSI is a pipeline for MSI (Microsatellite Instability) prediction from 
 ```
 argo_deepmsi/
 ├── __main__.py         # enables `python -m argo_deepmsi`
-├── cli.py              # Typer CLI (ingest/extract/aggregate/qc/train/visualize/run)
+├── cli.py              # Typer CLI (ingest/pyramidal/extract/qc/aggregate/visualize/train/run)
 ├── data_ingestion.py   # REDCap + Halo Link → clinical_table + slide_table
+├── slide_prep.py       # Non-pyramidal → tiled pyramidal TIFF (via libvips)
 ├── feature_extraction.py  # LazySlide extraction + zarr aggregation + QC filter
 ├── visualization.py    # Slide viz (cached-zarr aware), UMAP/t-SNE
 ├── training.py         # sklearn classifiers + MLP; StratifiedGroupKFold on patient_id
 └── io_utils.py         # Path management
 
 scripts/
-├── extract.sh          # SLURM array (2 groups) for extraction
-├── extract_dask.py     # elastic SLURM via dask-jobqueue (alternative)
+├── pyramidal.sh        # SLURM wrapper for `argo pyramidal` (CPU, one-shot)
+├── extract_dask.py     # elastic SLURM via dask-jobqueue (GPU, per-slide)
 ├── aggregate.sh        # SLURM array (one task per model)
 └── train.sh            # SLURM array (one task per embedding dir)
 
@@ -42,6 +43,7 @@ pip install -e ".[dev,dask]"
 argo --help                  # Show all commands
 argo models                  # List models + aggregation methods
 argo ingest                  # REDCap + Halo Link → clinical_table + slide_table
+argo pyramidal <table>       # Convert non-pyramidal slides → tiled pyramidal TIFF
 argo extract <table>         # Extract features (zarr per slide, next to svs)
 argo qc <table> --model grandqc-artifact   # Filter slides by QC scores
 argo aggregate <models>      # Patch → slide embeddings (mean/max/prism/titan/...)
@@ -170,21 +172,20 @@ argo extract results/data/slide_table_qc.csv --model uni2 --model virchow2
 
 ## SLURM Parallelization
 
-Two paths:
-
-1. **`scripts/extract_dask.py`** (recommended) — elastic dask-jobqueue, one worker per slide, auto-adapts GPU worker count between `--min-workers` and `--max-workers`. Per-slide failure isolation: one OOM or runtime error fails only that slide (logged to `scripts/logs/dask/failed_slides.txt`), the other workers keep going. Requires `pip install -e ".[dask]"`. Applies the zarr-reopen fix via `open_wsi(svs_path, store=parent)` inside the worker function.
-2. **`scripts/extract.sh`** (legacy fallback) — static 2-group SLURM array. Simpler but a single OOM kills the whole group. Memory currently `256G` per task; A6000-20 user cap is 768G / 3 GPUs, so ≤384G per task is safe if you ever bump it again.
-
-`scripts/aggregate.sh` and `scripts/train.sh` are array jobs (one task per model / embedding dir) with bounds that match the enabled lists, and guards for empty array slots. Keep the three arrays in sync — extract/aggregate/train should all reference the same 11 models (currently `uni2, virchow2, conch_v1.5, h-optimus-1, gigapath, hibou-b, musk, chief, ctranspath, phikonv2, plip`).
+- **`scripts/pyramidal.sh`** — one-shot CPU job wrapping `argo pyramidal`. Run once on a new slide table; serial (the vips tile/compress step is cheap relative to extraction).
+- **`scripts/extract_dask.py`** — elastic dask-jobqueue for feature extraction. One worker per slide, auto-adapts GPU worker count between `--min-workers` and `--max-workers`. Per-slide failure isolation: one OOM or runtime error fails only that slide (logged to `scripts/logs/dask/failed_slides.txt`), the other workers keep going. Requires `pip install -e ".[dask]"`. Uses `open_wsi(svs_path, store=parent)` internally (zarr-reopen fix).
+- **`scripts/aggregate.sh` / `scripts/train.sh`** — SLURM arrays, one task per model / embedding dir. Bounds match the enabled lists, with guards for empty array slots. Keep the two in sync with the extract model set (currently `uni2, virchow2, conch_v1.5, h-optimus-1, gigapath, hibou-b, musk, chief, ctranspath, phikonv2, plip`).
 
 ## Full-Cohort Execution Order
 
 See `docs/remaining_tasks.md` for the detailed rationale. Summary:
 
 ```
-1. Convert non-pyramidal slides    bash scripts/convert_pyramidal.sh results/data/slide_table.csv
-2. Extract QC models               python scripts/extract_dask.py --models grandqc-artifact grandqc-tissue --slide-table results/data/slide_table_pyramidal.csv
-3. Filter by QC                    argo qc ... --output results/data/slide_table_qc.csv
+1. Convert non-pyramidal slides    sbatch scripts/pyramidal.sh [results/data/slide_table.csv]
+2. Extract QC models               python scripts/extract_dask.py --slide-table results/data/slide_table_pyramidal.csv \
+                                         --models grandqc-artifact grandqc-tissue
+3. Filter by QC                    argo qc results/data/slide_table_pyramidal.csv --model grandqc-artifact \
+                                         --threshold 0.5 --output results/data/slide_table_qc.csv
 4. Extract foundation models       python scripts/extract_dask.py --slide-table results/data/slide_table_qc.csv
 5. Aggregate                       sbatch scripts/aggregate.sh
 6. Train                           sbatch scripts/train.sh
@@ -192,7 +193,7 @@ See `docs/remaining_tasks.md` for the detailed rationale. Summary:
 
 ## Known Problem Slides
 
-Non-pyramidal WSIs (n_levels=1) OOM during `zs.pp.find_tissues` because LazySlide's thumbnail fallback tries to load the full-resolution image into memory. Mitigated by `scripts/convert_pyramidal.sh`, which converts such slides to tiled pyramidal TIFFs via `libvips` (`conda install -c conda-forge libvips`) and writes a `*_pyramidal.csv` slide table pointing at the converted files. The original SVS is preserved alongside (`.pyramidal.tiff` sibling).
+Non-pyramidal WSIs (n_levels=1) OOM during `zs.pp.find_tissues` because LazySlide's thumbnail fallback tries to load the full-resolution image into memory. Mitigated by `argo pyramidal` (see `argo_deepmsi/slide_prep.py`, run in-cluster via `sbatch scripts/pyramidal.sh`), which converts such slides to tiled pyramidal TIFFs via `libvips` (`conda install -c conda-forge libvips`) and writes a `*_pyramidal.csv` slide table pointing at the converted files. The original SVS is preserved alongside (`.pyramidal.tiff` sibling).
 
 | Slide | Dimensions | Symptom | Status |
 |---|---|---|---|

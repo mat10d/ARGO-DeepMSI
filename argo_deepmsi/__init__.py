@@ -79,8 +79,8 @@ def _configure_hf_env() -> None:
     # downstream code that uses lazyslide's hf_access() context (MUSK and
     # some other gated models) picks it up. The standard hf_hub_download
     # path reads HF_TOKEN from env, but hf_access specifically checks the
-    # cached-login token. login(add_to_git_credential=False) is the same
-    # pattern scripts/extract.sh already uses.
+    # cached-login token. login(add_to_git_credential=False) is the pattern
+    # the dask workers re-run in-job.
     token = os.environ.get("HF_TOKEN")
     if token:
         try:

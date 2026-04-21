@@ -25,7 +25,7 @@
 #   M = max concurrent jobs
 # =============================================================================
 
-# Models to aggregate (must match extracted models from extract.sh)
+# Models to aggregate (must match the extract_dask.py model list)
 MODELS=(
     # ===== Recommended Gated Models (HuggingFace auth required) =====
     "uni2"              # UNI v2 (1024D) - latest version
