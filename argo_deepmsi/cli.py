@@ -283,7 +283,10 @@ def _models_check(patch_models, non_gated_only: bool = False) -> None:
             table.add_row(name, "yes" if gated else "no", "[green]ok[/green]", "")
             n_ok += 1
         except Exception as e:  # noqa: BLE001
-            msg = str(e).splitlines()[0][:120]
+            # Some errors (notably GatedRepoError) start with a blank line;
+            # scan for the first non-empty line to avoid truncating to "".
+            lines = [line for line in str(e).splitlines() if line.strip()]
+            msg = (lines[0] if lines else type(e).__name__)[:120]
             table.add_row(name, "yes" if gated else "no", "[red]fail[/red]", msg)
             n_fail += 1
 

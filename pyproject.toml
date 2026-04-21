@@ -76,6 +76,16 @@ dask = [
     "distributed>=2024.1.0",
     "dask-jobqueue>=0.8.0",
 ]
+# Optional model-specific deps. Each LazySlide model that needs extra
+# Python packages gets its own extra so you only pay for what you use.
+#   pip install -e ".[conch]"     # for mahmoodlab/CONCH
+#   pip install -e ".[omiclip]"   # for OmiCLIP
+conch = [
+    "conch @ git+https://github.com/mahmoodlab/CONCH.git",
+]
+omiclip = [
+    "open_clip_torch>=2.24.0",
+]
 
 [project.scripts]
 argo = "argo_deepmsi.cli:app"
