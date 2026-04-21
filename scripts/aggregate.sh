@@ -5,95 +5,79 @@
 #SBATCH --partition=short
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=8
-#SBATCH --array=0-10%5
 
 # =============================================================================
-# ARGO-DeepMSI: Feature Aggregation
+# ARGO-DeepMSI: Feature Aggregation (auto-discovery)
 # =============================================================================
-# Aggregate patch features to slide-level embeddings using simple pooling.
-# Edit MODELS array to match your extracted models.
-#
-# For neural slide encoders (prism, titan, etc.), use the CLI directly:
-#   argo aggregate virchow2 --method prism
-#   argo aggregate conch_v1.5 --method titan
+# Auto-discovers which models have been extracted by scanning zarr files.
+# No hardcoded model list — works with whatever Phase 1 or Phase 2 produced.
 #
 # Usage:
 #   sbatch scripts/aggregate.sh
-#
-# Update --array=0-N%M where:
-#   N = number of models - 1
-#   M = max concurrent jobs
 # =============================================================================
 
-# Models to aggregate (must match the extract_dask.py model list)
-MODELS=(
-    # ===== Recommended Gated Models (HuggingFace auth required) =====
-    "uni2"              # UNI v2 (1024D) - latest version
-    "virchow2"          # Virchow v2 (1280D) - latest version
-    "conch_v1.5"        # CONCH v1.5 (512D) - latest version
-    "h-optimus-1"       # H-Optimus 1 (768D) - newer version
-    "gigapath"          # GigaPath (1536D)
-    "hibou-b"           # Hibou-B (768D)
-    "musk"              # MUSK pathology foundation model
-
-    # ===== Non-Gated Models (no auth required) =====
-    "chief"             # CHIEF (768D)
-    "ctranspath"        # CTransPath (768D)
-    "phikonv2"          # Phikon v2 (768D)
-    "plip"              # PLIP vision-language model
-
-    # ===== Older Versions (superseded, keep commented) =====
-    # "uni"             # UNI v1 (1024D) - use uni2 instead
-    # "virchow"         # Virchow v1 (1280D) - use virchow2 instead
-    # "conch"           # CONCH v1 (512D) - use conch_v1.5 instead
-
-    # ===== Model Variants (different sizes) =====
-    # "h0-mini"         # H-Optimus 0 Mini (384D) - smaller/faster
-    # "hibou-l"         # Hibou-L (1024D) - larger variant
-
-    # ===== Less Common Models =====
-    # "gpfm"            # GPFM (768D)
-    # "path_orchestra"  # PathOrchestra (768D)
-    # "midnight"        # Midnight (768D)
-)
-
-# Aggregation method
-# Options: mean, max, median, sum
 METHOD="mean"
+SLIDE_TABLE="results/data/slide_table_pyramidal.csv"
 
-# Get model for this array task
-MODEL=${MODELS[$SLURM_ARRAY_TASK_ID]}
-
-if [ -z "$MODEL" ]; then
-    echo "No model at array index $SLURM_ARRAY_TASK_ID (only ${#MODELS[@]} models enabled). Exiting."
-    exit 0
+# Fall back to non-pyramidal if pyramidal doesn't exist
+if [ ! -f "$SLIDE_TABLE" ]; then
+    SLIDE_TABLE="results/data/slide_table.csv"
 fi
 
 echo "========================================="
-echo "ARGO-DeepMSI: Aggregation"
+echo "ARGO-DeepMSI: Aggregation (auto-discovery)"
 echo "========================================="
-echo "Job ID: $SLURM_JOB_ID"
-echo "Task ID: $SLURM_ARRAY_TASK_ID"
-echo "Model: $MODEL"
+echo "Slide table: $SLIDE_TABLE"
 echo "Method: $METHOD"
 echo "Start time: $(date)"
+
+# Auto-discover models by scanning the first zarr's tables/ directory
+FIRST_ZARR=$(python3 -c "
+import pandas as pd
+from pathlib import Path
+df = pd.read_csv('$SLIDE_TABLE')
+for _, row in df.iterrows():
+    z = Path(row['FILENAME']).with_suffix('.zarr')
+    if z.exists() and (z / 'tables').exists():
+        print(z)
+        break
+")
+
+if [ -z "$FIRST_ZARR" ]; then
+    echo "ERROR: No zarr files found. Run extraction first."
+    exit 1
+fi
+
+# Get all model names from the first zarr
+MODELS=()
+for table_dir in "$FIRST_ZARR"/tables/*_tiles; do
+    if [ -d "$table_dir" ]; then
+        model_name=$(basename "$table_dir" | sed 's/_tiles$//')
+        MODELS+=("$model_name")
+    fi
+done
+
+echo "Discovered ${#MODELS[@]} models: ${MODELS[*]}"
 echo "========================================="
 
 # Load conda environment
-source /lab/barcheese01/mdiberna/miniconda3/etc/profile.d/conda.sh
+source $(conda info --base)/etc/profile.d/conda.sh
 conda activate argo
 
-# Run aggregation
-cd /lab/barcheese01/mdiberna/ARGO-DeepMSI
-echo ""
-echo "Aggregating $MODEL with $METHOD..."
-python -m argo_deepmsi.cli aggregate \
-    $MODEL \
-    --slide-table results/data/slide_table.csv \
-    --method $METHOD
+cd "$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
+
+# Aggregate each model
+for model in "${MODELS[@]}"; do
+    echo ""
+    echo "Aggregating $model with $METHOD..."
+    python -m argo_deepmsi.cli aggregate \
+        "$model" \
+        --slide-table "$SLIDE_TABLE" \
+        --method "$METHOD"
+done
 
 echo ""
 echo "========================================="
-echo "✓ Aggregation complete for $MODEL"
+echo "✓ Aggregation complete for ${#MODELS[@]} models"
 echo "End time: $(date)"
 echo "========================================="
