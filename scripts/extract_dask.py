@@ -97,6 +97,11 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
         w0 = _open(fresh_preprocess=True)
         del w0
         gc.collect()
+        try:
+            import ctypes
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:
+            pass
 
     # Extract one model at a time — open fresh, write, drop. This caps
     # the worker's RAM footprint at one model's feature table instead
@@ -116,7 +121,24 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
         )
         wsi.write()
         del wsi
+
+        # Aggressive memory cleanup between models. Three layers:
+        # 1. Python GC — drop circular refs holding AnnData/zarr caches
+        # 2. torch CUDA cache — free GPU memory blocks back to the allocator
+        # 3. libc malloc_trim — actually return freed pages to the OS
+        #    (glibc hoards freed memory in per-thread arenas by default)
         gc.collect()
+        try:
+            import torch
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:
+            pass
+        try:
+            import ctypes
+            ctypes.CDLL("libc.so.6").malloc_trim(0)
+        except Exception:
+            pass
 
     return {"slide": p.name, "status": "success", "models": to_extract}
 
@@ -172,9 +194,22 @@ def main() -> None:
             "--gres=gpu:1",
             f"--time={args.walltime}",
         ],
-        worker_extra_args=["--resources GPU=1"],
+        worker_extra_args=[
+            "--resources GPU=1",
+            # Lower the memory pause threshold from 80% to 95% so Dask doesn't
+            # pre-emptively pause tasks while Python/glibc are just slow to
+            # return freed pages. The real protection is SLURM's cgroup OOM
+            # killer, not Dask's watermark. With MALLOC_ARENA_MAX=2 and
+            # malloc_trim between models, actual RSS tracks usage more closely.
+            "--memory-limit", "0",  # disable Dask's memory management entirely;
+                                     # rely on SLURM cgroup limits instead
+        ],
         log_directory=str(log_dir),
         job_script_prologue=[
+            # Limit glibc malloc arenas to prevent per-thread memory hoarding.
+            # Default is 8×nCPU (~128 arenas × many MB each); 2 arenas caps
+            # the RSS overhead from freed-but-not-returned allocations.
+            "export MALLOC_ARENA_MAX=2",
             f"source $(conda info --base)/etc/profile.d/conda.sh",
             f"conda activate {args.conda_env}",
             f"export HF_HOME={project}/.huggingface_cache",
