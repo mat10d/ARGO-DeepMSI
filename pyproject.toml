@@ -26,6 +26,7 @@ classifiers = [
 dependencies = [
     # Core
     "lazyslide>=0.9.0",
+    "wsidata>=0.7.0",  # agg_wsi, open_wsi
     "pandas>=2.0.0,<3.0.0",  # <3.0 to avoid ArrowStringArray serialization issues
     "numpy>=1.24.0",
 
@@ -40,6 +41,12 @@ dependencies = [
     # Visualization
     "matplotlib>=3.7.0",
     "seaborn>=0.12.0",
+    "umap-learn>=0.5.0",  # slide-embedding UMAP
+    "scanpy>=1.10.0",  # tile clustering + AnnData UMAP path
+
+    # Scverse data layer
+    "anndata>=0.10.0",
+    "zarr>=2.17.0",  # direct X-matrix reads in aggregation
 
     # ML/Training
     "scikit-learn>=1.3.0",
@@ -47,6 +54,8 @@ dependencies = [
     "transformers>=4.30.0",
     "einops>=0.7.0",  # Required by gigapath and other vision models
     "einops-exts>=0.0.4",  # Extensions for einops
+    "fairscale>=0.4.13",  # Required by MUSK
+    "musk @ git+https://github.com/lilab-stanford/MUSK",  # MUSK pathology foundation model
 
     # Utilities
     "tqdm>=4.65.0",
@@ -59,6 +68,12 @@ dev = [
     "pytest>=7.4.0",
     "black>=23.7.0",
     "ruff>=0.1.0",
+]
+# Elastic SLURM extraction via scripts/extract_dask.py
+dask = [
+    "dask>=2024.1.0",
+    "distributed>=2024.1.0",
+    "dask-jobqueue>=0.8.0",
 ]
 
 [project.scripts]
