@@ -1,281 +1,344 @@
 # Execution Runbook
 
-Phase 1 baseline is DONE (0.60 AUROC with mean pooling). This file tracks
-the path from 0.60 to 0.85+.
+Phase 1 baseline DONE (0.60 AUROC, mean pooling). This is the complete
+plan to reach 0.85+ and generate the paper's key results.
 
 ---
 
-## Current State (2026-04-22)
+## Current State
 
 **Cohort:** 803/808 slides, 217 patients, 19% MSI-H.
 
+**Slide table columns:** PATIENT, FILENAME, SITE, cut_location,
+stain_location, image_location (always Nigeria).
+
+**Sites:** UITH, LASUTH, OAUTHC, LUTH, retrospective_msk, retrospective_oau.
+Retrospective patients (142-series) have slides stained at MSKCC *and* in
+Nigeria — same patient, same scanner (Nigeria), different staining protocol.
+
 **Extracted features (in zarrs):**
-- Phase 1: uni2, virchow2, conch_v1.5 (complete)
-- Running now: ctranspath (incremental, adds to existing zarrs)
+- Complete: uni2, virchow2, conch_v1.5
+- Running: ctranspath (incremental)
+- Running: PRISM on virchow2, TITAN on conch_v1.5 (neural aggregation)
 
-**Aggregation running:**
-- PRISM on virchow2 (neural slide encoder)
-- TITAN on conch_v1.5 (neural slide encoder)
-
-**Baseline AUROCs** (mean pooling + Logistic Regression):
-- conch_v1.5_mean: 0.603 ± 0.170
-- virchow2_mean: 0.579 ± 0.142
-- uni2_mean: 0.553 ± 0.203
+**Baseline AUROCs** (mean pooling + LR):
+- conch_v1.5: 0.603 ± 0.170
+- virchow2: 0.579 ± 0.142
+- uni2: 0.553 ± 0.203
 
 ---
 
-## Immediate Actions (no re-extraction needed)
+## Part A — Domain Shift Analysis (the paper's scientific core)
 
-### 1. Wagner et al. zero-shot MSI classifier
+This is what makes the paper novel: a rigorous three-level domain shift
+analysis on the first African MSI-from-H&E cohort, using a natural
+within-patient staining experiment.
 
-The Cancer Cell (2023) transformer-based MSI predictor trained on 13,000+
-patients from 16 CRC cohorts is publicly available. It uses CTransPath as
-the feature extractor — which you're extracting now.
+### A1. Within-patient, across-staining (the gold test)
 
-**What to do:** Download the published model weights and run inference
-directly on the Nigerian slides. No training, no CV — just forward pass.
-This gives the zero-shot generalization baseline: how well does the best
-Western MSI classifier transfer to Africa?
+**Subset:** Retrospective patients who have slides with
+`stain_location=MSKCC` AND slides with `stain_location` in
+{OAUTHC, UITH, other Nigeria sites}. Same patient, same scanner
+(all imaged in Nigeria), different staining protocol.
 
-```
-Paper: Wagner et al., Cancer Cell 2023
-       "Transformer-based biomarker prediction from colorectal cancer histology"
-Code:  github.com/KatherLab (STAMP pipeline)
-Model: CTransPath encoder + transformer aggregator, trained on DACHS/NLCS/QUASAR/TCGA
-```
-
-This is a single number but potentially the most important one in the paper.
-If it works (AUROC > 0.80), the story is "foundation models generalize to
-Africa." If it doesn't (AUROC < 0.70), the story is "domain gap exists,
-here's how we bridge it."
-
-### 2. Aggregate + train on PRISM/TITAN (running now)
-
-Once aggregation completes:
-```bash
-sbatch scripts/aggregate.sh    # auto-discovers PRISM/TITAN embeddings
-sbatch scripts/train.sh        # trains on whatever's in results/embeddings/
-```
-
-Expected: significant lift over mean pooling. PRISM/TITAN retain spatial
-and attention information that mean pooling discards.
-
-### 3. Aggregate + train on ctranspath (when extraction finishes)
-
-ctranspath features enable both:
-- Mean pooling baseline (comparable to the other models)
-- Input for the Wagner zero-shot classifier
-
-### 4. Multi-model ensemble
-
-You have 3+ foundation model embeddings per slide. Ensemble approaches:
-
-**Late fusion (simplest):**
+**Analysis:**
 ```python
-# Average predicted probabilities from per-model classifiers
-p_final = (p_uni2 + p_virchow2 + p_conch) / 3
+# For each retrospective patient with both MSK and Nigeria staining:
+#   1. Get slide-level MSI prediction from MSK-stained slide(s)
+#   2. Get slide-level MSI prediction from Nigeria-stained slide(s)
+#   3. Compute concordance
+
+# Metrics:
+#   - Per-patient prediction concordance (Cohen's kappa)
+#   - Mean absolute prediction score difference (MSK vs Nigeria)
+#   - Paired signed-rank test on prediction scores
+#   - Scatter plot: P(MSI-H | MSK stain) vs P(MSI-H | Nigeria stain)
 ```
 
-**Feature concatenation:**
+**Interpretation:**
+- High concordance → foundation models are stain-robust, Nigeria
+  deployment is viable without normalization
+- Systematic MSK > Nigeria → stain domain shift exists, normalization
+  needed for deployment
+- Discordant both directions → noise, not systematic shift
+
+**Paper figure:** Paired scatter with identity line, colored by true
+MSI status. This is the hero figure for the domain shift story.
+
+### A2. Across-site, within-Nigeria (scanner/protocol variation)
+
+**Design:** Leave-one-site-out CV across the Nigerian sites.
+Train on all slides from N-1 sites, test on held-out site.
+
 ```python
-# Concatenate slide embeddings, single classifier
-X = np.hstack([X_uni2, X_virchow2, X_conch])  # (803, 1024+2560+768)
+# For each site in [UITH, LASUTH, OAUTHC, LUTH, ...]:
+#   Train on all other sites
+#   Evaluate on held-out site
+#   Record AUROC, AUPRC, balanced accuracy
+
+# Also: StratifiedGroupKFold within each train set (patient-level)
+# for honest hyperparameter selection
 ```
 
-**Stacking (meta-learner):**
+**Metrics:**
+- Per-site held-out AUROC
+- Cross-site AUROC heatmap (train site rows × test site columns)
+- Average cross-site drop vs. within-site CV
+
+**Paper figure:** Heatmap showing generalization across Nigerian sites.
+
+### A3. Western → Africa generalization (the Wagner test)
+
+**Design:** Run the Wagner et al. (Cancer Cell 2023) pre-trained MSI
+classifier directly on the Nigerian cohort. No fine-tuning.
+
+This classifier was trained on 13,000+ Western CRC patients from 16
+cohorts (DACHS, NLCS, QUASAR, TCGA, etc.) using CTransPath features.
+The paper noted "a generalization gap when intrinsic biological factors,
+such as ethnicity, change."
+
 ```python
-# First layer: per-model OOF predictions
-# Second layer: logistic regression on stacked OOF scores
+# 1. Extract CTransPath features (running now)
+# 2. Download Wagner et al. model weights (publicly available)
+# 3. Forward pass on all 803 Nigerian slides
+# 4. Compare to their published AUROC (~0.95 on Western cohorts)
 ```
 
-Literature shows multi-model fusion outperforms any single model, especially
-in low-N settings where individual models are noisy.
+**Metric:** AUROC on Nigerian cohort vs. published Western AUROC.
 
-### 5. Few-shot methods (no overfitting risk)
+**Paper figure:** ROC curve overlaid with the Wagner et al. published
+curve. The gap between them IS the generalization penalty.
 
-With ~40 MSI-H patients, classical few-shot approaches are natural:
+### A4. Domain adaptation analysis (optional, high novelty)
 
-**k-NN on slide embeddings:**
-```python
-from sklearn.neighbors import KNeighborsClassifier
-knn = KNeighborsClassifier(n_neighbors=5, metric='cosine')
-```
+If A1 shows staining matters:
+- Compare raw vs. StainX-normalized features (requires re-extraction)
+- Test whether fine-tuning the Wagner classifier on even 50 Nigerian
+  slides closes the gap (few-shot domain adaptation)
 
-**Prototypical networks:**
-```python
-# Compute class centroids, classify by cosine distance
-proto_msih = X[y == 1].mean(axis=0)
-proto_mss = X[y == 0].mean(axis=0)
-# Score = cosine_sim(x, proto_msih) - cosine_sim(x, proto_mss)
-```
-
-These are hyperparameter-light and can't overfit — important at N=217.
-
-### 6. Class-balanced classifiers
-
-Verify `class_weight='balanced'` is actually active in training.py.
-Also add:
-- XGBoost with `scale_pos_weight = n_mss / n_msih ≈ 4.2`
-- Balanced accuracy and AUPRC as evaluation metrics (AUROC alone is
-  misleading at 19% prevalence)
+If A2 shows site matters:
+- Batch-effect correction (ComBat/Harmony on slide embeddings)
+- Site-aware CV as the standard evaluation going forward
 
 ---
 
-## Analysis (no extraction needed)
+## Part B — Autoresearch: Systematic Classifier Optimization
 
-### 7. Site-holdout CV (domain shift measurement)
+Once PRISM/TITAN + ctranspath are ready, run a systematic grid search
+on pre-computed embeddings. Every configuration takes seconds — no
+GPU needed.
 
-The cohort spans LASUTH / OAUTHC / UITH / LUTH + retrospective MSK/OAU.
-Leave-one-site-out cross-validation reveals:
+### B1. Search space
 
-- **Scanner batch effects** — do models perform worse on some sites?
-- **Staining variation** — retrospective MSK slides were stained at MSK
-  vs. Nigeria-stained slides. Same patients, different staining. This is
-  a natural experiment for stain domain shift.
-- **Paper figure** — heatmap of AUROC by (train site, test site) pairs
+```yaml
+foundation_models:
+  - uni2
+  - virchow2
+  - conch_v1.5
+  - ctranspath
+  # later: h-optimus-1, gigapath, hibou-b, musk, chief, phikonv2, plip
 
-If MSK-stained retrospective slides outperform Nigeria-stained slides from
-the same patients, that's evidence for stain normalization. If not, skip it.
+aggregation:
+  simple_pooling:
+    - mean
+    - max
+    - median
+  neural_encoders:      # slide-level embeddings from pre-trained encoders
+    - virchow2_prism
+    - conch_v1.5_titan
+  attention_mil:        # trained on tile features from zarrs
+    - abmil
+    - clam_sb           # single-branch CLAM
+    - transmil           # if N supports it
 
-### 8. Scanpy embedding exploration
+classifiers:
+  linear:
+    - LogisticRegression(class_weight='balanced', C=[0.01, 0.1, 1, 10])
+    - SVC(class_weight='balanced', kernel='rbf', probability=True)
+  tree:
+    - XGBoost(scale_pos_weight=4.2, max_depth=[3,5,7], n_estimators=[100,300])
+    - RandomForest(class_weight='balanced', n_estimators=500)
+  few_shot:
+    - KNeighborsClassifier(n_neighbors=[3,5,7,11], metric='cosine')
+    - PrototypicalClassifier(metric='cosine')  # custom, ~10 lines
 
-```python
-import scanpy as sc
-adata = sc.read_h5ad("results/embeddings/conch_v1.5_mean/embeddings.h5ad")
-adata.obs = adata.obs.merge(clinical[["PATIENT", "isMSIH", "SITE"]], ...)
-sc.pp.neighbors(adata)
-sc.tl.umap(adata)
-sc.pl.umap(adata, color=["isMSIH", "SITE"])
+feature_engineering:
+  - raw                          # single model embedding
+  - pca_100                      # PCA to 100 dims (regularization)
+  - concat_top3                  # uni2 + virchow2 + conch_v1.5 concatenated
+  - stacked_meta                 # OOF predictions from per-model classifiers → meta-learner
+
+cv_strategy:
+  - StratifiedGroupKFold(groups=patient_id, n_splits=5)
+  - LeaveOneSiteOut              # from Part A2
+
+metrics:
+  primary: AUROC
+  secondary: [AUPRC, balanced_accuracy, sensitivity_at_95_specificity]
 ```
 
-Quick sanity check: is there any separation by MSI status? Is there site
-clustering (batch effect)? This informs whether domain adaptation is needed.
+### B2. Execution plan
+
+**Tier 1 — no implementation needed (~100 configs, minutes):**
+All combinations of {4 models} × {3 simple poolings} × {4 classifiers}
+× {2 feature engineering} × {GroupKFold}. Run as a single Python script
+on CPU.
+
+**Tier 2 — PRISM/TITAN results added (~50 more configs):**
+Same classifiers on the neural-encoder embeddings. Expect the biggest
+AUROC jump here.
+
+**Tier 3 — multi-model fusion (~30 configs):**
+- Late fusion: average P(MSI-H) across models
+- Feature concatenation: [uni2 || virchow2 || conch_v1.5] → classifier
+- Stacking: per-model OOF predictions → LR meta-learner
+
+**Tier 4 — Attention-MIL (~20 configs, requires implementation):**
+ABMIL/CLAM on tile-level features from zarrs. One model at a time,
+then multi-model late fusion of ABMIL outputs.
+
+### B3. ABMIL implementation spec
+
+```python
+class ABMIL(nn.Module):
+    """Attention-Based Multiple Instance Learning (Ilse 2018).
+    
+    Reads tile features directly from zarr — no re-extraction.
+    Lightweight: ~50K trainable params for 1024D input.
+    """
+    def __init__(self, input_dim, hidden_dim=256, dropout=0.5):
+        super().__init__()
+        self.attention = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, 1),
+        )
+        self.classifier = nn.Sequential(
+            nn.Linear(input_dim, 1),
+        )
+
+    def forward(self, tiles):
+        # tiles: (n_tiles, input_dim) from zarr
+        a = self.attention(tiles)                    # (n_tiles, 1)
+        a = torch.softmax(a, dim=0)                  # attention weights
+        z = (a * tiles).sum(dim=0, keepdim=True)      # weighted sum
+        return self.classifier(z).squeeze()           # logit
+```
+
+**Training recipe for low-N (217 patients):**
+- 5-fold StratifiedGroupKFold (patient-level)
+- Epochs: 50, early stopping on validation AUROC (patience=10)
+- Optimizer: Adam, lr=1e-4, weight_decay=1e-2
+- Loss: BCE with pos_weight=4.2 (class imbalance)
+- Dropout: 0.5 (heavy — prevents overfitting at low N)
+- Batch size: 1 slide (standard for MIL)
+- Data loading: read tiles directly from zarr per slide
+
+**Multi-model ABMIL fusion:**
+```python
+# Train separate ABMIL per foundation model
+# At inference: average logits or attention-weighted embeddings
+p_final = sigmoid(mean([abmil_uni2(tiles), abmil_virchow2(tiles), ...]))
+```
+
+### B4. Output format
+
+Every autoresearch run saves:
+```
+results/autoresearch/{run_id}/
+├── config.yaml           # full search space + hyperparams
+├── results.csv           # one row per config: model, agg, clf, AUROC, AUPRC, ...
+├── best_config.yaml      # top config by primary metric
+├── oof_predictions.csv   # OOF predictions for the best config
+└── figures/
+    ├── auroc_heatmap.png       # model × aggregation × classifier
+    ├── site_holdout.png        # per-site AUROC
+    └── paired_staining.png     # MSK vs Nigeria stain concordance
+```
 
 ---
 
-## Attention-MIL (requires implementation, operates on zarr tile features)
+## Part C — QC and Preprocessing
 
-### 9. ABMIL on tile-level features
+### C1. Tile-level QC (no grandqc dependency)
 
-The right architecture for WSI classification. Feasible at N=217 because:
-- Feature extractor is frozen (uni2/virchow2/conch_v1.5 tile features from zarrs)
-- Only training a lightweight attention head (~50K parameters)
-- Each slide has ~15K tiles = ample instances for MIL
-- Heavy regularization: dropout=0.5, weight decay=0.01, early stopping
+Workaround for the broken `zs.tl.feature_extraction(model="grandqc-artifact")`:
 
 ```python
-# Reads directly from zarr — no re-extraction
-zarr_path = Path(slide_path).with_suffix(".zarr")
-tiles = zarr.open(zarr_path)["tables"]["uni2_tiles"]["X"][:]
-# tiles shape: (n_tiles, 1024)
-# ABMIL: attention(tiles) -> weighted sum -> classifier -> MSI prediction
+# Per-slide: flag outlier tiles by embedding distance
+centroid = tile_embeddings.mean(axis=0)
+distances = np.linalg.norm(tile_embeddings - centroid, axis=1)
+threshold = distances.mean() + 3 * distances.std()
+clean_mask = distances < threshold
+# Use clean_mask to filter tiles before aggregation or ABMIL
 ```
 
-Options in order of complexity:
-- **ABMIL** (Ilse 2018) — single attention layer, ~20 lines of PyTorch
-- **CLAM** (Lu 2021) — clustering-constrained, instance-level supervision
-- **TransMIL** (Shao 2021) — transformer over tiles
+Integrate into aggregation: only pool clean tiles. Integrate into ABMIL:
+mask out outlier tiles before attention. Costs nothing, no API dependency.
 
-Start with ABMIL. It's the simplest and most widely used for biomarker
-prediction. Published results on MSI with ABMIL: ~0.90+ AUROC on Western
-cohorts.
+### C2. Stain normalization (StainX — if domain shift analysis warrants)
 
----
-
-## Stain Normalization (requires re-extraction — do last, if needed)
-
-### 10. StainX (Rendeiro lab, same team as LazySlide)
-
-`pip install stainx` — GPU-accelerated Macenko/Reinhard, batch processing,
-8-11× speedup over standard PyTorch implementations.
+Only pursue if Part A1 shows systematic staining effect.
 
 ```python
 from stainx import Macenko
 normalizer = Macenko(device="cuda")
-normalizer.fit(reference_image)  # pick a "canonical" Nigeria slide
-normalized = normalizer.transform(source_tiles)
+normalizer.fit(reference_image)  # canonical Nigeria slide
+# Apply to all tiles before feature extraction → re-extract
 ```
 
-**Critical:** Stain normalization operates on pixels before tiling and
-feature extraction. It requires re-running the full extraction pipeline
-on normalized tiles. This is expensive (~11h per 3 models).
-
-**Decision rule:** Run site-holdout CV (item 7) first. If Nigeria-stained
-slides significantly underperform MSK-stained slides from the same patients,
-stain normalization is worth the cost. If the gap is small, modern foundation
-models (trained with stain augmentation) are already robust enough.
-
-**Not part of the current LazySlide pipeline.** LazySlide has no built-in
-stain normalization — it's a separate preprocessing step. StainX is the
-Rendeiro lab's companion tool for this.
+Requires re-extraction (~11h per 3 models). Defer until A1 results
+are in hand.
 
 ---
 
-## QC (blocked upstream — workaround available)
+## Part D — Phase 2 (MSK cluster)
 
-### 11. Quality control status
-
-`zs.tl.feature_extraction(model="grandqc-artifact")` is broken in the
-current LazySlide version (dispatcher signature mismatch). The correct API
-is `zs.seg.artifact()` but it produces polygon shapes, not per-tile AnnData.
-
-**Workaround without fixing the API:** Use tile-level features as a proxy.
-Tiles with unusual embeddings (outliers in the feature space) likely contain
-artifacts. A simple approach:
-```python
-# Per-slide: compute tile embedding distances to slide centroid
-centroid = tiles.mean(axis=0)
-distances = np.linalg.norm(tiles - centroid, axis=1)
-# Filter tiles beyond 3σ before aggregation
-```
-
-This is a soft QC that doesn't require the broken grandqc models.
+Full model sweep on existing zarrs (incremental). Neural aggregation
+with PRISM/TITAN on all models. ABMIL with the full model zoo.
+Spatial analysis. Vision-language queries.
 
 ---
 
-## Autoresearch Grid
-
-Once PRISM/TITAN + ctranspath baselines are in:
+## Execution Order
 
 ```
-Foundation models:   [uni2, virchow2, conch_v1.5, ctranspath, ensemble_all]
-Aggregation:         [mean, max, PRISM, TITAN, ABMIL]
-Classifier:          [LR_balanced, SVM_balanced, XGBoost, kNN_cosine, prototypical]
-Feature engineering: [raw, PCA_100, concat_multi_model, stacked_meta]
-CV strategy:         [GroupKFold(patient, k=5), LeaveOneSiteOut]
-Metrics:             [AUROC, AUPRC, balanced_accuracy]
-```
+NOW (embeddings already exist or running):
+  ├─ A1: Paired staining analysis (retrospective patients)
+  ├─ A2: Site-holdout CV
+  ├─ B1: Autoresearch Tier 1 (simple pooling × classifiers)
+  ├─ 6-8: Scanpy UMAP, class-balanced classifiers, k-NN
+  └─ C1: Tile-level QC filtering
 
-~200-400 configurations, each taking seconds on pre-computed embeddings.
-Run this as a systematic sweep, not manual one-at-a-time.
+WHEN PRISM/TITAN + CTRANSPATH FINISH:
+  ├─ A3: Wagner zero-shot evaluation
+  ├─ B2: Autoresearch Tier 2 (neural encoder embeddings)
+  └─ B3: Autoresearch Tier 3 (multi-model fusion)
+
+NEXT SPRINT (requires implementation):
+  ├─ B4: ABMIL implementation + training
+  └─ Autoresearch Tier 4 (attention-MIL configs)
+
+IF DOMAIN SHIFT WARRANTS:
+  └─ C2: StainX normalization + re-extraction
+
+PHASE 2 (MSK CLUSTER):
+  └─ D: Full model sweep + advanced analysis
+```
 
 ---
 
-## Phase 2 (MSK cluster, when available)
+## Priority Matrix
 
-Full foundation model sweep (8+ additional models) on existing zarrs.
-Incremental extraction — only new models run.
-
-Also:
-- ABMIL with larger model zoo
-- Multi-model ABMIL (tile features from all models, late fusion attention)
-- Spatial analysis on representative slides
-- Vision-language zero-shot characterization
-
----
-
-## Priority Order
-
-| # | Action | Lift estimate | Effort | Blocked by |
+| # | Action | Expected lift | Effort | Blocked by |
 |---|--------|---------------|--------|------------|
-| 1 | Wagner zero-shot | Unknown (key result) | Low | ctranspath extraction |
-| 2 | PRISM/TITAN train | High (0.60→0.75+) | None (running) | Aggregation completion |
-| 3 | Multi-model ensemble | Medium (0.65→0.72) | Low | Phase 1 complete |
-| 4 | k-NN / prototypical | Medium | Very low | Nothing |
-| 5 | Class-balanced + XGBoost | Low-medium | Very low | Nothing |
-| 6 | Site-holdout CV | Analysis only | Low | Nothing |
-| 7 | Scanpy UMAP | Analysis only | Very low | Nothing |
-| 8 | Autoresearch grid | Systematic | Medium | Items 2-5 |
-| 9 | ABMIL | High (0.75→0.85+) | Medium | Implementation |
-| 10 | Stain normalization | Unknown | High (re-extract) | Site-holdout result |
-| 11 | QC workaround | Low-medium | Low | Nothing |
+| A1 | Paired staining analysis | Key paper result | Low | Nothing |
+| A2 | Site-holdout CV | Key paper result | Low | Nothing |
+| A3 | Wagner zero-shot | Key paper result | Low | ctranspath |
+| B1 | Autoresearch Tier 1 | 0.60→0.65 | Low | Nothing |
+| B2 | PRISM/TITAN classifiers | 0.60→0.75+ | None | Aggregation |
+| B3 | Multi-model fusion | 0.65→0.72 | Low | B1 |
+| B4 | ABMIL | 0.75→0.85+ | Medium | Implementation |
+| C1 | Tile QC filtering | +0.01-0.03 | Very low | Nothing |
+| C2 | Stain normalization | Unknown | High | A1 result |
