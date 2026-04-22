@@ -104,6 +104,30 @@ Patient-level (mean P(MSI-H) across a patient's slides) beats slide-level by ~9 
    - Different MSI-H labelling protocol (REDCap fields differ: `cmo_msi_status` for prospective vs `msi_status_mmr` for retrospective — see `data_ingestion.py`)
    - Some other batch effect we haven't yet isolated
 
+### Pipeline A/B vs HistoBistro-native run
+
+To rule out our feature-extraction pipeline as the source of the
+Nigerian generalization gap, we compared per-patient predictions against
+a prior run stored at
+`old/HistoBistro_deprecated/results/histobistro_eval/histobistro_eval_Transformer__raw_isMSIH/outputs_all.csv`
+(same Wagner MSI weights; features extracted with HistoBistro's own
+CTransPath pipeline on the same Nigerian slides).
+
+- Overlap (by REDCap `record_id`): **263 rows**
+- MSI ground-truth label concordance: **100 %**
+- AUROC on that 263-row subset:
+    - Prior run (HistoBistro-native CTransPath features): **0.6839**
+    - Current run (LazySlide CTransPath features): **0.7178**
+- Pearson correlation of predicted P(MSI-H): **r = 0.784** (p = 6 × 10⁻⁵⁶)
+
+Our features yield **higher** AUROC on matched patients with the same
+classifier. So the Nigerian gap (whole-cohort 0.572 slide-level, 0.659
+patient-level) is not caused by how we extract features. Re-extraction
+with a different normalization is not a candidate intervention for
+closing that gap; the remaining levers are OAUTHC-prospective label
+quality, specimen-type stratification, batch correction, and tile-level
+aggregator architecture.
+
 ### Next follow-ups (ranked)
 
 1. **Audit MSI label quality in OAUTHC prospective.** If labels themselves are noisy, *any* classifier will fail there regardless of embedding quality. Compare MSI-H prevalence, IHC vs PCR labelling, and label confidence against the retrospective_oau set.

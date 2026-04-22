@@ -25,6 +25,15 @@ Wagner per-site: 0.75–0.92 on most sites, but 0.44 on OAUTHC prospective.
 No classifier or feature engineering choice makes a meaningful difference.
 The bottleneck is NOT the classifier — it's the embeddings/aggregation.
 
+**A3 pipeline A/B:** On the 263 patients that overlap with an earlier
+HistoBistro-native run (same Wagner weights, HistoBistro's own
+CTransPath pipeline), our LazySlide CTransPath features score slightly
+*higher* with the same classifier: AUROC **0.718 (new)** vs **0.684 (old)**,
+Pearson r=0.78 between the two probability distributions, 100% label
+concordance. So feature-extraction / normalization is *not* the source
+of the Nigerian generalization gap. See `docs/a3_wagner_zeroshot.md` §
+"Pipeline A/B vs HistoBistro-native run".
+
 ### What These Findings Tell Us
 
 1. Stain normalization is NOT needed (virchow2 r=0.94 across staining)
@@ -33,6 +42,9 @@ The bottleneck is NOT the classifier — it's the embeddings/aggregation.
 4. The Western→African generalization gap is real (0.95→0.66)
 5. OAUTHC prospective is the specific failure mode (0.44 vs 0.75+ elsewhere)
 6. Classifier tuning at the slide-embedding level has hit its ceiling
+7. **Re-extraction with different preprocessing is not a candidate fix** —
+   our LazySlide features match/exceed HistoBistro's own preprocessing
+   when fed to the same pretrained classifier on matched patients
 
 ---
 
@@ -107,6 +119,8 @@ For every slide, compute:
 
 This is 60% of the cohort and the primary failure mode (AUROC 0.44).
 The same site's retrospective slides score 0.80 with the same classifier.
+Re-extracting features is *not* a candidate — see Key Findings bullet 7
+and `docs/a3_wagner_zeroshot.md` pipeline A/B section.
 
 **Hypotheses to test:**
 - Label quality: compare `cmo_msi_status` (prospective) vs `msi_status_mmr`
