@@ -61,12 +61,32 @@ def convert_to_pyramidal(
     output_path: Path,
     tile_size: int = 256,
     quality: int = 90,
+    default_mpp: float = 0.25,
 ) -> bool:
     """Convert a single slide to a tiled, JPEG-compressed pyramidal TIFF.
+
+    If the source slide's OpenSlide MPP reads as None or a nonsense value
+    (>100 μm/px — vips defaults to 1000 μm/px when the source lacks
+    resolution metadata), the output TIFF is stamped with ``default_mpp``
+    via vips's ``--xres/--yres`` tags (pixels per mm). Without this,
+    LazySlide computes absurd tile counts (e.g. 78k × 78k px at mpp=1000
+    → millions of tiles) and OOMs during ``find_tissues``/``tile_tissues``.
 
     Returns ``True`` on success. On failure, removes any partial output and
     returns ``False``.
     """
+    # Detect whether the source has usable MPP. If not, vips would default
+    # to 1000 μm/px — garbage for downstream lazyslide calls.
+    needs_mpp = True
+    try:
+        import openslide
+        with openslide.OpenSlide(str(slide_path)) as s:
+            src_mpp = s.properties.get("openslide.mpp-x")
+            if src_mpp is not None and 0.0 < float(src_mpp) < 100.0:
+                needs_mpp = False
+    except Exception:
+        pass
+
     cmd = [
         "vips",
         "tiffsave",
@@ -79,6 +99,16 @@ def convert_to_pyramidal(
         "--compression=jpeg",
         f"--Q={quality}",
     ]
+    if needs_mpp:
+        # vips xres/yres are in pixels per millimeter.
+        # mpp (μm/px) → px per mm = 1000 / mpp
+        px_per_mm = 1000.0 / default_mpp
+        cmd += [
+            f"--xres={px_per_mm}",
+            f"--yres={px_per_mm}",
+            "--resunit=cm",
+        ]
+
     try:
         subprocess.run(cmd, check=True, capture_output=True, text=True)
         return True
