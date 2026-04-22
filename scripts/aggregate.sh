@@ -2,7 +2,7 @@
 #SBATCH --job-name=argo_aggregate
 #SBATCH --output=scripts/logs/aggregate_%A_%a.out
 #SBATCH --time=4:00:00
-#SBATCH --partition=short
+#SBATCH --partition=20
 #SBATCH --mem=32G
 #SBATCH --cpus-per-task=8
 

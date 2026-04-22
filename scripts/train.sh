@@ -2,7 +2,7 @@
 #SBATCH --job-name=argo_train
 #SBATCH --output=scripts/logs/train_%A_%a.out
 #SBATCH --time=2:00:00
-#SBATCH --partition=short
+#SBATCH --partition=20
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=4
 
