@@ -1,374 +1,388 @@
 # Execution Runbook
 
-Phase 1 baseline DONE (0.60 AUROC, mean pooling).
-Phase 1e first sweep DONE 2026-04-22: A1 paired staining, A2 site-holdout,
-A3 Wagner zero-shot, B1 Tier 1 autoresearch. See per-topic docs below.
-Ceiling on supervised pooling is 0.603 AUROC; zero-shot Wagner at patient
-level reaches 0.659 (beats in-cohort supervised), with all sites except
-**OAUTHC prospective** (0.44) generalizing cleanly (0.75–0.92). The
-OAUTHC-prospective failure is the active frontier; see Part E below.
+## Where We Are
+
+**Phase 1 baseline:** DONE. 803/808 slides, 217 patients, 19% MSI-H.
+**Phase 1e analysis sweep:** DONE. A1–A3 domain shift, B1 Tier 1 grid.
+
+### Key Findings
+
+**A1 — Paired staining:** virchow2_mean is remarkably stain-robust
+(r=0.94, κ=0.94). Foundation models do NOT need stain normalization
+on this cohort. Neural aggregators (PRISM, TITAN) are LESS stain-robust
+than mean pooling — they pick up stain-specific rather than biology-
+specific patterns (PRISM: r=0.31/κ=0.28, TITAN: r=0.45/κ=0.36).
+
+**A2 — Site-holdout:** Massive site variability (AUROC 0.17–0.75).
+Site confounding dominates the embeddings. OAUTHC prospective is the
+worst-performing site across all models.
+
+**A3 — Wagner zero-shot:** Patient-level AUROC 0.659, slide-level 0.572.
+That's a 0.29 AUROC drop from the published Western benchmark (0.95).
+Wagner per-site: 0.75–0.92 on most sites, but 0.44 on OAUTHC prospective.
+
+**B1 — Tier 1 grid:** Flat landscape. Everything between 0.43–0.60.
+No classifier or feature engineering choice makes a meaningful difference.
+The bottleneck is NOT the classifier — it's the embeddings/aggregation.
+
+### What These Findings Tell Us
+
+1. Stain normalization is NOT needed (virchow2 r=0.94 across staining)
+2. Neural aggregators (PRISM/TITAN) hurt rather than help
+3. Site confounding is the dominant signal masking MSI biology
+4. The Western→African generalization gap is real (0.95→0.66)
+5. OAUTHC prospective is the specific failure mode (0.44 vs 0.75+ elsewhere)
+6. Classifier tuning at the slide-embedding level has hit its ceiling
 
 ---
 
-## Current State
+## Step 1 — Failure Diagnosis on the Wagner Zero-Shot (IMMEDIATE)
 
-**Cohort:** 803/808 slides, 217 patients, 19% MSI-H.
+The Wagner classifier is the strongest predictor we have (0.659 patient-
+level), and it requires zero training. Before building anything new,
+understand WHERE and WHY it fails.
 
-**Slide table columns:** PATIENT, FILENAME, SITE, cut_location,
-stain_location, image_location (always Nigeria).
+### 1a. Biopsy vs resection stratification
 
-**Sites:** UITH, LASUTH, OAUTHC, LUTH, retrospective_msk, retrospective_oau.
-Retrospective patients (142-series) have slides stained at MSKCC *and* in
-Nigeria — same patient, same scanner (Nigeria), different staining protocol.
+Estimate specimen type from tissue area in the zarr (small tissue =
+likely biopsy, large = likely resection).
 
-**Extracted features (in zarrs):**
-- Complete: uni2, virchow2, conch_v1.5, ctranspath
-- Neural aggregations complete: PRISM on virchow2, TITAN on conch_v1.5
-
-**Baseline AUROCs** (mean pooling + LR):
-- conch_v1.5: 0.603 ± 0.170
-- virchow2: 0.579 ± 0.142
-- uni2: 0.553 ± 0.203
-
----
-
-## Part A — Domain Shift Analysis (the paper's scientific core)
-
-This is what makes the paper novel: a rigorous three-level domain shift
-analysis on the first African MSI-from-H&E cohort, using a natural
-within-patient staining experiment.
-
-### A1. Within-patient, across-staining (the gold test)
-
-**Subset:** Retrospective patients who have slides with
-`stain_location=MSKCC` AND slides with `stain_location` in
-{OAUTHC, UITH, other Nigeria sites}. Same patient, same scanner
-(all imaged in Nigeria), different staining protocol.
+```python
+# Compute tissue area per slide from zarr shapes
+for slide in slide_table.itertuples():
+    zarr_path = Path(slide.FILENAME).with_suffix(".zarr")
+    wsi = open_wsi(str(slide.FILENAME), store=str(zarr_path.parent))
+    tissue_area = wsi.shapes["tissues"].geometry.area.sum()
+    tile_count = len(wsi.shapes["tiles"])
+    # Store: slide_id, tissue_area, tile_count, n_tissues
+```
 
 **Analysis:**
-```python
-# For each retrospective patient with both MSK and Nigeria staining:
-#   1. Get slide-level MSI prediction from MSK-stained slide(s)
-#   2. Get slide-level MSI prediction from Nigeria-stained slide(s)
-#   3. Compute concordance
+- Split slides into small/medium/large tissue area terciles
+- Wagner AUROC per tercile — does the model work on large specimens
+  but fail on small ones?
+- Per-site tissue area distributions — is OAUTHC prospective mostly
+  biopsies while other sites are resections?
+- Scatter: tissue_area vs Wagner P(MSI-H) colored by true label
 
-# Metrics:
-#   - Per-patient prediction concordance (Cohen's kappa)
-#   - Mean absolute prediction score difference (MSK vs Nigeria)
-#   - Paired signed-rank test on prediction scores
-#   - Scatter plot: P(MSI-H | MSK stain) vs P(MSI-H | Nigeria stain)
-```
+**If biopsy-driven:** The model works in Nigeria on resections, and overall
+AUROC is dragged down by specimen type. This is a specimen selection issue,
+not a generalization failure. Paper framing changes entirely.
 
-**Interpretation:**
-- High concordance → foundation models are stain-robust, Nigeria
-  deployment is viable without normalization
-- Systematic MSK > Nigeria → stain domain shift exists, normalization
-  needed for deployment
-- Discordant both directions → noise, not systematic shift
+### 1b. MSK-IMPACT score analysis
 
-**Paper figure:** Paired scatter with identity line, colored by true
-MSI status. This is the hero figure for the domain shift story.
-
-### A2. Across-site, within-Nigeria (scanner/protocol variation)
-
-**Design:** Leave-one-site-out CV across the Nigerian sites.
-Train on all slides from N-1 sites, test on held-out site.
+For patients with MSIsensor scores from MSK-IMPACT sequencing:
 
 ```python
-# For each site in [UITH, LASUTH, OAUTHC, LUTH, ...]:
-#   Train on all other sites
-#   Evaluate on held-out site
-#   Record AUROC, AUPRC, balanced accuracy
-
-# Also: StratifiedGroupKFold within each train set (patient-level)
-# for honest hyperparameter selection
+# Cross-reference Wagner predictions with continuous MSI scores
+merged = predictions.merge(impact_data[["PATIENT", "msisensor_score"]])
+# Scatter: MSIsensor_score vs Wagner P(MSI-H)
+# Color by correct/incorrect binary prediction
+# Highlight the "borderline" zone (MSIsensor 5-15)
 ```
 
-**Metrics:**
-- Per-site held-out AUROC
-- Cross-site AUROC heatmap (train site rows × test site columns)
-- Average cross-site drop vs. within-site CV
+**Analysis:**
+- Pearson correlation between Wagner P(MSI-H) and MSIsensor score
+- Are "wrong" predictions concentrated at borderline MSI scores?
+- If so → the binary label is lossy, not the model. The model may be
+  capturing a real continuous signal that the threshold misclassifies.
+- Regression target: predict MSIsensor score directly instead of binary
 
-**Paper figure:** Heatmap showing generalization across Nigerian sites.
+### 1c. Error profiling by metadata covariates
 
-### A3. Western → Africa generalization (the Wagner test)
+For every slide, compute:
+- Wagner prediction (P(MSI-H), correct/incorrect)
+- Site, stain_location, cut_location
+- Tissue area, tile count, number of tissue regions
+- Foundation model embedding distance to cohort centroid (outlier score)
 
-**Design:** Run the Wagner et al. (Cancer Cell 2023) pre-trained MSI
-classifier directly on the Nigerian cohort. No fine-tuning.
+**Analysis:**
+- Logistic regression: correct/incorrect ~ site + tissue_area + stain_location
+  + tile_count. Which covariate explains the most variance in errors?
+- Confusion matrix stratified by site
+- High-confidence correct vs high-confidence wrong slide comparison
+  (for pathologist review)
 
-This classifier was trained on 13,000+ Western CRC patients from 16
-cohorts (DACHS, NLCS, QUASAR, TCGA, etc.) using CTransPath features.
-The paper noted "a generalization gap when intrinsic biological factors,
-such as ethnicity, change."
+### 1d. OAUTHC prospective deep dive
 
-```python
-# 1. Extract CTransPath features (running now)
-# 2. Download Wagner et al. model weights (publicly available)
-# 3. Forward pass on all 803 Nigerian slides
-# 4. Compare to their published AUROC (~0.95 on Western cohorts)
-```
+This is 60% of the cohort and the primary failure mode (AUROC 0.44).
+The same site's retrospective slides score 0.80 with the same classifier.
 
-**Metric:** AUROC on Nigerian cohort vs. published Western AUROC.
-
-**Paper figure:** ROC curve overlaid with the Wagner et al. published
-curve. The gap between them IS the generalization penalty.
-
-### A4. Domain adaptation analysis (optional, high novelty)
-
-If A1 shows staining matters:
-- Compare raw vs. StainX-normalized features (requires re-extraction)
-- Test whether fine-tuning the Wagner classifier on even 50 Nigerian
-  slides closes the gap (few-shot domain adaptation)
-
-If A2 shows site matters:
-- Batch-effect correction (ComBat/Harmony on slide embeddings)
-- Site-aware CV as the standard evaluation going forward
+**Hypotheses to test:**
+- Label quality: compare `cmo_msi_status` (prospective) vs `msi_status_mmr`
+  (retrospective). Any patients with both? Are they concordant?
+- Specimen type: is prospective mostly biopsy while retro is resection?
+- UMAP colored by (prospective vs retrospective) × site — are the
+  embeddings separable? If yes → batch effect, treatable with Harmony.
+  If no → something else.
 
 ---
 
-## Part B — Autoresearch: Systematic Classifier Optimization
+## Step 2 — Targeted Improvements Based on Diagnosis (NEXT)
 
-Once PRISM/TITAN + ctranspath are ready, run a systematic grid search
-on pre-computed embeddings. Every configuration takes seconds — no
-GPU needed.
+What you do here depends on what Step 1 reveals. Multiple paths:
 
-### B1. Search space
+### 2a. If biopsy/specimen-type is the driver:
 
-```yaml
-foundation_models:
-  - uni2
-  - virchow2
-  - conch_v1.5
-  - ctranspath
-  # later: h-optimus-1, gigapath, hibou-b, musk, chief, phikonv2, plip
+- **Resection-only training:** Train and evaluate on resections only.
+  Report AUROC on resections + separate AUROC on biopsies.
+- **Tissue-area-weighted pooling:** Weight tiles by tissue density
+  in aggregation (more tissue → higher weight). Simple, no new code.
+- **Tile count minimum filter:** Drop slides below a tile count
+  threshold (e.g., <500 tiles). Report how many slides are excluded.
 
-aggregation:
-  simple_pooling:
-    - mean
-    - max
-    - median
-  neural_encoders:      # slide-level embeddings from pre-trained encoders
-    - virchow2_prism
-    - conch_v1.5_titan
-  attention_mil:        # trained on tile features from zarrs
-    - abmil
-    - clam_sb           # single-branch CLAM
-    - transmil           # if N supports it
+### 2b. If site confounding / batch effect is the driver:
 
-classifiers:
-  linear:
-    - LogisticRegression(class_weight='balanced', C=[0.01, 0.1, 1, 10])
-    - SVC(class_weight='balanced', kernel='rbf', probability=True)
-  tree:
-    - XGBoost(scale_pos_weight=4.2, max_depth=[3,5,7], n_estimators=[100,300])
-    - RandomForest(class_weight='balanced', n_estimators=500)
-  few_shot:
-    - KNeighborsClassifier(n_neighbors=[3,5,7,11], metric='cosine')
-    - PrototypicalClassifier(metric='cosine')  # custom, ~10 lines
+- **Harmony batch correction** on slide embeddings:
+  ```python
+  import scanpy as sc
+  adata = sc.read_h5ad("results/embeddings/virchow2_mean/embeddings.h5ad")
+  sc.external.pp.harmony_integrate(adata, key="SITE")
+  # Re-run classifiers on corrected embeddings
+  ```
+  One function call. If site-corrected AUROC improves on leave-one-site-out,
+  site confounding was masking MSI signal. This is the cheapest intervention.
 
-feature_engineering:
-  - raw                          # single model embedding
-  - pca_100                      # PCA to 100 dims (regularization)
-  - concat_top3                  # uni2 + virchow2 + conch_v1.5 concatenated
-  - stacked_meta                 # OOF predictions from per-model classifiers → meta-learner
+- **ComBat** as alternative (statsmodels or scanpy):
+  ```python
+  sc.pp.combat(adata, key="SITE")
+  ```
 
-cv_strategy:
-  - StratifiedGroupKFold(groups=patient_id, n_splits=5)
-  - LeaveOneSiteOut              # from Part A2
+- **Site as covariate:** Add one-hot site encoding to the feature vector
+  before classification. Lets the classifier learn to ignore site.
 
-metrics:
-  primary: AUROC
-  secondary: [AUPRC, balanced_accuracy, sensitivity_at_95_specificity]
+### 2c. If MSI labels are noisy / borderline:
+
+- **Continuous MSI regression:** Predict MSIsensor score instead of
+  binary MSI-H/MSS. More information per sample. Threshold predictions
+  at different cutoffs to find optimal operating point.
+- **Ordinal classification:** MSS / MSI-L / MSI-H as ordered outcome.
+- **Label audit:** For OAUTHC prospective specifically, cross-check
+  MSI labels against any available IHC/PCR confirmation.
+
+### 2d. Multi-model fusion (cheap, always helps)
+
+Regardless of what Step 1 shows, ensembling improves over any single model.
+
+```python
+# Late fusion — average predicted probabilities
+p_fused = np.mean([p_conch, p_virchow2, p_uni2, p_ctranspath], axis=0)
+
+# Feature concatenation — single classifier on stacked embeddings
+X_concat = np.hstack([X_conch, X_virchow2, X_uni2, X_ctranspath])
+# (803, 768+2560+1536+768) = (803, 5632)
+# PCA to 100 dims first to regularize
+
+# Stacking — per-model OOF predictions → meta-learner
+meta_features = np.column_stack([oof_conch, oof_virchow2, oof_uni2, oof_ctranspath])
+meta_clf = LogisticRegression(class_weight="balanced").fit(meta_features, y)
 ```
 
-### B2. Execution plan
+### 2e. Few-shot methods (zero overfitting risk)
 
-**Tier 1 — no implementation needed (~100 configs, minutes):**
-All combinations of {4 models} × {3 simple poolings} × {4 classifiers}
-× {2 feature engineering} × {GroupKFold}. Run as a single Python script
-on CPU.
+```python
+# k-NN on slide embeddings (cosine distance)
+from sklearn.neighbors import KNeighborsClassifier
+knn = KNeighborsClassifier(n_neighbors=5, metric="cosine")
 
-**Tier 2 — PRISM/TITAN results added (~50 more configs):**
-Same classifiers on the neural-encoder embeddings. Expect the biggest
-AUROC jump here.
+# Prototypical networks
+proto_msih = X[y == 1].mean(axis=0)
+proto_mss = X[y == 0].mean(axis=0)
+score = cosine_sim(x, proto_msih) - cosine_sim(x, proto_mss)
+```
 
-**Tier 3 — multi-model fusion (~30 configs):**
-- Late fusion: average P(MSI-H) across models
-- Feature concatenation: [uni2 || virchow2 || conch_v1.5] → classifier
-- Stacking: per-model OOF predictions → LR meta-learner
+Hyperparameter-light, can't overfit. Good for N=217.
 
-**Tier 4 — Attention-MIL (~20 configs, requires implementation):**
-ABMIL/CLAM on tile-level features from zarrs. One model at a time,
-then multi-model late fusion of ABMIL outputs.
+---
 
-### B3. ABMIL implementation spec
+## Step 3 — Autoresearch Tier 2+ (AFTER Step 2 decisions)
+
+### 3a. Tier 2 — batch-corrected embeddings
+
+If Harmony/ComBat helps (Step 2b), re-run the full Tier 1 grid on
+corrected embeddings. Same {4 models} × {classifiers} × {feat-eng},
+but on site-regressed features.
+
+### 3b. Tier 3 — multi-model fusion grid
+
+Systematic sweep of fusion strategies on best single-model configs:
+- Late fusion (average probs): all 2/3/4-model combinations
+- Feature concat + PCA: [model_A || model_B] → PCA_100 → classifier
+- Stacking: OOF predictions → LR/XGBoost meta-learner
+- ~50 configs, seconds each
+
+### 3c. Tier 4 — continuous MSI regression (if IMPACT scores available)
+
+Replace binary labels with MSIsensor scores. Run the Tier 1 grid but
+with regression metrics (Pearson r, Spearman ρ, RMSE). Then threshold
+predictions to recover classification metrics at optimal cutoff.
+
+This is a legitimate methodological contribution — most MSI-from-H&E
+work uses binary labels. Showing that regression outperforms classification
+at low N is publishable.
+
+### 3d. Autoresearch output
+
+```
+results/autoresearch/{run_id}/
+├── config.yaml
+├── results.csv           # model, agg, clf, feat, AUROC, AUPRC, bal_acc
+├── best_config.yaml
+├── oof_predictions.csv
+└── figures/
+    ├── auroc_heatmap.png
+    ├── site_holdout.png
+    └── fusion_comparison.png
+```
+
+---
+
+## Step 4 — ABMIL on Tile Features (REQUIRES IMPLEMENTATION)
+
+Deferred until Steps 1-3 are complete, because:
+- If specimen type is the issue, ABMIL won't fix it (garbage in)
+- If site confounding dominates, fix that first in the embeddings
+- If labels are noisy, ABMIL amplifies the noise
+
+But once upstream issues are addressed, ABMIL is the architecture
+that gets published MSI papers to 0.85+.
+
+### Implementation spec
 
 ```python
 class ABMIL(nn.Module):
-    """Attention-Based Multiple Instance Learning (Ilse 2018).
-    
-    Reads tile features directly from zarr — no re-extraction.
-    Lightweight: ~50K trainable params for 1024D input.
-    """
     def __init__(self, input_dim, hidden_dim=256, dropout=0.5):
         super().__init__()
         self.attention = nn.Sequential(
-            nn.Linear(input_dim, hidden_dim),
-            nn.Tanh(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, 1),
+            nn.Linear(input_dim, hidden_dim), nn.Tanh(),
+            nn.Dropout(dropout), nn.Linear(hidden_dim, 1),
         )
-        self.classifier = nn.Sequential(
-            nn.Linear(input_dim, 1),
-        )
+        self.classifier = nn.Linear(input_dim, 1)
 
-    def forward(self, tiles):
-        # tiles: (n_tiles, input_dim) from zarr
-        a = self.attention(tiles)                    # (n_tiles, 1)
-        a = torch.softmax(a, dim=0)                  # attention weights
-        z = (a * tiles).sum(dim=0, keepdim=True)      # weighted sum
-        return self.classifier(z).squeeze()           # logit
+    def forward(self, tiles):  # (n_tiles, input_dim) from zarr
+        a = torch.softmax(self.attention(tiles), dim=0)
+        z = (a * tiles).sum(dim=0, keepdim=True)
+        return self.classifier(z).squeeze()
 ```
 
-**Training recipe for low-N (217 patients):**
+**Training recipe for low-N:**
 - 5-fold StratifiedGroupKFold (patient-level)
-- Epochs: 50, early stopping on validation AUROC (patience=10)
-- Optimizer: Adam, lr=1e-4, weight_decay=1e-2
-- Loss: BCE with pos_weight=4.2 (class imbalance)
-- Dropout: 0.5 (heavy — prevents overfitting at low N)
-- Batch size: 1 slide (standard for MIL)
-- Data loading: read tiles directly from zarr per slide
+- Epochs: 50, early stopping (patience=10)
+- Adam, lr=1e-4, weight_decay=1e-2
+- BCE with pos_weight=4.2
+- Dropout 0.5, batch size 1 slide
+- Data: tiles directly from zarr per slide
+
+**Pre-training on TCGA:**
+- TCGA-COAD/READ: ~630 patients with MSI labels + public H&E WSIs
+- Extract same foundation model features on TCGA slides
+- Pre-train ABMIL on TCGA, fine-tune on Nigerian cohort
+- This is the domain adaptation play: large Western → small African
 
 **Multi-model ABMIL fusion:**
 ```python
-# Train separate ABMIL per foundation model
-# At inference: average logits or attention-weighted embeddings
 p_final = sigmoid(mean([abmil_uni2(tiles), abmil_virchow2(tiles), ...]))
 ```
 
-### B4. Output format
+### Public pre-training datasets
 
-Every autoresearch run saves:
-```
-results/autoresearch/{run_id}/
-├── config.yaml           # full search space + hyperparams
-├── results.csv           # one row per config: model, agg, clf, AUROC, AUPRC, ...
-├── best_config.yaml      # top config by primary metric
-├── oof_predictions.csv   # OOF predictions for the best config
-└── figures/
-    ├── auroc_heatmap.png       # model × aggregation × classifier
-    ├── site_holdout.png        # per-site AUROC
-    └── paired_staining.png     # MSK vs Nigeria stain concordance
-```
+| Dataset | Patients | MSI-H % | Access |
+|---|---|---|---|
+| TCGA-COAD | ~460 | ~15% | GDC (public) |
+| TCGA-READ | ~170 | ~5% | GDC (public) |
+| CPTAC-COAD | ~110 | ~28% | TCIA (public) |
+| TCGA-STAD | ~324 | ~20% | GDC (cross-tissue) |
+| TCGA-UCEC | ~430 | ~36% | GDC (cross-tissue) |
+
+UNI2 team released 25K+ pre-extracted WSI embeddings from TCGA/CPTAC.
+If those include COAD/READ with MSI labels, skip extraction entirely.
 
 ---
 
-## Part C — QC and Preprocessing
+## Step 5 — Harmony / Batch Correction (PARALLEL WITH STEP 2)
 
-### C1. Tile-level QC (no grandqc dependency)
-
-Workaround for the broken `zs.tl.feature_extraction(model="grandqc-artifact")`:
+The A2 site-holdout heatmap shows site dominates embeddings. Harmony
+is a one-liner that can be run immediately on existing h5ad files.
 
 ```python
-# Per-slide: flag outlier tiles by embedding distance
+import scanpy as sc
+
+# For each foundation model:
+adata = sc.read_h5ad("results/embeddings/virchow2_mean/embeddings.h5ad")
+adata.obs = adata.obs.merge(clinical[["PATIENT", "isMSIH", "SITE"]])
+
+# Harmony integration — regress out SITE
+sc.external.pp.harmony_integrate(adata, key="SITE")
+# adata.obsm["X_pca_harmony"] now has site-corrected embeddings
+
+# Re-run classifiers on corrected features
+X_corrected = adata.obsm["X_pca_harmony"]
+```
+
+**Evaluation:** Compare leave-one-site-out AUROC before vs after Harmony.
+If it improves → site confounding was masking signal. Re-run full Tier 1
+grid on corrected embeddings.
+
+**Alternative: ComBat**
+```python
+sc.pp.combat(adata, key="SITE")
+```
+
+Both are fast, deterministic, well-established. Run both, compare.
+
+---
+
+## QC (Tile-Level Outlier Filtering)
+
+```python
+# Per-slide: flag artifact tiles by embedding distance
 centroid = tile_embeddings.mean(axis=0)
 distances = np.linalg.norm(tile_embeddings - centroid, axis=1)
-threshold = distances.mean() + 3 * distances.std()
-clean_mask = distances < threshold
-# Use clean_mask to filter tiles before aggregation or ABMIL
+clean_mask = distances < (distances.mean() + 3 * distances.std())
+# Pool only clean tiles; pass clean_mask to ABMIL attention masking
 ```
 
-Integrate into aggregation: only pool clean tiles. Integrate into ABMIL:
-mask out outlier tiles before attention. Costs nothing, no API dependency.
-
-### C2. Stain normalization (StainX — if domain shift analysis warrants)
-
-Only pursue if Part A1 shows systematic staining effect.
-
-```python
-from stainx import Macenko
-normalizer = Macenko(device="cuda")
-normalizer.fit(reference_image)  # canonical Nigeria slide
-# Apply to all tiles before feature extraction → re-extract
-```
-
-Requires re-extraction (~11h per 3 models). Defer until A1 results
-are in hand.
+No API dependency, no re-extraction. Integrate into aggregation and ABMIL.
 
 ---
 
-## Part D — Phase 2 (MSK cluster)
+## Phase 2 — MSK Cluster (when available)
 
-Full model sweep on existing zarrs (incremental). Neural aggregation
-with PRISM/TITAN on all models. ABMIL with the full model zoo.
-Spatial analysis. Vision-language queries.
+Full foundation model sweep (11+ models) on existing zarrs.
+ABMIL with the full model zoo.
+TCGA pre-training pipeline.
+Spatial analysis, vision-language queries.
 
 ---
 
-## Part E — Frontier after Phase 1e (the real work)
-
-The Phase 1e sweep surfaced a concrete, actionable failure case: the
-Western-trained Wagner classifier gets 0.75–0.92 zero-shot AUROC on every
-site in the cohort EXCEPT OAUTHC prospective (0.44), which is 60% of the
-data. Retrospective slides stained at OAUTHC (same site, 172 slides)
-predict at 0.80 with the same Wagner classifier. So the failure isn't
-OAUTHC-the-site, it's the OAUTHC-prospective-cohort specifically.
-
-### E1. OAUTHC prospective label + feature audit (highest priority)
-
-- MSI-H prevalence + class-balance audit: compare prospective (`cmo_msi_status`)
-  vs retrospective (`msi_status_mmr`) labelling protocols. Are labels
-  concordant on overlapping patients?
-- UMAP / PHATE on ctranspath features colored by (SITE × cohort_type).
-  Is OAUTHC prospective clearly separated from retrospective_oau?
-- If labels look fine and features look fine → scanner / acquisition-time
-  batch effect; try ComBat or Harmony keyed by cohort_type.
-
-### E2. ABMIL implementation (B4 from the original runbook)
-
-Still the best expected-lift supervised improvement (0.60 → 0.75+).
-Reads per-tile features directly from zarrs, ~50k trainable params.
-Spec is in the B3 section of this document (earlier revision).
-
-### E3. Wagner few-shot fine-tuning
-
-Wagner's transformer is already the strongest classifier we have on this
-cohort (0.659 zero-shot patient-level). Fine-tuning on 50–100 OAUTHC
-prospective slides should close much of the 0.44 gap. Much cheaper than
-training an ABMIL from scratch.
-
-### E4. Multi-model fusion (B3 original)
-
-Late-averaging + feature-concat of the 4 patch models. Cheap, should
-unlock small but real gains.
-
-## Execution Order (refreshed 2026-04-22)
+## Execution Order
 
 ```
-DONE (this session):
-  ├─ A1 paired staining     → docs/a1_paired_staining.md
-  ├─ A2 site-holdout CV     → docs/a2_site_holdout.md
-  ├─ A3 Wagner zero-shot    → docs/a3_wagner_zeroshot.md
-  ├─ B1 Tier 1 autoresearch → docs/b1_autoresearch_tier1.md
-  ├─ ctranspath extraction + aggregation + retraining
-  ├─ PRISM on virchow2, TITAN on conch_v1.5 aggregations
-  └─ results/models/SUMMARY.txt refreshed
+IMMEDIATE (Step 1 — all on existing data, no new training):
+  ├─ 1a: Biopsy/resection stratification from tissue area
+  ├─ 1b: MSIsensor score correlation with Wagner predictions
+  ├─ 1c: Error profiling by metadata covariates
+  ├─ 1d: OAUTHC prospective deep dive (labels, UMAP, batch)
+  └─ 5:  Harmony batch correction on existing h5ad files
 
-NOW (unblocked, no new features needed):
-  ├─ E1: OAUTHC-prospective label / feature audit
-  ├─ E4: Multi-model fusion (Tier 2 of autoresearch)
-  └─ C1: Tile-level QC filtering
+NEXT (Step 2 — based on Step 1 findings):
+  ├─ 2a-c: Targeted fix (specimen filter / Harmony / regression)
+  ├─ 2d: Multi-model fusion
+  ├─ 2e: Few-shot methods (k-NN, prototypical)
+  └─ QC:  Tile-level outlier filtering
 
-NEXT SPRINT (requires implementation):
-  ├─ E2: ABMIL on zarr tile features
-  ├─ E3: Wagner few-shot fine-tune on OAUTHC prospective
-  └─ Scanpy UMAP / PHATE exploration on embeddings.h5ad
+AUTORESEARCH (Step 3 — systematic):
+  ├─ 3a: Tier 2 on batch-corrected embeddings
+  ├─ 3b: Tier 3 multi-model fusion grid
+  └─ 3c: Tier 4 continuous MSI regression
 
-IF DOMAIN SHIFT WARRANTS (post-E1):
-  └─ C2: StainX or batch-effect normalization targeted at OAUTHC prospective
+IMPLEMENTATION (Step 4 — after upstream issues resolved):
+  ├─ ABMIL on tile features
+  ├─ TCGA pre-training + Nigerian fine-tune
+  └─ Multi-model ABMIL fusion
 
-PHASE 2 (MSK CLUSTER):
-  └─ D: Full 11-model sweep + spatial / vision-language analyses
+PHASE 2 (MSK cluster):
+  └─ Full model sweep + advanced analyses
 ```
 
 ---
@@ -377,12 +391,15 @@ PHASE 2 (MSK CLUSTER):
 
 | # | Action | Expected lift | Effort | Blocked by |
 |---|--------|---------------|--------|------------|
-| A1 | Paired staining analysis | Key paper result | Low | Nothing |
-| A2 | Site-holdout CV | Key paper result | Low | Nothing |
-| A3 | Wagner zero-shot | Key paper result | Low | ctranspath |
-| B1 | Autoresearch Tier 1 | 0.60→0.65 | Low | Nothing |
-| B2 | PRISM/TITAN classifiers | 0.60→0.75+ | None | Aggregation |
-| B3 | Multi-model fusion | 0.65→0.72 | Low | B1 |
-| B4 | ABMIL | 0.75→0.85+ | Medium | Implementation |
-| C1 | Tile QC filtering | +0.01-0.03 | Very low | Nothing |
-| C2 | Stain normalization | Unknown | High | A1 result |
+| 1a | Biopsy/resection split | Diagnostic | Very low | Nothing |
+| 1b | MSIsensor correlation | Diagnostic | Very low | IMPACT data |
+| 1c | Error profiling | Diagnostic | Low | Nothing |
+| 1d | OAUTHC audit | Diagnostic (critical) | Low | Nothing |
+| 5 | Harmony batch correction | 0.55→0.65+ (if site-driven) | Very low | Nothing |
+| 2d | Multi-model fusion | +0.02-0.05 | Low | Nothing |
+| 2e | Few-shot (k-NN, proto) | +0.01-0.03 | Very low | Nothing |
+| 3a | Tier 2 on corrected emb | Unknown | Low | Step 5 |
+| 3b | Tier 3 fusion grid | +0.02-0.05 | Low | Step 2d |
+| 3c | Regression on MSIsensor | Novel method | Medium | IMPACT data |
+| 4 | ABMIL | 0.65→0.80+ | Medium-high | Steps 1-3 |
+| 4+ | TCGA pre-train + fine-tune | 0.70→0.85+ | High | TCGA data |
