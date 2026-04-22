@@ -1,7 +1,12 @@
 # Execution Runbook
 
-Phase 1 baseline DONE (0.60 AUROC, mean pooling). This is the complete
-plan to reach 0.85+ and generate the paper's key results.
+Phase 1 baseline DONE (0.60 AUROC, mean pooling).
+Phase 1e first sweep DONE 2026-04-22: A1 paired staining, A2 site-holdout,
+A3 Wagner zero-shot, B1 Tier 1 autoresearch. See per-topic docs below.
+Ceiling on supervised pooling is 0.603 AUROC; zero-shot Wagner at patient
+level reaches 0.659 (beats in-cohort supervised), with all sites except
+**OAUTHC prospective** (0.44) generalizing cleanly (0.75–0.92). The
+OAUTHC-prospective failure is the active frontier; see Part E below.
 
 ---
 
@@ -17,9 +22,8 @@ Retrospective patients (142-series) have slides stained at MSKCC *and* in
 Nigeria — same patient, same scanner (Nigeria), different staining protocol.
 
 **Extracted features (in zarrs):**
-- Complete: uni2, virchow2, conch_v1.5
-- Running: ctranspath (incremental)
-- Running: PRISM on virchow2, TITAN on conch_v1.5 (neural aggregation)
+- Complete: uni2, virchow2, conch_v1.5, ctranspath
+- Neural aggregations complete: PRISM on virchow2, TITAN on conch_v1.5
 
 **Baseline AUROCs** (mean pooling + LR):
 - conch_v1.5: 0.603 ± 0.170
@@ -301,30 +305,70 @@ Spatial analysis. Vision-language queries.
 
 ---
 
-## Execution Order
+## Part E — Frontier after Phase 1e (the real work)
+
+The Phase 1e sweep surfaced a concrete, actionable failure case: the
+Western-trained Wagner classifier gets 0.75–0.92 zero-shot AUROC on every
+site in the cohort EXCEPT OAUTHC prospective (0.44), which is 60% of the
+data. Retrospective slides stained at OAUTHC (same site, 172 slides)
+predict at 0.80 with the same Wagner classifier. So the failure isn't
+OAUTHC-the-site, it's the OAUTHC-prospective-cohort specifically.
+
+### E1. OAUTHC prospective label + feature audit (highest priority)
+
+- MSI-H prevalence + class-balance audit: compare prospective (`cmo_msi_status`)
+  vs retrospective (`msi_status_mmr`) labelling protocols. Are labels
+  concordant on overlapping patients?
+- UMAP / PHATE on ctranspath features colored by (SITE × cohort_type).
+  Is OAUTHC prospective clearly separated from retrospective_oau?
+- If labels look fine and features look fine → scanner / acquisition-time
+  batch effect; try ComBat or Harmony keyed by cohort_type.
+
+### E2. ABMIL implementation (B4 from the original runbook)
+
+Still the best expected-lift supervised improvement (0.60 → 0.75+).
+Reads per-tile features directly from zarrs, ~50k trainable params.
+Spec is in the B3 section of this document (earlier revision).
+
+### E3. Wagner few-shot fine-tuning
+
+Wagner's transformer is already the strongest classifier we have on this
+cohort (0.659 zero-shot patient-level). Fine-tuning on 50–100 OAUTHC
+prospective slides should close much of the 0.44 gap. Much cheaper than
+training an ABMIL from scratch.
+
+### E4. Multi-model fusion (B3 original)
+
+Late-averaging + feature-concat of the 4 patch models. Cheap, should
+unlock small but real gains.
+
+## Execution Order (refreshed 2026-04-22)
 
 ```
-NOW (embeddings already exist or running):
-  ├─ A1: Paired staining analysis (retrospective patients)
-  ├─ A2: Site-holdout CV
-  ├─ B1: Autoresearch Tier 1 (simple pooling × classifiers)
-  ├─ 6-8: Scanpy UMAP, class-balanced classifiers, k-NN
+DONE (this session):
+  ├─ A1 paired staining     → docs/a1_paired_staining.md
+  ├─ A2 site-holdout CV     → docs/a2_site_holdout.md
+  ├─ A3 Wagner zero-shot    → docs/a3_wagner_zeroshot.md
+  ├─ B1 Tier 1 autoresearch → docs/b1_autoresearch_tier1.md
+  ├─ ctranspath extraction + aggregation + retraining
+  ├─ PRISM on virchow2, TITAN on conch_v1.5 aggregations
+  └─ results/models/SUMMARY.txt refreshed
+
+NOW (unblocked, no new features needed):
+  ├─ E1: OAUTHC-prospective label / feature audit
+  ├─ E4: Multi-model fusion (Tier 2 of autoresearch)
   └─ C1: Tile-level QC filtering
 
-WHEN PRISM/TITAN + CTRANSPATH FINISH:
-  ├─ A3: Wagner zero-shot evaluation
-  ├─ B2: Autoresearch Tier 2 (neural encoder embeddings)
-  └─ B3: Autoresearch Tier 3 (multi-model fusion)
-
 NEXT SPRINT (requires implementation):
-  ├─ B4: ABMIL implementation + training
-  └─ Autoresearch Tier 4 (attention-MIL configs)
+  ├─ E2: ABMIL on zarr tile features
+  ├─ E3: Wagner few-shot fine-tune on OAUTHC prospective
+  └─ Scanpy UMAP / PHATE exploration on embeddings.h5ad
 
-IF DOMAIN SHIFT WARRANTS:
-  └─ C2: StainX normalization + re-extraction
+IF DOMAIN SHIFT WARRANTS (post-E1):
+  └─ C2: StainX or batch-effect normalization targeted at OAUTHC prospective
 
 PHASE 2 (MSK CLUSTER):
-  └─ D: Full model sweep + advanced analysis
+  └─ D: Full 11-model sweep + spatial / vision-language analyses
 ```
 
 ---
