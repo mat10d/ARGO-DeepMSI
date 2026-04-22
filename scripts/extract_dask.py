@@ -48,6 +48,18 @@ DEFAULT_MODELS = [
 ]
 
 
+def _rss_gib() -> float:
+    """Read RSS in GiB from /proc/self/status. Returns 0.0 on failure."""
+    try:
+        with open("/proc/self/status") as f:
+            for line in f:
+                if line.startswith("VmRSS:"):
+                    return int(line.split()[1]) / (1024.0 * 1024.0)  # kB → GiB
+    except Exception:
+        pass
+    return 0.0
+
+
 def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float) -> dict:
     """Worker-side: extract features for a single slide.
 
@@ -55,6 +67,7 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
     not the submit process.
     """
     import gc
+    import time
 
     from pathlib import Path as _Path
     from wsidata import open_wsi
@@ -62,6 +75,19 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
 
     p = _Path(slide_path)
     zarr_path = p.with_suffix(".zarr")
+
+    def _log(stage: str) -> None:
+        # One line per event, flushed, parseable:
+        #   [RSS=N.N GiB t=SS.Ss] [SLIDE=x] stage
+        # Goes to the worker's stdout (visible in dask-worker-*.out).
+        print(
+            f"[RSS={_rss_gib():.1f} GiB t={time.time() - _t0:.1f}s] "
+            f"[SLIDE={p.name}] {stage}",
+            flush=True,
+        )
+
+    _t0 = time.time()
+    _log("enter _process_slide")
 
     # Check which models are already extracted
     existing: set[str] = set()
@@ -73,7 +99,10 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
         }
     to_extract = [m for m in models if m not in existing]
     if not to_extract:
+        _log(f"skip (all {len(models)} models already in zarr)")
         return {"slide": p.name, "status": "skipped", "models": []}
+
+    _log(f"to_extract={to_extract} existing={sorted(existing)}")
 
     def _open(fresh_preprocess: bool):
         """Open the WSI, preprocessing if the zarr doesn't exist yet.
@@ -94,7 +123,13 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
     # Preprocess once (creates the initial zarr with tissues/tiles) so
     # every subsequent open reads from a persistent store.
     if not zarr_path.exists():
+        _log("preprocess: find_tissues + tile_tissues")
         w0 = _open(fresh_preprocess=True)
+        # Log tile count so we can correlate memory spikes with slide size.
+        try:
+            n_tiles = int(w0["tiles"].shape[0]) if "tiles" in w0.shapes else -1
+        except Exception:
+            n_tiles = -1
         del w0
         gc.collect()
         try:
@@ -102,6 +137,17 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
             ctypes.CDLL("libc.so.6").malloc_trim(0)
         except Exception:
             pass
+        _log(f"preprocess done (n_tiles={n_tiles})")
+    else:
+        # Slide already has a zarr — probe tile count from existing data.
+        try:
+            w_probe = _open(fresh_preprocess=False)
+            n_tiles = int(w_probe["tiles"].shape[0]) if "tiles" in w_probe.shapes else -1
+            del w_probe
+            gc.collect()
+        except Exception:
+            n_tiles = -1
+        _log(f"zarr exists (n_tiles={n_tiles})")
 
     # Extract one model at a time — open fresh, write, drop. This caps
     # the worker's RAM footprint at one model's feature table instead
@@ -109,6 +155,7 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
     # (observed ~190 GiB peak → OOM with the accumulate-then-write
     # pattern even with DataLoader num_workers trimmed).
     for model in to_extract:
+        _log(f"extract start: {model}")
         wsi = _open(fresh_preprocess=False)
         zs.tl.feature_extraction(
             wsi,
@@ -139,7 +186,9 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
             ctypes.CDLL("libc.so.6").malloc_trim(0)
         except Exception:
             pass
+        _log(f"extract done: {model}")
 
+    _log(f"slide complete ({len(to_extract)} models extracted)")
     return {"slide": p.name, "status": "success", "models": to_extract}
 
 
