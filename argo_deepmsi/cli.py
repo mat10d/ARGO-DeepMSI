@@ -38,10 +38,8 @@ def ingest(
     api_token: Optional[str] = typer.Option(None, "--api-token", help="REDCap API token"),
 ):
     """Ingest data from REDCap and Halo Link exports."""
-    from .io_utils import setup_logging, get_results_dir, ensure_dir
+    from .io_utils import get_results_dir, ensure_dir
     from .data_ingestion import process_redcap_data
-
-    setup_logging("ingest")
 
     if output_dir is None:
         output_dir = get_results_dir() / "data"
@@ -88,10 +86,8 @@ def pyramidal(
     and writes an updated slide table pointing at the converted files. Runs
     serially — submit via ``scripts/pyramidal.sh`` for anything cohort-sized.
     """
-    from .io_utils import setup_logging
     from .slide_prep import convert_non_pyramidal_slides, summarize
 
-    setup_logging("pyramidal")
     console.print("[bold blue]ARGO-DeepMSI: Pyramidal Conversion[/bold blue]")
     console.print(f"Slide table: {slide_table}")
     if dry_run:
@@ -145,10 +141,7 @@ def extract(
         argo extract slide_table.csv --model uni2 --model virchow2
     """
     import pandas as pd
-    from .io_utils import setup_logging
     from .feature_extraction import list_available_models
-
-    setup_logging("extract")
 
     console.print("[bold blue]ARGO-DeepMSI: Feature Extraction[/bold blue]")
     console.print(f"Slide table: {slide_table}")
@@ -273,10 +266,8 @@ def aggregate(
         argo aggregate virchow --method prism --device cuda
         argo aggregate conch_v1.5 --method titan --device cuda
     """
-    from .io_utils import setup_logging, get_data_dir
+    from .io_utils import get_data_dir
     from .feature_extraction import aggregate_features
-
-    setup_logging("aggregate")
 
     # Default to results/data/slide_table.csv
     if slide_table is None:
@@ -380,10 +371,7 @@ def qc(
     QC features, then this command to produce a filtered table for downstream
     feature extraction.
     """
-    from .io_utils import setup_logging
     from .feature_extraction import filter_slides_by_qc
-
-    setup_logging("qc")
 
     if output_csv is None:
         output_csv = slide_table.parent / f"{slide_table.stem}_qc_filtered.csv"
@@ -426,10 +414,8 @@ def visualize(
     """Generate visualizations (slides, embeddings, summaries)."""
     import pandas as pd
     import numpy as np
-    from .io_utils import setup_logging, get_visualizations_dir, ensure_dir
+    from .io_utils import get_visualizations_dir, ensure_dir
     from . import visualization as viz
-
-    setup_logging("visualize")
 
     if output_dir is None:
         output_dir = get_visualizations_dir()
@@ -492,10 +478,8 @@ def train(
         argo train results/embeddings/plip_mean \\
             --clinical results/data/clinical_table.csv
     """
-    from .io_utils import setup_logging, get_models_dir, get_data_dir, ensure_dir
+    from .io_utils import get_models_dir, get_data_dir, ensure_dir
     from .training import compare_classifiers, load_training_data
-
-    setup_logging("train")
 
     # Default to results/data/clinical_table.csv
     if clinical_table is None:
@@ -564,11 +548,9 @@ def run(
 ):
     """Run the full pipeline: extract → aggregate → train."""
     import pandas as pd
-    from .io_utils import setup_logging, get_embeddings_dir, get_models_dir
+    from .io_utils import get_embeddings_dir, get_models_dir
     from .feature_extraction import extract_features_batch, aggregate_features
     from .training import compare_classifiers, load_training_data
-
-    setup_logging("pipeline")
 
     console.print("[bold blue]ARGO-DeepMSI: Full Pipeline[/bold blue]")
     console.print(f"Models: {', '.join(models)}")

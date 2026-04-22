@@ -4,11 +4,9 @@ I/O utilities for ARGO-DeepMSI pipeline.
 Simplified path management and file operations.
 """
 
-import logging
 import os
 from pathlib import Path
 from typing import Union, Optional
-from datetime import datetime
 
 
 def get_project_root() -> Path:
@@ -37,44 +35,6 @@ def setup_huggingface_cache() -> Path:
 
 # Set up HuggingFace cache on module import
 setup_huggingface_cache()
-
-
-def setup_logging(
-    name: str,
-    log_dir: Optional[Union[str, Path]] = None,
-    level: int = logging.INFO,
-) -> logging.Logger:
-    """Set up logger with file and console handlers."""
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.handlers.clear()
-
-    formatter = logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
-    )
-
-    # Console handler
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-
-    # File handler
-    if log_dir is None:
-        log_dir = get_project_root() / "logs" / name
-    else:
-        log_dir = Path(log_dir)
-
-    log_dir.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    log_file = log_dir / f"{name}_{timestamp}.log"
-
-    file_handler = logging.FileHandler(log_file)
-    file_handler.setLevel(level)
-    file_handler.setFormatter(formatter)
-    logger.addHandler(file_handler)
-
-    return logger
 
 
 def ensure_dir(path: Union[str, Path]) -> Path:
