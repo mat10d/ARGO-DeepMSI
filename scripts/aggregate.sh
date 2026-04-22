@@ -64,7 +64,7 @@ echo "========================================="
 source $(conda info --base)/etc/profile.d/conda.sh
 conda activate argo
 
-cd "$(dirname "$(dirname "${BASH_SOURCE[0]}")")"
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
 # Aggregate each model
 for model in "${MODELS[@]}"; do
