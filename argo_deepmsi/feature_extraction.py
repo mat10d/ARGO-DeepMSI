@@ -615,10 +615,12 @@ def aggregate_neural_encoders(
             continue
 
         try:
-            # Open the zarr directly — it already contains tiles, spatial coords,
-            # and features. No need to re-open the SVS (the old double-open path
-            # cost an SVS read per slide for no benefit).
-            wsi = open_wsi(str(zarr_path), attach_thumbnail=False)
+            # Use the svs-path + store=parent pattern. Opening the zarr
+            # directly KeyErrors on readers (e.g. `fastslide`) that aren't
+            # installed locally but are recorded in the zarr metadata.
+            wsi = open_wsi(
+                str(svs_path), store=str(svs_path.parent), attach_thumbnail=False
+            )
             feature_key = f"{model}_tiles"
 
             if feature_key not in wsi.tables:
@@ -633,19 +635,25 @@ def aggregate_neural_encoders(
                 device=device,
             )
 
-            # Extract aggregated embedding from AnnData.uns
-            # LazySlide stores result in: wsi.tables['{model}_tiles'].uns['agg_slide']
+            # Extract aggregated embedding. LazySlide stores the slide
+            # representation in feature_table.uns["agg_ops"]["agg_slide"]
+            # (see lazyslide.tools._features.feature_aggregation). The varm
+            # branch only fires when the aggregated dim matches the tile
+            # feature dim (e.g. mean pooling) — PRISM/TITAN change dim, so
+            # we must read from uns["agg_ops"].
             adata = wsi.tables[feature_key]
+            agg_ops = adata.uns.get("agg_ops", {})
 
-            if "agg_slide" in adata.uns:
-                # Extract embedding from uns
-                embedding = np.asarray(adata.uns["agg_slide"]).flatten()
+            if "agg_slide" in agg_ops and "features" in agg_ops["agg_slide"]:
+                embedding = np.asarray(agg_ops["agg_slide"]["features"]).flatten()
             elif "agg_slide" in adata.varm:
-                # Alternative storage location
                 embedding = np.asarray(adata.varm["agg_slide"]).flatten()
+            elif "agg_slide" in adata.uns:
+                embedding = np.asarray(adata.uns["agg_slide"]).flatten()
             else:
                 raise ValueError(
-                    f"Aggregation result not found in .uns or .varm for {svs_path.name}"
+                    f"Aggregation result not found in uns['agg_ops'] / varm / uns "
+                    f"for {svs_path.name}"
                 )
 
             embeddings.append(
