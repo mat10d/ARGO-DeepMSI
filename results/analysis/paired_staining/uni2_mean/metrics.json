@@ -1,0 +1,10 @@
+{
+  "n_patients": 83,
+  "cohen_kappa_binary@0.5": 0.6828759986106288,
+  "pearson_r": 0.7816875235671925,
+  "pearson_p": 2.7631977250697186e-18,
+  "wilcoxon_statistic": 1701.0,
+  "wilcoxon_p": 0.8487718906724007,
+  "mean_abs_diff": 0.13260578870866396,
+  "mean_msk_minus_nigeria": 0.035422039270650255
+}

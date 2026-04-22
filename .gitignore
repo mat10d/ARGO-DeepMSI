@@ -15,8 +15,17 @@ data/
 # ============================================
 # Data Directories (gitignored, too large)
 # ============================================
-results/
+results/*
 logs/
+# Exception: small derived analysis artifacts (PNG, CSV, JSON under 1 MB)
+# so the repo stays interpretable to reviewers without filesystem access.
+# Heavy artifacts (embeddings.npy, zarrs, model pickles) remain ignored
+# because their parent dirs (results/embeddings, results/data, ...) are
+# still excluded by `results/*`.
+!results/analysis/
+!results/analysis/**
+!results/autoresearch/
+!results/autoresearch/**
 
 # ============================================
 # Cache & Temporary Files
@@ -78,6 +87,8 @@ slurm-*.out
 !docs/**/*.png
 !docs/**/*.jpg
 !docs/**/*.pdf
+!results/analysis/**/*.png
+!results/autoresearch/**/*.png
 
 # ============================================
 # Model Checkpoints & Weights (too large)

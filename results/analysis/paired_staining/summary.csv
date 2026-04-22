@@ -1,0 +1,6 @@
+embedding,n_patients,cohen_kappa_binary@0.5,pearson_r,pearson_p,wilcoxon_p,mean_abs_diff,mean_msk_minus_nigeria
+conch_v1.5_mean,83,0.5424,0.6887,0.0,0.3113,0.1877,-0.0204
+conch_v1.5_titan,83,0.3615,0.448,0.0,0.1834,0.2132,0.004
+uni2_mean,83,0.6829,0.7817,0.0,0.8488,0.1326,0.0354
+virchow2_mean,83,0.9363,0.9412,0.0,0.1864,0.0691,-0.0132
+virchow2_prism,83,0.2803,0.3146,0.0038,0.0352,0.2851,-0.0626

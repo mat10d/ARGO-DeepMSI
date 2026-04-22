@@ -1,0 +1,7 @@
+embedding: conch_v1.5_mean
+classifier: lr
+feat_eng: raw
+auroc_mean: 0.6029614783154009
+auroc_std: 0.16984089302022445
+auprc_mean: 0.29474919636057717
+auprc_std: 0.1032902489546787
