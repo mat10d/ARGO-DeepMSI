@@ -1,123 +1,103 @@
 # Execution Runbook
 
-Two-phase approach: lean run now on 3 GPUs, full sweep later on MSK cluster.
+Phase 1 (baseline on 3 GPUs) is **DONE**. This file now tracks what's next: Phase 1e iteration, and Phase 2 expansion on a larger cluster.
 
 ---
 
-## Phase 1: Baseline (3 GPU cluster, ~1 day)
+## Phase 1 — ✅ Complete (2026-04-22)
 
-3 top-performing models, end-to-end. Gets you AUROC numbers, proves the
-pipeline, and creates zarrs that Phase 2 builds on incrementally.
+Baseline on 3 foundation models, end-to-end, on the 808-slide Nigerian CRC cohort.
 
-### 1a. Convert non-pyramidal slides
+| Step | Outcome |
+|---|---|
+| 1a. Pyramidal conversion | 13 slides converted; default MPP (0.25 μm/px) stamped into MPP-less `generic-tiff` sources |
+| 1b. Extraction (dask, 3 × A6000 @ 256G, 3 models) | 11.3h, 803/808 complete (5 data-issue failures — see CLAUDE.md error modalities), **zero OOMs** |
+| 1c. Aggregation (mean pooling, auto-discovery) | 3 embedding sets: `conch_v1.5_mean` (768D), `uni2_mean` (1536D), `virchow2_mean` (2560D) |
+| 1d. Training (LR / SVM / RF, StratifiedGroupKFold) | Best AUROC per model logged in `results/models/SUMMARY.txt` |
 
-```bash
-sbatch scripts/pyramidal.sh results/data/slide_table.csv
-```
+**Cohort:** 803 slides, 217 patients, 19% MSI-H (154 / 803 slides).
 
-Writes `results/data/slide_table_pyramidal.csv`. Idempotent.
+**Baseline AUROCs** (Logistic Regression is best for all three):
+- `conch_v1.5_mean`: **0.603 ± 0.170**
+- `virchow2_mean`: 0.579 ± 0.142
+- `uni2_mean`: 0.553 ± 0.203
 
-### 1b. Extract 3 foundation models
+Random Forest's ~0.80 accuracy is the trivial majority-class predictor (19% MSI-H → 81% MSS baseline accuracy).
+
+---
+
+## Phase 1e — Iterate on the Phase 1 zarrs
+
+All iteration happens on the per-tile features already in `<slide>.zarr/tables/{model}_tiles/`. No re-extraction needed until Phase 2.
+
+### Priorities (highest expected lift first)
+
+1. **Neural aggregators** — mean pooling throws away most of the discriminative signal. Published MSI-from-H&E models (~0.85+ AUROC) use MIL attention or WSI encoders. Low-risk wins:
+   - PRISM on `virchow2` (`argo aggregate virchow2 --method prism`)
+   - TITAN on `conch_v1.5` (`argo aggregate conch_v1.5 --method titan`)
+   - CHIEF slide encoder on `chief` (requires Phase 2 extraction)
+
+2. **Class-balanced classifiers** — 19% MSI-H means unbalanced loss is hurting us:
+   - `LogisticRegression(class_weight='balanced')` in `argo_deepmsi/training.py`
+   - `SVC(class_weight='balanced', probability=True)`
+   - XGBoost with `scale_pos_weight = 649/154 ≈ 4.2`
+
+3. **Attention-MIL** — the right architecture for this problem:
+   - ABMIL (Ilse 2018) — simple attention aggregator
+   - CLAM (Lu 2021) — clustering-constrained attention
+   - TransMIL (Shao 2021) — transformer over tiles
+   - All trainable on the zarr-stored per-tile features; no more foundation-model forward passes needed.
+
+4. **Site-holdout CV** — the cohort spans LASUTH / OAUTHC / UITH / LUTH / retrospective_msk / retrospective_oau. Current `StratifiedGroupKFold(groups=patient_id)` mixes sites. A leave-one-site-out eval would reveal scanner-batch-effect robustness — useful for the paper.
+
+5. **Scanpy exploration on `embeddings.h5ad`** — UMAP/PHATE colored by `isMSIH`, `site`, `patient_id`. Quick sanity check that the embedding space has signal at all.
+
+6. **QC refactor** — LazySlide's `zs.tl.feature_extraction(model="grandqc-artifact")` dispatch is broken upstream. Rewrite `filter_slides_by_qc` against `zs.seg.artifact()` polygon output so we can finally prune bad tissue areas before training.
+
+### Autoresearch scope
+
+The right Phase 1e autoresearch loop:
+
+- **Search space:** aggregation method × classifier × class-weight strategy × feature-model subset.
+- **Fitness:** OOF AUROC under `StratifiedGroupKFold(groups=patient_id)` on the 803-slide cohort. Secondary: AUPRC (more robust under class imbalance), per-site held-out AUROC.
+- **Seed config:** the three Phase 1 mean-pool baselines.
+- **Expected winners:** PRISM/TITAN + class-balanced LR or XGBoost. Attention-MIL if the lift justifies wiring it in.
+
+Don't kick autoresearch until (a) PRISM/TITAN baselines are in, so we know the ceiling isn't capped by flat mean-pooling, and (b) a class-balanced LR baseline establishes the real floor.
+
+---
+
+## Phase 2 — Full sweep on a bigger cluster
+
+8 remaining foundation models on top of what Phase 1 produced. The existing zarrs are reused — extraction skips the 3 already-done models per slide and runs only the 8 new ones.
 
 ```bash
 python scripts/extract_dask.py \
     --slide-table results/data/slide_table_pyramidal.csv \
-    --models uni2 virchow2 conch_v1.5 \
-    --max-workers 3 \
-    --memory "256 GB"
-```
-
-~3× faster than 11 models. Each slide gets a zarr with 3 feature tables.
-
-### 1c. Aggregate
-
-```bash
-sbatch scripts/aggregate.sh
-```
-
-Auto-discovers which models have been extracted. Produces
-`results/embeddings/{model}_mean/` with npy + csv + h5ad.
-
-### 1d. Train
-
-```bash
-sbatch scripts/train.sh
-```
-
-Auto-discovers which embeddings exist. Produces
-`results/models/{embedding}/classifier_comparison.csv`.
-
-### 1e. Iterate (while extraction for Phase 2 is queued)
-
-With baseline numbers in hand:
-- Try different aggregation methods (max, median) on the same zarrs
-- Try neural aggregators: PRISM (on virchow2), TITAN (on conch_v1.5)
-- Add classifiers (XGBoost, attention MIL)
-- Fix QC: refactor `filter_slides_by_qc` to consume `zs.seg.artifact()` polygon output
-- Scanpy UMAP on the h5ad embeddings colored by MSI status + site
-- Spatial analysis on a few representative slides
-
----
-
-## Phase 2: Full sweep (MSK cluster, 10-20 GPUs)
-
-All foundation models. The 3 models from Phase 1 are already in every
-zarr — extraction skips them and only runs the new ones.
-
-### 2a. Extract remaining models
-
-```bash
-python scripts/extract_dask.py \
-    --slide-table results/data/slide_table_pyramidal.csv \
-    --models uni2 virchow2 conch_v1.5 \
-              h-optimus-1 gigapath hibou-b musk \
-              chief ctranspath phikonv2 plip \
+    --models h-optimus-1 gigapath hibou-b musk chief ctranspath phikonv2 plip \
     --max-workers 15 \
-    --partition <msk-gpu-partition> \
-    --memory "256 GB"
+    --partition <msk-gpu-partition>
 ```
 
-Incremental: only the 8 new models run. With 15 workers, ~1 day.
+Auto-discovery aggregate + train will pick up the new models automatically — no code edits.
 
-### 2b. Expand further
+### Candidate additions beyond the 11
 
-Add any new models by appending to `--models`. The zarr/aggregation/training
-pipeline is model-agnostic — no code changes needed.
-
-Candidates beyond the current 11:
 - `h-optimus-0`, `hibou-l` (larger variants)
 - `gpfm`, `path_orchestra`, `histoplus`, `rosie` (newer models)
 - `nulite`, `pathprofiler` (specialized)
 - Any future LazySlide-registered model
 
-### 2c. Aggregate + Train
+### Cluster portability
 
-Same commands as Phase 1 — the scripts auto-discover whatever models
-are present.
-
-```bash
-sbatch scripts/aggregate.sh
-sbatch scripts/train.sh
-```
+`scripts/extract_dask.py` is SLURM-specific but trivially swappable to cloud via `dask-cloudprovider` or `coiled`. Data movement for a cluster hop:
+- ~200 GB of SVS + pyramidal TIFFs
+- ~26 GB HF cache (gated foundation-model weights)
+- Set `HF_TOKEN` on target, point `HF_HOME` at the synced cache
 
 ---
 
-## QC (deferred — upstream LazySlide bug)
-
-`zs.tl.feature_extraction(wsi, model="grandqc-artifact")` is broken in
-the current LazySlide version (dispatcher passes `model_path` to a
-constructor that doesn't accept it).
-
-**Fix path:** refactor `filter_slides_by_qc` to use `zs.seg.artifact()`
-which produces polygon shapes instead of per-tile AnnData tables. The
-QC score becomes "fraction of tile area covered by artifact polygons"
-rather than a direct per-tile scalar.
-
-Do this during Phase 1e iteration — it doesn't block baseline results.
-
----
-
-## Architecture guarantee
+## Architecture guarantees
 
 The pipeline is plug-and-play because:
 1. **Zarr is the contract** — every model writes `{slide}.zarr/tables/{model}_tiles`

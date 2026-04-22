@@ -198,15 +198,36 @@ Full rationale + iterate-while-waiting list in `docs/remaining_tasks.md`.
 
 QC filtering (`grandqc`) is deferred — LazySlide's `zs.tl.feature_extraction(model="grandqc-artifact")` dispatch is broken upstream. Proper fix is to refactor `filter_slides_by_qc` against `zs.seg.artifact()` polygon output; done during Phase 1e.
 
-## Known Problem Slides
+## Known Error Modalities (empirical — 2026-04-22 cohort run)
 
-Non-pyramidal WSIs (n_levels=1) OOM during `zs.pp.find_tissues` because LazySlide's thumbnail fallback tries to load the full-resolution image into memory. Mitigated by `argo pyramidal` (see `argo_deepmsi/slide_prep.py`, run in-cluster via `sbatch scripts/pyramidal.sh`), which converts such slides to tiled pyramidal TIFFs via `libvips` (`conda install -c conda-forge libvips`) and writes a `*_pyramidal.csv` slide table pointing at the converted files. The original SVS is preserved alongside (`.pyramidal.tiff` sibling).
+Each mode below is something we hit on the 808-slide Nigerian cohort. Mitigations are landed; the residual failure rate from data-level issues is ~0.6% (5 / 808 slides).
 
-| Slide | Dimensions | Symptom | Status |
-|---|---|---|---|
-| `LASUTH/HP1353_21_1.svs` | 78048 × 75453, n_levels=1 | OOM during `zs.pp.find_tissues` at 128G and 256G | Handled by pyramidal conversion (2026-04-21). |
+### Slide-level failures
 
-**Why per-slide `try/except` doesn't rescue an OOM:** the process itself gets `Killed` by the OOM killer, so the exception handler in `extract_features_single_slide` never runs. The group-array path dies with the slide; the dask path isolates the failure to that worker but still loses the slide unless it's been converted to pyramidal first.
+| Modality | Symptom | Root cause | Mitigation | Residual impact |
+|---|---|---|---|---|
+| **Non-pyramidal WSI** | OOM inside `zs.pp.find_tissues` loading a huge thumbnail | `n_levels == 1` forces LazySlide to load the full-res image | `argo pyramidal` (`scripts/pyramidal.sh`) converts to tiled pyramidal TIFF via libvips | 13/808 converted; none failed after |
+| **MPP-less `generic-tiff`** | OOM during `tile_tissues` (not the thumbnail step — the tile-grid builder) | Source SVS has no MPP metadata; vips defaults output to 1000 μm/px → millions of bogus tiles | `argo pyramidal` now probes source MPP via openslide; if None or >100 μm/px, stamps `xres/yres` → 0.25 μm/px (40×) into the output TIFF | 12/808 slides were affected; all rescued |
+| **openslide can't parse SVS** | Driver logs `FAIL: "Cannot find reader 'fastslide' in registry."` — the reopen path tries the svs after initial open failed | Corrupt / format-outside-openslide SVS; nothing lazyslide can do | Pre-filter unreadable slides from the table (or accept per-slide failures in dask) | 4 slides: `H-503-23-A8, H82-23-11, H-503-23-A9, H800-23-B3` — permanently skipped |
+| **MPP upsampling refusal** | `FAIL: Requested mpp=0.5 is smaller than the slide mpp=0.526316. Up-sampling is not supported.` | LazySlide refuses to interpolate from coarser native MPP to finer target | Options: (a) let `tile_tissues` use native mpp for these edge cases, (b) drop the slide | 1 slide (`H-208-3-22`) |
+
+### System-level (memory / dask)
+
+- **Unbounded RSS creep across slides on a single worker** — glibc per-thread arenas hoard freed pages, pytorch CUDA allocator caches by default, zarr keeps block residuals. Symptom: worker RSS climbs to ~80% of whatever limit you give it (190 GiB at 256G cap, 286 GiB at 384G cap) and SLURM OOM-kills it.
+  - **Mitigations** (in `scripts/extract_dask.py`):
+    - `MALLOC_ARENA_MAX=2` in worker `job_script_prologue` — caps glibc arena count to prevent per-thread hoarding
+    - Three-layer cleanup between models: `gc.collect()` → `torch.cuda.empty_cache()` → `ctypes.CDLL("libc.so.6").malloc_trim(0)`
+    - `SLURMCluster(nanny=False)` — dask Worker is the SLURM job's main process (non-daemonic), so PyTorch DataLoader can fork children
+    - `worker_extra_args=["--memory-limit", "0"]` — disable dask's 80% watermark. RSS reported by the OS is inflated vs. live allocations; SLURM cgroup is the real backstop
+  - **Outcome:** 11.3h run with 3 workers, zero respawns, RSS held flat at 1-2 GiB per slide across 808 slides.
+
+- **DataLoader daemonic-fork error** — `daemonic processes are not allowed to have children`. Happens when `nanny=True` (default): the Worker is a daemonic child of the Nanny, and stdlib forbids daemonic processes from forking, which kills `num_workers > 0` DataLoaders. Mitigation: `nanny=False` (above).
+
+- **Partial zarr from mid-write OOM** — if a worker dies while writing a `{model}_tiles` table, the next worker's incremental check (just "does the dir exist?") would erroneously skip the partial write. Not observed after the MPP fix landed, but a size-sanity check on the table before skipping would make the pipeline more robust under failure. Not a priority while OOMs aren't happening.
+
+### Why per-slide `try/except` doesn't rescue OOMs
+
+The Python process itself gets `Killed` by the OOM killer, so the exception handler in `_process_slide` never runs. With `nanny=False`, the SLURM job also ends — dask `adapt()` requests a new SLURM slot to replace it, paying full model-load cost on the replacement. Pre-filter known-bad slides out of the slide table to avoid this entirely.
 
 ## Testing
 
