@@ -16,12 +16,18 @@ has 48). Two distinct Wagner regimes emerge on OAUTHC:
   don't gain commensurately (P_0152: 17 slides, ALL < 0.5 Wagner P;
   cmo_score 30.33). Max-ranking inverts under bag-size inflation.
 
-Implication: every deterministic aggregator (mean / max / median / p75
-/ top3-mean) fails in at least one regime. Elevates **Step 4 (ABMIL
-with TCGA pre-training)** from "plausible path to 0.80+" to the only
-remaining intervention that makes mechanistic sense — ABMIL's learned
-attention is precisely what's needed to down-weight saturated-but-
-uninformative slides.
+Follow-up C4b (`scripts/calibrated_aggregation.py`): bag-size-
+calibrated max operators rescue most of the failure. `max_over_sqrtn`
+and `max_pct_under_MSS` lift overall Wagner AUROC from 0.659 → 0.717
+and OAUTHC from 0.451 → 0.616 with zero training. On OAUTHC 4–6
+slides they hit perfect **AUROC = 1.000** on 11 patients. On the 7+
+cohort, no aggregator helps — the signal simply isn't in Wagner's
+slide-level outputs for those patients (P_0152: 17 slides, ALL < 0.5).
+
+So Step 4 (ABMIL + TCGA pre-training) narrows to its real target: the
+7+-slide OAUTHC patients where per-slide representation is the bottle-
+neck. Aggregation, separately, is effectively solved for everything
+else by the calibrated max operators.
 
 UMAP panels saved for all 6 raw embeddings
 (`results/analysis/umap_embeddings/`) with 6 coloured facets each:
