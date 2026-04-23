@@ -631,3 +631,79 @@ each patient's bag, and (3) multi-model fusion across pathology
 foundation models. This pipeline recovers clinical-grade performance
 (AUROC X.XX) without requiring large labeled training sets, using only
 217 Nigerian CRC patients for fine-tuning."
+
+
+---
+
+## Phase 2 Implementation (2026-04-23) — SlideAttentionMSI
+
+### Script: `scripts/c5_phase2_slide_attention.py`
+
+Implements the learned slide attention model specified above. Key design
+decisions:
+
+**Architecture:** Two-head design — separate attention gate and classification
+head, both with hidden_dim=64. The gate learns WHICH slides to attend to;
+the head learns WHAT the attended representation predicts. This separation
+prevents the attention from collapsing to uniform weights.
+
+**Feature sets (ablation):**
+
+| Config | Features | Dim | Purpose |
+|---|---|---|---|
+| `wagner_only` | Wagner P(MSI-H) | 1 | Can attention alone rescue? |
+| `emb_only` | Foundation model embedding | 768-2560 | Pure embedding signal |
+| `wagner+meta` | Wagner P + log(n_tiles) | 2 | Minimal informative features |
+| `emb+meta` | Embedding + log(n_tiles) | 769-2561 | Embedding + size proxy |
+| `wagner+emb` | Wagner P + embedding | 769-2561 | Full signal, no metadata |
+| `all` | Wagner P + embedding + log(n_tiles) | 770-2562 | Kitchen sink |
+
+Crossed with 4 foundation models: conch_v1.5_mean, virchow2_mean,
+uni2_mean, ctranspath_mean → 24 configurations total (minus redundant
+embedding-free repeats = 18 configs).
+
+**Training:**
+- 5-fold StratifiedKFold on 217 patients (patient-level, no leakage)
+- BCE loss with pos_weight=4.26 (19% MSI-H prevalence)
+- Adam(lr=1e-3, weight_decay=1e-2)
+- Early stopping: patience=20 on validation AUROC
+- Per-patient batch size (standard MIL — variable bag size)
+- ~5K parameters per model
+
+**Baselines included:**
+- Wagner mean pooling (AUROC 0.659) — zero parameters
+- Wagner max/√n calibrated (AUROC 0.717) — zero parameters
+
+**Outputs:**
+- `ablation_results.csv` — full results table with per-site and per-bin AUROC
+- `ablation_heatmap.png` — visual comparison
+- `attention_weights.csv` — per-slide attention weights from best model
+- `oof_predictions.csv` — out-of-fold patient predictions
+
+### Key questions this answers:
+
+1. **Can learned attention beat calibrated max?** (0.717 is the bar)
+2. **Does the foundation embedding add signal beyond Wagner?**
+   (wagner_only vs wagner+emb)
+3. **Which foundation model's embedding is most useful for attention?**
+4. **Does the 7+ slide OAUTHC cohort recover?** (per_bin AUROC)
+5. **Is the model learning real biology or site artifacts?**
+   (per_site AUROC breakdown)
+
+### What "success" looks like:
+
+- Overall AUROC > 0.72 (beating calibrated max)
+- OAUTHC 7+ bin AUROC > 0.50 (above chance — currently 0.25-0.375)
+- Attention weights correlate with Wagner P on non-OAUTHC patients
+  (model agrees with Wagner where Wagner works)
+- Attention weights DIVERGE from Wagner P on OAUTHC
+  (model learns something Wagner can't see)
+
+### If it doesn't work:
+
+The 41 MSI-H patients may be insufficient to learn slide selection.
+Next steps would be:
+1. TCGA pre-training → Nigerian fine-tuning (Step 4 in runbook)
+2. Tile-level ABMIL instead of slide-level attention
+3. Accept the limitation and report the negative result as part of
+   the "first West African MSI validation" contribution
