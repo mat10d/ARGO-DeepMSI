@@ -29,6 +29,8 @@ logs/
 # Exclude bulk thumbnail dumps — keep the manifest, drop the PNGs
 results/analysis/**/thumbnails/**/*.png
 results/analysis/**/thumbnails/**/*.jpg
+# Feature caches (reproducible from extraction scripts, too large for git)
+results/analysis/**/*.npz
 
 # ============================================
 # Cache & Temporary Files

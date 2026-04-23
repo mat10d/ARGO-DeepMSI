@@ -1,0 +1,3 @@
+cluster,n_slides,n_patients,is_outlier,mean_centroid_dist,mean_wagner_p,median_n_tiles,msih_prevalence,top_site,top_site_pct
+0,783,213,False,2.959852346393585,0.43765751660193675,3683.0,0.19540229885057472,OAUTHC,0.596
+1,20,11,False,9.84954692144328,0.3538770921528339,4317.0,0.05,OAUTHC,0.45

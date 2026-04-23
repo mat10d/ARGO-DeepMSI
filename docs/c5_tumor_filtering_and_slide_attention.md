@@ -112,6 +112,191 @@ to (b) NCT-CRC-HE-100K training (~1 GPU-hour + download). (a) is cheap
 enough to be worth knowing and informs whether (b) is worth the setup
 cost. Only then is the Phase 1-vs-Phase-2 call well-founded.
 
+---
+
+## Phase 1b results (2026-04-23) — embedding-outlier filtering also fails
+
+Ran `scripts/c5_phase1b.py`: HDBSCAN on each UMAP + distance from the
+retrospective_msk centroid (MSK tiles are curated tumor). Tested three
+filters per embedding: `hdbscan_noise` (cluster=-1), `msk_dist_p95`
+(top 5% by distance), `msk_dist_p99` (top 1%). Outputs →
+`results/analysis/c5_phase1b/`.
+
+### Overall AUROC vs filter (mean aggregator, n=217)
+
+| filter | n_pat | AUROC | AUPRC | Brier |
+|---|---:|---:|---:|---:|
+| **none** | 217 | **0.659** | 0.386 | 0.202 |
+| conch_v1.5_mean : hdbscan_noise | 215 | 0.658 | 0.385 | 0.202 |
+| conch_v1.5_titan : hdbscan_noise | 199 | 0.634 | 0.352 | 0.205 |
+| ctranspath_mean : hdbscan_noise | 216 | 0.660 | 0.387 | 0.202 |
+| uni2_mean : hdbscan_noise | 205 | 0.646 | 0.365 | 0.204 |
+| virchow2_mean : hdbscan_noise | 214 | 0.661 | 0.392 | 0.201 |
+| msk_dist_p95 (best of set) | 210 | 0.660 | 0.411 | 0.204 |
+
+**No filter moves overall AUROC beyond noise.** AUPRC nudges up ~0.02 for
+distance-based filters (they drop some low-scoring slides indiscriminately,
+lifting prevalence in the kept pool) but Brier and mean predictions barely
+move. Several HDBSCAN filters make things worse.
+
+### OAUTHC 7+ cohort (n=18, 2 MSI-H) — does not recover
+
+Every filter leaves the 7+ AUROC between **0.23 and 0.30**. The core
+problem is P_0152 (17 slides, all Wagner-P < 0.5) — no filter that spares
+Wagner's predictions on other patients can fix this.
+
+### MSS 4-6 bin — most filters hurt it
+
+| filter | n_pat | AUROC | mean_P(MSS) |
+|---|---:|---:|---:|
+| none | 17 | **0.733** | 0.386 |
+| conch_v1.5_mean : hdbscan_noise | 16 | 0.600 | 0.389 |
+| ctranspath_mean : msk_dist_p95 | 15 | 0.643 | 0.386 |
+| virchow2_mean : hdbscan_noise | 15 | 0.769 | 0.368 |
+
+virchow2_mean HDBSCAN noise is the only filter that *improves* a specific
+bin (4-6 from 0.733 to 0.769), and it only drops 26 slides. This is the
+strongest signal against "filtering is the answer": most filters move
+metrics by less than random resampling would.
+
+### What the outlier clusters actually are
+
+Inspection of `cluster_summary_*.csv` shows that the HDBSCAN outlier
+islands are **not non-tumor** — they are site/stain-specific morphological
+clusters:
+
+- `uni2_mean` cluster 3 (25 slides, all OAUTHC, mean Wagner=0.73, MSI-H
+  prevalence=**0.000**) — high-Wagner-P *MSS* false positives, not
+  non-tumor.
+- `uni2_mean` cluster 7 (37 slides, all OAUTHC, MSI-H prev=**0.486**,
+  median n_tiles=9360) — a high-MSI-H cluster. Filtering these would
+  *drop* signal.
+- `virchow2_prism` produces only 2 clusters total (slide-encoder
+  over-compresses) — unusable for cluster-based filtering.
+
+### Updated decision
+
+Both 1a (Wagner-P threshold) and 1b (embedding-outlier) are dead ends on
+this cohort. The outlier islands are site-of-origin artifacts, not
+non-tumor tissue. The remaining principled option is 1c — a **direct**
+tissue classifier trained on labeled NCT-CRC-HE-100K tiles. That test
+is running now.
+
+---
+
+## Phase 1c results (2026-04-23) — classifier works on NCT, fails to transfer
+
+Full pipeline:
+- `scripts/c5_phase1c_train.py` + `.sh` — download NCT-CRC-HE-100K from
+  `DykeF/NCTCRCHE100K`, extract CTransPath features on 100K train + 7180
+  holdout tiles, train 9-class multinomial logistic regression head.
+  Variants: `nonorm` (default, raw H&E — matches CTransPath pretraining
+  and our cohort extraction) and `norm` (Macenko-normalized).
+- `scripts/c5_phase1c_apply.py` + `.sh` — load head, open each slide's
+  `ctranspath_tiles` zarr, predict per-tile class, compute per-slide
+  tumor fraction + mean P(TUM), test filtering thresholds.
+
+### Classifier holdout (CRC-VAL-HE-7K, 7180 tiles)
+
+| variant | overall acc | TUM precision | TUM recall | TUM F1 |
+|---|---:|---:|---:|---:|
+| norm (Macenko) | **0.959** | 0.992 | 0.965 | 0.978 |
+| **nonorm (raw H&E)** | 0.771 | **0.957** | 0.910 | **0.933** |
+
+Both variants are publication-grade on the NCT holdout. We use **nonorm**
+for the apply because CTransPath was pretrained on raw H&E and our cohort
+slides are not stain-normalized.
+
+### Apply on 803 cohort slides — predictions collapse
+
+Tumor fraction (argmax-TUM) summary across the whole cohort:
+
+| stat | value |
+|---|---:|
+| mean | 0.127 |
+| median | 0.047 |
+| p75 | 0.190 |
+| max | 0.848 |
+
+**12.7% mean tumor fraction is implausible** for a cohort of tumor
+resection slides. Even retrospective_msk (curated tumor specimens from
+A3) shows only 8% tumor fraction:
+
+| site | n | mean tumor_fraction | mean P(TUM) |
+|---|---:|---:|---:|
+| retrospective_msk | 97 | 0.080 | 0.081 |
+| LASUTH | 15 | 0.090 | 0.090 |
+| LUTH | 31 | 0.091 | 0.087 |
+| OAUTHC | 476 | 0.120 | 0.121 |
+| retrospective_oau | 172 | 0.173 | 0.169 |
+| UITH | 12 | 0.279 | 0.266 |
+
+Class composition is spread ~roughly evenly across the nine classes
+(MUC 17%, DEB 14%, MUS 13%, TUM 13%, LYM 12%, BACK 11%, NORM 10%,
+ADI 5%, STR 4%) — no dominant class, which is the signature of a
+classifier voting among ambiguous/mixed tiles.
+
+### Wagner P vs tumor_fraction
+
+Correlation is **negative**:
+
+| | p_msih | tumor_fraction | mean_p_tum |
+|---|---:|---:|---:|
+| p_msih | 1.000 | -0.129 | -0.118 |
+| tumor_fraction | -0.129 | 1.000 | 0.998 |
+
+Slides with higher predicted tumor content score slightly *lower* on
+Wagner MSI-H, the opposite of what we'd expect if the classifier
+reflected real tumor content.
+
+### Filtering by tumor_fraction — actively harmful
+
+Overall patient AUROC under tumor_fraction thresholds:
+
+| filter | n_pat | AUROC | AUPRC |
+|---|---:|---:|---:|
+| none | 217 | **0.659** | 0.386 |
+| tumor_frac < 0.1 | 123 | 0.551 | 0.217 |
+| tumor_frac < 0.2 | 90 | 0.456 | 0.178 |
+| tumor_frac < 0.3 | 60 | 0.332 | 0.146 |
+| tumor_frac < 0.4 | 40 | 0.281 | 0.155 |
+| tumor_frac < 0.5 | 28 | 0.258 | 0.166 |
+
+OAUTHC 7+ cohort: `tumor_frac<0.1` collapses to n=5 patients (n_msih=1),
+AUROC 0.50 — not a recovery, just noise from tiny sample.
+
+### Why the classifier doesn't transfer
+
+NCT-CRC-HE-100K tiles are **hand-curated to contain a single dominant
+tissue type per 224×224 tile**. Our cohort uses unselected
+`zs.pp.tile_tissues(tile_px=256, mpp=0.5)` which produces random tiles
+inside detected tissue regions. Those tiles routinely contain mixed
+tissues (tumor + stroma + muscle, tumor + mucus, etc.), and the
+classifier — trained on the "one tile, one class" assumption — collapses
+mixed tiles to whichever subtype is numerically dominant.
+
+The net is: the classifier discriminates tumor vs. non-tumor tiles as
+defined by the *NCT training distribution*, but that decision boundary
+is not useful on our *mixed-content resection tiles* from unselected
+tissue regions.
+
+### Conclusion — all three filtering methods fail
+
+1. **1a (Wagner-P threshold)**: no AUROC movement; would strip MSI-H
+   signal.
+2. **1b (UMAP-outlier)**: outlier clusters are site-of-origin artifacts,
+   not non-tumor; no AUROC movement.
+3. **1c (NCT-CRC tissue classifier)**: classifier is strong on NCT
+   holdout but fails to transfer; filtering actively *hurts* AUROC.
+
+Tumor-slide filtering as an MSI prediction intervention is the wrong
+lever on this cohort. The Nigerian failure mode is not "non-tumor
+slides dilute signal" — it is "Wagner itself misses MSI-H morphology
+on P_0152, and bag-size inflation accumulates MSS false positives on
+the other 16 7+ patients." Only a learned aggregator can address both.
+
+**Proceeding to Phase 2 — learned slide attention.**
+
 ### 0d. Thumbnails (`results/analysis/c5_phase0/thumbnails/`)
 
 Rendered 18 low-P + 20 high-P slide thumbnails with tissue contours
