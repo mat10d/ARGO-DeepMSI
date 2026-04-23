@@ -98,6 +98,19 @@ def create_clinical_table(redcap_data: pd.DataFrame) -> Tuple[pd.DataFrame, dict
         (redcap_data["batch_number"] == "1") | (redcap_data["batch_number"] == "2")
     ].copy()
 
+    # Optional quantitative / methodological fields that downstream analyses
+    # benefit from (cmo_msi_score is MSIsensor-style %, populated for the
+    # prospective CMO-molecular arm only; IHC protein calls are populated for
+    # retrospective MMR-IHC records). Retained verbatim where present.
+    extra_fields = [
+        "cmo_msi_score", "msi_method", "sample_type",
+        "mlh1", "msh2", "msh6", "pms2",
+        "tissue_processing_site", "slide_staining_site", "slide_imaging_site",
+    ]
+
+    def _carry_extras(df_in):
+        return df_in[[c for c in extra_fields if c in df_in.columns]].copy()
+
     # Process prospective data (uses cmo_msi_status field)
     if not prospective_data.empty:
         prospective_msi = prospective_data[
@@ -113,6 +126,11 @@ def create_clinical_table(redcap_data: pd.DataFrame) -> Tuple[pd.DataFrame, dict
         )
         prospective_msi["crc_redcap_number"] = None  # No CRC number for prospective
         prospective_msi["true_patient_id"] = prospective_msi["record_id"]  # For grouping
+        prospective_msi = prospective_msi.reset_index(drop=True)
+        prospective_msi = pd.concat(
+            [prospective_msi, _carry_extras(prospective_data).reset_index(drop=True)],
+            axis=1,
+        )
         all_records.append(prospective_msi)
         logger.info(f"Processed {len(prospective_msi)} prospective patients")
 
@@ -137,7 +155,13 @@ def create_clinical_table(redcap_data: pd.DataFrame) -> Tuple[pd.DataFrame, dict
         retrospective_msi["isMSIH"] = retrospective_msi["msi_status_mmr"].map(
             {"1": "MSI-H", "2": "MSS"}
         )
+        retrospective_msi["cmo_msi_status"] = None  # Not applicable to retro arm
         retrospective_msi["true_patient_id"] = retrospective_msi["crc_redcap_number"]
+        retrospective_msi = retrospective_msi.reset_index(drop=True)
+        retrospective_msi = pd.concat(
+            [retrospective_msi, _carry_extras(retrospective_data).reset_index(drop=True)],
+            axis=1,
+        )
         all_records.append(retrospective_msi)
         logger.info(f"Processed {len(retrospective_msi)} retrospective records")
 
@@ -171,17 +195,25 @@ def create_clinical_table(redcap_data: pd.DataFrame) -> Tuple[pd.DataFrame, dict
         for record_id in row["all_record_ids"]:
             record_id_mapping[str(record_id)] = patient_id
 
-    # Select final columns
-    clinical_table = clinical_table[
-        [
-            "PATIENT",
-            "record_id",
-            "crc_redcap_number",
-            "isMSIH",
-            "batch_number",
-            "redcap_data_access_group",
-        ]
-    ].copy()
+    # Select final columns. Core columns first so existing consumers
+    # (clinical_table[["PATIENT","isMSIH"]].merge(…)) keep working; optional
+    # quantitative / methodological fields append after and are NaN where
+    # the record's assay arm doesn't populate them.
+    core_cols = [
+        "PATIENT",
+        "record_id",
+        "crc_redcap_number",
+        "isMSIH",
+        "batch_number",
+        "redcap_data_access_group",
+    ]
+    optional_cols = [
+        "cmo_msi_status", "cmo_msi_score", "msi_method", "msi_status_mmr",
+        "mlh1", "msh2", "msh6", "pms2", "sample_type",
+        "tissue_processing_site", "slide_staining_site", "slide_imaging_site",
+    ]
+    present_optional = [c for c in optional_cols if c in clinical_table.columns]
+    clinical_table = clinical_table[core_cols + present_optional].copy()
 
     # Ensure string types
     clinical_table["PATIENT"] = clinical_table["PATIENT"].astype(str)

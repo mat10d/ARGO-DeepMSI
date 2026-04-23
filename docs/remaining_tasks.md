@@ -4,6 +4,22 @@
 
 **Phase 1 baseline:** DONE. 803/808 slides, 217 patients, 19% MSI-H.
 **Phase 1e analysis sweep:** DONE. A1–A3 domain shift, B1 Tier 1 grid.
+**Step 1b (MSIsensor correlation) + Step 3c (continuous regression):**
+DONE 2026-04-22 — see `docs/c3_msiscore_regression.md`. `cmo_msi_score`
+is persisted in `clinical_table.csv` via widened `create_clinical_table`;
+123 of our 217 patients have a numeric score (prospective arm only).
+
+- Wagner patient-level Pearson vs `cmo_msi_score` = 0.166 pooled, but
+  per-site: **LASUTH +0.59 / LUTH +0.46 / UITH +0.48 / OAUTHC −0.04**.
+  OAUTHC prospective contributes 66% of patients and ~zero correlation;
+  the other three sites look like ordinary zero-shot behaviour.
+- Wagner cannot separate Indeterminate from Stable (mean P 0.36 vs 0.39).
+  The MSS-bias from 1c is specifically against the upper-Indeterminate
+  and Instable cases on OAUTHC prospective.
+- Ridge regression from scratch on our embeddings → null result across
+  all 6 embeddings × 2 regimes (|ρ|<0.22, AUROC@10 below chance on
+  LOSO). Not a classifier-tuning problem; a data-and-capacity problem.
+
 **Step 2d + 2e (fusion + few-shot):** DONE 2026-04-22 — see
 `docs/c2_fusion.md`. Stacking meta-LR on base-model OOF probs is the
 first strategy to give a meaningful LOSO lift: **AUROC 0.522 → 0.580**
