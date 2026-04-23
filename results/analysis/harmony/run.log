@@ -1,0 +1,274 @@
+
+=== conch_v1.5_mean ===
+  harmony → conch_v1.5_mean_harmony
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+  PCA 768 → 50  (explained var 0.993)
+  running Harmony on (803, 50) over 6 sites…
+2026-04-22 19:01:56,094 - harmonypy - INFO - Running Harmony (PyTorch on cpu)
+2026-04-22 19:01:56,094 - harmonypy - INFO -   Parameters:
+2026-04-22 19:01:56,094 - harmonypy - INFO -     max_iter_harmony: 20
+2026-04-22 19:01:56,094 - harmonypy - INFO -     max_iter_kmeans: 20
+2026-04-22 19:01:56,094 - harmonypy - INFO -     epsilon_cluster: 1e-05
+2026-04-22 19:01:56,094 - harmonypy - INFO -     epsilon_harmony: 0.0001
+2026-04-22 19:01:56,094 - harmonypy - INFO -     nclust: 27
+2026-04-22 19:01:56,094 - harmonypy - INFO -     block_size: 0.05
+2026-04-22 19:01:56,094 - harmonypy - INFO -     lamb: [1. 1. 1. 1. 1. 1.]
+2026-04-22 19:01:56,095 - harmonypy - INFO -     theta: [2. 2. 2. 2. 2. 2.]
+2026-04-22 19:01:56,095 - harmonypy - INFO -     sigma: [0.1 0.1 0.1 0.1 0.1]...
+2026-04-22 19:01:56,095 - harmonypy - INFO -     verbose: True
+2026-04-22 19:01:56,095 - harmonypy - INFO -     random_state: 0
+2026-04-22 19:01:56,095 - harmonypy - INFO -   Data: 50 PCs × 803 cells
+2026-04-22 19:01:56,095 - harmonypy - INFO -   Batch variables: ['SITE']
+2026-04-22 19:01:56,139 - harmonypy - INFO - Computing initial centroids with sklearn.KMeans...
+2026-04-22 19:01:56,505 - harmonypy - INFO - KMeans initialization complete.
+2026-04-22 19:01:56,511 - harmonypy - INFO - Iteration 1 of 20
+2026-04-22 19:01:56,940 - harmonypy - INFO - Iteration 2 of 20
+2026-04-22 19:01:57,429 - harmonypy - INFO - Iteration 3 of 20
+2026-04-22 19:01:57,829 - harmonypy - INFO - Iteration 4 of 20
+2026-04-22 19:01:58,147 - harmonypy - INFO - Iteration 5 of 20
+2026-04-22 19:01:58,543 - harmonypy - INFO - Iteration 6 of 20
+2026-04-22 19:01:58,825 - harmonypy - INFO - Iteration 7 of 20
+2026-04-22 19:01:59,042 - harmonypy - INFO - Iteration 8 of 20
+2026-04-22 19:01:59,334 - harmonypy - INFO - Converged after 8 iterations
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+             site      raw  harmony         Δ
+           LASUTH 0.500000 0.527778  0.027778
+             LUTH 0.212963 0.472222  0.259259
+           OAUTHC 0.533186 0.551550  0.018364
+             UITH 0.250000 0.305556  0.055556
+retrospective_msk 0.540039 0.463311 -0.076728
+retrospective_oau 0.571354 0.507550 -0.063804
+
+=== conch_v1.5_titan ===
+  harmony → conch_v1.5_titan_harmony
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+  PCA 768 → 50  (explained var 0.937)
+  running Harmony on (802, 50) over 6 sites…
+2026-04-22 19:04:08,037 - harmonypy - INFO - Running Harmony (PyTorch on cpu)
+2026-04-22 19:04:08,037 - harmonypy - INFO -   Parameters:
+2026-04-22 19:04:08,037 - harmonypy - INFO -     max_iter_harmony: 20
+2026-04-22 19:04:08,037 - harmonypy - INFO -     max_iter_kmeans: 20
+2026-04-22 19:04:08,037 - harmonypy - INFO -     epsilon_cluster: 1e-05
+2026-04-22 19:04:08,037 - harmonypy - INFO -     epsilon_harmony: 0.0001
+2026-04-22 19:04:08,037 - harmonypy - INFO -     nclust: 27
+2026-04-22 19:04:08,037 - harmonypy - INFO -     block_size: 0.05
+2026-04-22 19:04:08,038 - harmonypy - INFO -     lamb: [1. 1. 1. 1. 1. 1.]
+2026-04-22 19:04:08,038 - harmonypy - INFO -     theta: [2. 2. 2. 2. 2. 2.]
+2026-04-22 19:04:08,038 - harmonypy - INFO -     sigma: [0.1 0.1 0.1 0.1 0.1]...
+2026-04-22 19:04:08,038 - harmonypy - INFO -     verbose: True
+2026-04-22 19:04:08,038 - harmonypy - INFO -     random_state: 0
+2026-04-22 19:04:08,038 - harmonypy - INFO -   Data: 50 PCs × 802 cells
+2026-04-22 19:04:08,038 - harmonypy - INFO -   Batch variables: ['SITE']
+2026-04-22 19:04:08,047 - harmonypy - INFO - Computing initial centroids with sklearn.KMeans...
+2026-04-22 19:04:08,073 - harmonypy - INFO - KMeans initialization complete.
+2026-04-22 19:04:08,142 - harmonypy - INFO - Iteration 1 of 20
+2026-04-22 19:04:09,038 - harmonypy - INFO - Iteration 2 of 20
+2026-04-22 19:04:09,628 - harmonypy - INFO - Iteration 3 of 20
+2026-04-22 19:04:09,934 - harmonypy - INFO - Iteration 4 of 20
+2026-04-22 19:04:10,333 - harmonypy - INFO - Iteration 5 of 20
+2026-04-22 19:04:10,736 - harmonypy - INFO - Iteration 6 of 20
+2026-04-22 19:04:11,047 - harmonypy - INFO - Iteration 7 of 20
+2026-04-22 19:04:11,440 - harmonypy - INFO - Iteration 8 of 20
+2026-04-22 19:04:11,733 - harmonypy - INFO - Iteration 9 of 20
+2026-04-22 19:04:12,128 - harmonypy - INFO - Converged after 9 iterations
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+             site      raw  harmony        Δ
+           LASUTH 0.638889 0.666667 0.027778
+             LUTH 0.416667 0.518519 0.101852
+           OAUTHC 0.489919 0.526524 0.036606
+             UITH 0.166667 0.361111 0.194444
+retrospective_msk 0.474587 0.610312 0.135725
+retrospective_oau 0.513922 0.613337 0.099415
+
+=== ctranspath_mean ===
+  harmony → ctranspath_mean_harmony
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+  PCA 768 → 50  (explained var 0.931)
+  running Harmony on (803, 50) over 6 sites…
+2026-04-22 19:06:19,130 - harmonypy - INFO - Running Harmony (PyTorch on cpu)
+2026-04-22 19:06:19,130 - harmonypy - INFO -   Parameters:
+2026-04-22 19:06:19,130 - harmonypy - INFO -     max_iter_harmony: 20
+2026-04-22 19:06:19,130 - harmonypy - INFO -     max_iter_kmeans: 20
+2026-04-22 19:06:19,130 - harmonypy - INFO -     epsilon_cluster: 1e-05
+2026-04-22 19:06:19,130 - harmonypy - INFO -     epsilon_harmony: 0.0001
+2026-04-22 19:06:19,130 - harmonypy - INFO -     nclust: 27
+2026-04-22 19:06:19,130 - harmonypy - INFO -     block_size: 0.05
+2026-04-22 19:06:19,131 - harmonypy - INFO -     lamb: [1. 1. 1. 1. 1. 1.]
+2026-04-22 19:06:19,131 - harmonypy - INFO -     theta: [2. 2. 2. 2. 2. 2.]
+2026-04-22 19:06:19,131 - harmonypy - INFO -     sigma: [0.1 0.1 0.1 0.1 0.1]...
+2026-04-22 19:06:19,131 - harmonypy - INFO -     verbose: True
+2026-04-22 19:06:19,131 - harmonypy - INFO -     random_state: 0
+2026-04-22 19:06:19,131 - harmonypy - INFO -   Data: 50 PCs × 803 cells
+2026-04-22 19:06:19,131 - harmonypy - INFO -   Batch variables: ['SITE']
+2026-04-22 19:06:19,158 - harmonypy - INFO - Computing initial centroids with sklearn.KMeans...
+2026-04-22 19:06:19,241 - harmonypy - INFO - KMeans initialization complete.
+2026-04-22 19:06:19,243 - harmonypy - INFO - Iteration 1 of 20
+2026-04-22 19:06:19,646 - harmonypy - INFO - Iteration 2 of 20
+2026-04-22 19:06:20,131 - harmonypy - INFO - Iteration 3 of 20
+2026-04-22 19:06:20,551 - harmonypy - INFO - Iteration 4 of 20
+2026-04-22 19:06:21,044 - harmonypy - INFO - Iteration 5 of 20
+2026-04-22 19:06:21,529 - harmonypy - INFO - Iteration 6 of 20
+2026-04-22 19:06:21,743 - harmonypy - INFO - Iteration 7 of 20
+2026-04-22 19:06:22,046 - harmonypy - INFO - Iteration 8 of 20
+2026-04-22 19:06:22,325 - harmonypy - INFO - Converged after 8 iterations
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+             site      raw  harmony         Δ
+           LASUTH 0.250000 0.166667 -0.083333
+             LUTH 0.370370 0.305556 -0.064815
+           OAUTHC 0.329072 0.262270 -0.066802
+             UITH 0.416667 0.305556 -0.111111
+retrospective_msk 0.408073 0.434466  0.026393
+retrospective_oau 0.477699 0.461814 -0.015885
+
+=== uni2_mean ===
+  harmony → uni2_mean_harmony
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+  PCA 1536 → 50  (explained var 0.837)
+  running Harmony on (803, 50) over 6 sites…
+2026-04-22 19:09:41,938 - harmonypy - INFO - Running Harmony (PyTorch on cpu)
+2026-04-22 19:09:41,939 - harmonypy - INFO -   Parameters:
+2026-04-22 19:09:41,939 - harmonypy - INFO -     max_iter_harmony: 20
+2026-04-22 19:09:41,939 - harmonypy - INFO -     max_iter_kmeans: 20
+2026-04-22 19:09:41,939 - harmonypy - INFO -     epsilon_cluster: 1e-05
+2026-04-22 19:09:41,939 - harmonypy - INFO -     epsilon_harmony: 0.0001
+2026-04-22 19:09:41,939 - harmonypy - INFO -     nclust: 27
+2026-04-22 19:09:41,939 - harmonypy - INFO -     block_size: 0.05
+2026-04-22 19:09:41,939 - harmonypy - INFO -     lamb: [1. 1. 1. 1. 1. 1.]
+2026-04-22 19:09:41,940 - harmonypy - INFO -     theta: [2. 2. 2. 2. 2. 2.]
+2026-04-22 19:09:41,940 - harmonypy - INFO -     sigma: [0.1 0.1 0.1 0.1 0.1]...
+2026-04-22 19:09:41,940 - harmonypy - INFO -     verbose: True
+2026-04-22 19:09:41,940 - harmonypy - INFO -     random_state: 0
+2026-04-22 19:09:41,940 - harmonypy - INFO -   Data: 50 PCs × 803 cells
+2026-04-22 19:09:41,940 - harmonypy - INFO -   Batch variables: ['SITE']
+2026-04-22 19:09:41,958 - harmonypy - INFO - Computing initial centroids with sklearn.KMeans...
+2026-04-22 19:09:42,035 - harmonypy - INFO - KMeans initialization complete.
+2026-04-22 19:09:42,125 - harmonypy - INFO - Iteration 1 of 20
+2026-04-22 19:09:42,631 - harmonypy - INFO - Iteration 2 of 20
+2026-04-22 19:09:43,138 - harmonypy - INFO - Iteration 3 of 20
+2026-04-22 19:09:43,639 - harmonypy - INFO - Iteration 4 of 20
+2026-04-22 19:09:44,142 - harmonypy - INFO - Iteration 5 of 20
+2026-04-22 19:09:44,526 - harmonypy - INFO - Iteration 6 of 20
+2026-04-22 19:09:45,049 - harmonypy - INFO - Iteration 7 of 20
+2026-04-22 19:09:45,336 - harmonypy - INFO - Iteration 8 of 20
+2026-04-22 19:09:45,729 - harmonypy - INFO - Converged after 8 iterations
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+             site      raw  harmony         Δ
+           LASUTH 0.333333 0.166667 -0.166667
+             LUTH 0.527778 0.574074  0.046296
+           OAUTHC 0.345443 0.306508 -0.038934
+             UITH 0.750000 0.444444 -0.305556
+retrospective_msk 0.437490 0.474097  0.036607
+retrospective_oau 0.442262 0.504233  0.061971
+
+=== virchow2_mean ===
+  harmony → virchow2_mean_harmony
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+  PCA 2560 → 50  (explained var 0.868)
+  running Harmony on (803, 50) over 6 sites…
+2026-04-22 19:13:40,941 - harmonypy - INFO - Running Harmony (PyTorch on cpu)
+2026-04-22 19:13:40,941 - harmonypy - INFO -   Parameters:
+2026-04-22 19:13:40,941 - harmonypy - INFO -     max_iter_harmony: 20
+2026-04-22 19:13:40,941 - harmonypy - INFO -     max_iter_kmeans: 20
+2026-04-22 19:13:40,941 - harmonypy - INFO -     epsilon_cluster: 1e-05
+2026-04-22 19:13:40,941 - harmonypy - INFO -     epsilon_harmony: 0.0001
+2026-04-22 19:13:40,941 - harmonypy - INFO -     nclust: 27
+2026-04-22 19:13:40,941 - harmonypy - INFO -     block_size: 0.05
+2026-04-22 19:13:40,941 - harmonypy - INFO -     lamb: [1. 1. 1. 1. 1. 1.]
+2026-04-22 19:13:40,942 - harmonypy - INFO -     theta: [2. 2. 2. 2. 2. 2.]
+2026-04-22 19:13:40,942 - harmonypy - INFO -     sigma: [0.1 0.1 0.1 0.1 0.1]...
+2026-04-22 19:13:40,942 - harmonypy - INFO -     verbose: True
+2026-04-22 19:13:40,942 - harmonypy - INFO -     random_state: 0
+2026-04-22 19:13:40,942 - harmonypy - INFO -   Data: 50 PCs × 803 cells
+2026-04-22 19:13:40,942 - harmonypy - INFO -   Batch variables: ['SITE']
+2026-04-22 19:13:41,026 - harmonypy - INFO - Computing initial centroids with sklearn.KMeans...
+2026-04-22 19:13:41,057 - harmonypy - INFO - KMeans initialization complete.
+2026-04-22 19:13:41,132 - harmonypy - INFO - Iteration 1 of 20
+2026-04-22 19:13:41,941 - harmonypy - INFO - Iteration 2 of 20
+2026-04-22 19:13:42,437 - harmonypy - INFO - Iteration 3 of 20
+2026-04-22 19:13:42,831 - harmonypy - INFO - Iteration 4 of 20
+2026-04-22 19:13:43,227 - harmonypy - INFO - Iteration 5 of 20
+2026-04-22 19:13:43,527 - harmonypy - INFO - Iteration 6 of 20
+2026-04-22 19:13:43,929 - harmonypy - INFO - Iteration 7 of 20
+2026-04-22 19:13:44,335 - harmonypy - INFO - Iteration 8 of 20
+2026-04-22 19:13:44,732 - harmonypy - INFO - Iteration 9 of 20
+2026-04-22 19:13:45,054 - harmonypy - INFO - Iteration 10 of 20
+2026-04-22 19:13:45,533 - harmonypy - INFO - Iteration 11 of 20
+2026-04-22 19:13:45,928 - harmonypy - INFO - Converged after 11 iterations
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+             site      raw  harmony         Δ
+           LASUTH 0.388889 0.416667  0.027778
+             LUTH 0.518519 0.574074  0.055556
+           OAUTHC 0.356387 0.288543 -0.067844
+             UITH 0.444444 0.333333 -0.111111
+retrospective_msk 0.475404 0.464618 -0.010786
+retrospective_oau 0.544121 0.496029 -0.048093
+
+=== virchow2_prism ===
+  harmony → virchow2_prism_harmony
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+  PCA 1280 → 50  (explained var 0.902)
+  running Harmony on (803, 50) over 6 sites…
+2026-04-22 19:17:01,437 - harmonypy - INFO - Running Harmony (PyTorch on cpu)
+2026-04-22 19:17:01,437 - harmonypy - INFO -   Parameters:
+2026-04-22 19:17:01,437 - harmonypy - INFO -     max_iter_harmony: 20
+2026-04-22 19:17:01,437 - harmonypy - INFO -     max_iter_kmeans: 20
+2026-04-22 19:17:01,437 - harmonypy - INFO -     epsilon_cluster: 1e-05
+2026-04-22 19:17:01,437 - harmonypy - INFO -     epsilon_harmony: 0.0001
+2026-04-22 19:17:01,437 - harmonypy - INFO -     nclust: 27
+2026-04-22 19:17:01,437 - harmonypy - INFO -     block_size: 0.05
+2026-04-22 19:17:01,438 - harmonypy - INFO -     lamb: [1. 1. 1. 1. 1. 1.]
+2026-04-22 19:17:01,438 - harmonypy - INFO -     theta: [2. 2. 2. 2. 2. 2.]
+2026-04-22 19:17:01,438 - harmonypy - INFO -     sigma: [0.1 0.1 0.1 0.1 0.1]...
+2026-04-22 19:17:01,438 - harmonypy - INFO -     verbose: True
+2026-04-22 19:17:01,438 - harmonypy - INFO -     random_state: 0
+2026-04-22 19:17:01,438 - harmonypy - INFO -   Data: 50 PCs × 803 cells
+2026-04-22 19:17:01,438 - harmonypy - INFO -   Batch variables: ['SITE']
+2026-04-22 19:17:01,464 - harmonypy - INFO - Computing initial centroids with sklearn.KMeans...
+2026-04-22 19:17:01,555 - harmonypy - INFO - KMeans initialization complete.
+2026-04-22 19:17:01,628 - harmonypy - INFO - Iteration 1 of 20
+2026-04-22 19:17:02,542 - harmonypy - INFO - Iteration 2 of 20
+2026-04-22 19:17:03,646 - harmonypy - INFO - Iteration 3 of 20
+2026-04-22 19:17:04,138 - harmonypy - INFO - Iteration 4 of 20
+2026-04-22 19:17:04,443 - harmonypy - INFO - Iteration 5 of 20
+2026-04-22 19:17:04,739 - harmonypy - INFO - Iteration 6 of 20
+2026-04-22 19:17:05,149 - harmonypy - INFO - Iteration 7 of 20
+2026-04-22 19:17:05,447 - harmonypy - INFO - Iteration 8 of 20
+2026-04-22 19:17:05,842 - harmonypy - INFO - Iteration 9 of 20
+2026-04-22 19:17:06,124 - harmonypy - INFO - Iteration 10 of 20
+2026-04-22 19:17:06,429 - harmonypy - INFO - Iteration 11 of 20
+2026-04-22 19:17:06,641 - harmonypy - INFO - Iteration 12 of 20
+2026-04-22 19:17:06,933 - harmonypy - INFO - Iteration 13 of 20
+2026-04-22 19:17:07,142 - harmonypy - INFO - Converged after 13 iterations
+/lab/barcheese01/mdiberna/miniconda3/envs/argo/lib/python3.11/functools.py:909: ImplicitModificationWarning: Transforming to str index.
+  return dispatch(args[0].__class__)(*args, **kw)
+             site      raw  harmony         Δ
+           LASUTH 0.277778 0.083333 -0.194444
+             LUTH 0.462963 0.527778  0.064815
+           OAUTHC 0.491493 0.543334  0.051841
+             UITH 0.361111 0.361111  0.000000
+retrospective_msk 0.485700 0.533992  0.048292
+retrospective_oau 0.501004 0.556603  0.055599
+
+Mean AUROC across sites (raw vs harmony):
+variant           harmony    raw      Δ
+embedding                              
+conch_v1.5_mean     0.471  0.435  0.037
+conch_v1.5_titan    0.549  0.450  0.099
+ctranspath_mean     0.323  0.375 -0.053
+uni2_mean           0.412  0.473 -0.061
+virchow2_mean       0.429  0.455 -0.026
+virchow2_prism      0.434  0.430  0.004
+
+Saved: results/analysis/harmony/summary.csv
+Saved: results/analysis/harmony/site_holdout_compare.png

@@ -1,0 +1,13 @@
+{
+  "n_slides": 803,
+  "overall_wagner_auroc": 0.571698717307346,
+  "tercile_auroc_overall": {
+    "small": 0.5824952107279694,
+    "medium": 0.4731663685152057,
+    "large": 0.6147614761476147
+  },
+  "top_error_feature": {
+    "feature": "y",
+    "coef": -1.2409108875946124
+  }
+}

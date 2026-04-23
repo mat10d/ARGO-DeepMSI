@@ -4,6 +4,31 @@
 
 **Phase 1 baseline:** DONE. 803/808 slides, 217 patients, 19% MSI-H.
 **Phase 1e analysis sweep:** DONE. A1–A3 domain shift, B1 Tier 1 grid.
+**Step 2d + 2e (fusion + few-shot):** DONE 2026-04-22 — see
+`docs/c2_fusion.md`. Stacking meta-LR on base-model OOF probs is the
+first strategy to give a meaningful LOSO lift: **AUROC 0.522 → 0.580**
+(+0.058 over the best single model). Late-average fusion *hurts* LOSO
+(0.46) because each base model carries a different site bias that
+averaging smears rather than cancels. Within-cohort patient CV stays
+flat (+0.01 from fusion over the best single). Few-shot (k-NN, proto)
+doesn't help in either regime.
+
+**Step 1 (failure diagnosis) + Step 5 (Harmony):** DONE 2026-04-22 —
+see `docs/c1_failure_diagnosis.md`. Summary:
+- 1a: tissue-area tercile AUROC is non-monotonic (0.58/0.47/0.61) —
+  specimen type is NOT the driver.
+- 1b: **blocked** — no IMPACT / MSIsensor data in repo.
+- 1c: Wagner is MSS-biased; every strong error covariate is OAUTHC-derived.
+- 1d: OAUTHC prospective and retrospective_oau have **zero patient overlap**,
+  so label-concordance audit is not possible. OAUTHC prospective has
+  *more* tissue than retrospective_oau (4 435 vs 2 731 median tiles),
+  yet scores 0.44 vs 0.80 — rules out "small biopsy" hypothesis too.
+- Step 5: Harmony does not generically rescue the cohort. Mean Δ across
+  6 embeddings is ~0 (range −0.06 to +0.10). Only `conch_v1.5_titan`
+  gets a meaningful lift (+0.099 to 0.549). Mean-pooled foundation
+  features get slightly *worse* (they're already stain-robust from A1).
+  Best post-correction LOSO AUROC is still only ~0.55 — site
+  confounding is a symptom, not the root cause.
 
 ### Key Findings
 
