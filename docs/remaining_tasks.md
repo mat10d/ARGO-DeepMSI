@@ -4,6 +4,30 @@
 
 **Phase 1 baseline:** DONE. 803/808 slides, 217 patients, 19% MSI-H.
 **Phase 1e analysis sweep:** DONE. A1–A3 domain shift, B1 Tier 1 grid.
+**Multi-slide aggregation diagnosis + UMAP visualisation:** DONE
+2026-04-22 — see `docs/c4_multislide_and_umap.md`. OAUTHC has a
+heavy-tail slide-count distribution (18/81 patients have ≥7 slides, one
+has 48). Two distinct Wagner regimes emerge on OAUTHC:
+- **4–6 slides (n=11): max-aggregation AUROC = 0.944** (vs 0.556 mean)
+  — dilution-limited; taking the most-suspicious slide works.
+- **7+ slides (n=18): AUROC = 0.375 with either mean or max** — MSS
+  patients saturate `max Wagner P` toward 1.0 as n grows (multiple-
+  testing inflation), while the two MSI-H patients in this cohort
+  don't gain commensurately (P_0152: 17 slides, ALL < 0.5 Wagner P;
+  cmo_score 30.33). Max-ranking inverts under bag-size inflation.
+
+Implication: every deterministic aggregator (mean / max / median / p75
+/ top3-mean) fails in at least one regime. Elevates **Step 4 (ABMIL
+with TCGA pre-training)** from "plausible path to 0.80+" to the only
+remaining intervention that makes mechanistic sense — ABMIL's learned
+attention is precisely what's needed to down-weight saturated-but-
+uninformative slides.
+
+UMAP panels saved for all 6 raw embeddings
+(`results/analysis/umap_embeddings/`) with 6 coloured facets each:
+SITE / arm / MSI binary / cmo_msi_score / Wagner P / Wagner
+correctness. Coords persisted as CSV for re-plotting.
+
 **Step 1b (MSIsensor correlation) + Step 3c (continuous regression):**
 DONE 2026-04-22 — see `docs/c3_msiscore_regression.md`. `cmo_msi_score`
 is persisted in `clinical_table.csv` via widened `create_clinical_table`;
