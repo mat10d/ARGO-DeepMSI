@@ -1,0 +1,13 @@
+threshold,site,n_bin,n_patients,n_patients_lost,aggregator,auroc
+0.0,OAUTHC,7+,18,,mean,0.25
+0.0,OAUTHC,7+,18,,max,0.375
+0.05,OAUTHC,7+,18,,mean,0.28125
+0.05,OAUTHC,7+,18,,max,0.375
+0.1,OAUTHC,7+,18,,mean,0.28125
+0.1,OAUTHC,7+,18,,max,0.375
+0.15,OAUTHC,7+,18,,mean,0.3125
+0.15,OAUTHC,7+,18,,max,0.375
+0.2,OAUTHC,7+,17,,mean,0.26666666666666666
+0.2,OAUTHC,7+,17,,max,0.3666666666666667
+0.25,OAUTHC,7+,17,,mean,0.23333333333333334
+0.25,OAUTHC,7+,17,,max,0.3666666666666667

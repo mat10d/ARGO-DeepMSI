@@ -8,6 +8,126 @@ methodological contribution.
 
 ---
 
+## Phase 0 results (2026-04-23) — filtering does NOT recover the 7+ cohort
+
+Ran `scripts/c5_phase0.py` on the persisted Wagner slide scores (803 slides,
+217 patients). Outputs → `results/analysis/c5_phase0/`.
+
+### 0a. Threshold sweep
+
+| threshold | n_below | pct_below | MSI-H prev below | MSI-H prev above |
+|---:|---:|---:|---:|---:|
+| 0.05 |   3 |  0.4% | 0.333 | 0.191 |
+| 0.10 |  19 |  2.4% | 0.211 | 0.191 |
+| 0.15 |  64 |  8.0% | 0.172 | 0.194 |
+| 0.20 | 101 | 12.6% | 0.149 | 0.198 |
+| 0.25 | 151 | 18.8% | 0.152 | 0.201 |
+
+MSI-H prevalence in low-P slides is not meaningfully depleted vs. the kept
+pool — low-P slides are **not enriched for non-tumor across MSI-H**. At
+t=0.10, dropping 19 slides would remove 4 MSI-H slides from 2 MSI-H patients.
+
+Patients losing all slides at each threshold: 6 at 0.10 (1 MSI-H), 17 at
+0.15 (1 MSI-H), 30 at 0.20 (2 MSI-H). Aggressive filtering costs data.
+
+### 0c. Patient AUROC vs threshold (the critical test)
+
+Overall (pooled, n=217):
+
+| threshold | mean agg | max agg |
+|---:|---:|---:|
+| 0.00 (no filter) | 0.659 | 0.644 |
+| 0.10 | 0.662 | 0.648 |
+| 0.15 | 0.656 | 0.622 |
+| 0.20 | 0.637 | 0.604 |
+
+OAUTHC 7+ cohort (n=18, the failure mode we need to fix):
+
+| threshold | mean agg | max agg |
+|---:|---:|---:|
+| 0.00 | **0.250** | 0.375 |
+| 0.10 | 0.281 | 0.375 |
+| 0.15 | 0.312 | 0.375 |
+| 0.20 | 0.267 | 0.367 |
+| 0.25 | 0.233 | 0.367 |
+
+**The 7+ cohort does not recover.** AUROC peaks at 0.31 with aggressive
+filtering — still far below chance-adjusted usefulness. The problem is
+not that MSS patients accumulate false-positive slides; it is that the
+one strong-MSI-H patient in the 7+ cohort (`P_0152`, cmo_score 30.3,
+17 slides) has **every slide scoring < 0.5**. Wagner simply fails on
+that patient's histology regardless of filtering.
+
+### 0b. UMAP overlay (`umap_overlay_*.png`)
+
+Low-P slides (Wagner P < 0.10, n=19) are scattered across every
+embedding's UMAP — they do not map to isolated outlier islands.
+Consistent across `conch_v1.5_{mean,titan}`, `virchow2_{mean,prism}`,
+`uni2_mean`, `ctranspath_mean`.
+
+### Decision (narrow — see open questions below)
+
+Wagner-P-threshold filtering is ruled out on two grounds: (1) it fails
+to recover the 7+ OAUTHC cohort, and (2) at t=0.10 it would strip MSI-H
+signal from exactly the patients Wagner already struggles with. We do
+**not** yet have grounds to skip Phase 1 entirely — 1a is dead, but 1b
+(embedding-outlier filtering) and 1c (tile-level tissue classifier) are
+orthogonal signals that haven't been tested.
+
+### Open questions — what Phase 0 did NOT answer
+
+1. **Phase 1b — UMAP outlier clusters.** C4 showed isolated outlier
+   islands in every embedding. What's in them? HDBSCAN on UMAP coords
+   (or cosine distance from retrospective-MSK centroid) would identify
+   those slides without inheriting Wagner's miscalibration. Low-P-scatter
+   only rules out Wagner P as the filter signal; it doesn't rule out
+   filtering.
+
+2. **Phase 1c — NCT-CRC-HE-100K tissue classifier.** The principled
+   method the paper would report. A 9-class linear head on CTransPath
+   (or UNI2) embeddings trained on 100K labeled tiles → per-slide
+   tumor fraction. Orthogonal to both Wagner and UMAP. A slide that is
+   5% tumor / 80% adipose gets filtered even if Wagner happened to
+   score it high.
+
+3. **MSS specificity, not just 7+ MSI-H sensitivity.** The 7+ cohort
+   fails because P_0152 is unrescuable *and* MSS patients saturate via
+   bag-size inflation. Filtering might not save P_0152 but could still
+   reduce MSS false-positives in the 4-6 and 2-3 bins — a win the
+   overall-AUROC table hides because 7+ dominates OAUTHC failure. Needs
+   a per-bin AUPRC + calibration-error readout, not just AUROC.
+
+4. **Within-patient stability for Phase 2.** Cleaner input slides make
+   Phase 2 attention learnable. Even if filtering doesn't help the
+   mean/max baseline, it could help downstream. That's not tested here.
+
+5. **Characterize the outlier UMAP clusters themselves.** C4 mentions
+   them; Phase 0 never described what they are (site, patient, tile
+   count, stain, Wagner P distribution, MSI-H prevalence).
+
+### Proposed next step
+
+Run (a) HDBSCAN outlier characterization (~CPU hours) before committing
+to (b) NCT-CRC-HE-100K training (~1 GPU-hour + download). (a) is cheap
+enough to be worth knowing and informs whether (b) is worth the setup
+cost. Only then is the Phase 1-vs-Phase-2 call well-founded.
+
+### 0d. Thumbnails (`results/analysis/c5_phase0/thumbnails/`)
+
+Rendered 18 low-P + 20 high-P slide thumbnails with tissue contours
+(one low-P slide's stem mis-matched the pyramidal table — not worth
+chasing for one sample).
+
+Reinforces the decision: **4 of the 19 low-P slides are MSI-H** —
+3 from `P_0152` (the hard-miss MSI-H patient from C4) and 1 from
+`P_0076`. Filtering at Wagner P < 0.10 would actively strip MSI-H
+signal from the two patients Wagner already struggles with. Any
+threshold-based filter has this property — the failure mode is not
+"non-tumor dilution," it is "Wagner assigns low P to real MSI-H
+tissue on this cohort."
+
+---
+
 ## Phase 0: Preliminary Analysis — What Are the Low-P Slides?
 
 Before building anything, characterize the slides that Wagner scores

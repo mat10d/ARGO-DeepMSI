@@ -26,6 +26,9 @@ logs/
 !results/analysis/**
 !results/autoresearch/
 !results/autoresearch/**
+# Exclude bulk thumbnail dumps — keep the manifest, drop the PNGs
+results/analysis/**/thumbnails/**/*.png
+results/analysis/**/thumbnails/**/*.jpg
 
 # ============================================
 # Cache & Temporary Files
