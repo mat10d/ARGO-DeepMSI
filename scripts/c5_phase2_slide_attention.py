@@ -535,22 +535,21 @@ def plot_ablation(df: pd.DataFrame):
 
 def add_baselines(df: pd.DataFrame) -> pd.DataFrame:
     """Add Wagner mean/max baselines to the results table for comparison."""
-    # Load Wagner patient scores
     wagner_pat = pd.read_csv(Path("results/analysis/wagner_zeroshot/patient_scores.csv"))
-    clinical = pd.read_csv(CLINICAL)
-    clinical["y"] = (clinical["isMSIH"] == "MSI-H").astype(int)
-
-    merged = wagner_pat.merge(clinical[["PATIENT", "y"]], left_on="patient_id", right_on="PATIENT")
-
-    # Wagner mean baseline
-    auroc_mean = roc_auc_score(merged["y"], merged["p_msih"])
+    auroc_mean = roc_auc_score(wagner_pat["y"], wagner_pat["p_msih"])
 
     # Wagner calibrated (max/√n) — load from calibrated aggregation if available
     cal_path = Path("results/analysis/calibrated_aggregation/patient_aggregator_table.csv")
     if cal_path.exists():
         cal = pd.read_csv(cal_path)
-        cal_merged = cal.merge(clinical[["PATIENT", "y"]], left_on="patient_id", right_on="PATIENT")
-        auroc_cal = roc_auc_score(cal_merged["y"], cal_merged["max_over_sqrtn"])
+        if "y" in cal.columns:
+            cal_y = cal["y"]
+        else:
+            clinical = pd.read_csv(CLINICAL)
+            clinical["y"] = (clinical["isMSIH"] == "MSI-H").astype(int)
+            cal = cal.merge(clinical[["PATIENT", "y"]], left_on="patient_id", right_on="PATIENT")
+            cal_y = cal["y"]
+        auroc_cal = roc_auc_score(cal_y, cal["max_over_sqrtn"])
     else:
         auroc_cal = np.nan
 

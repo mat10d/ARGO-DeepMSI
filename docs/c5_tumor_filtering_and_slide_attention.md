@@ -707,3 +707,136 @@ Next steps would be:
 2. Tile-level ABMIL instead of slide-level attention
 3. Accept the limitation and report the negative result as part of
    the "first West African MSI validation" contribution
+
+---
+
+## Phase 2 results (2026-04-23) — learned attention does NOT beat calibrated max
+
+Full sweep ran cleanly (18 configs × 5 folds, ~45 min on one A6000).
+Results in `results/analysis/c5_phase2/ablation_results.csv`, heatmap in
+`ablation_heatmap.png`.
+
+### Headline
+
+| Model | AUROC | Params |
+|---|---|---|
+| **wagner_max/√n (C4b baseline)** | **0.717** | 0 |
+| wagner_mean_pool (C4b baseline) | 0.659 | 0 |
+| **Best learned:** wagner+meta (2D) | 0.665 | ~5K |
+| Best embedding-based: virchow2 emb_only | 0.654 | ~5K |
+| Worst: uni2 emb+meta | 0.560 | ~5K |
+
+**Every learned configuration underperforms `wagner_max/√n`.** The
+calibrated pooling aggregator from C4b (zero learned parameters) remains
+the strongest patient-level MSI predictor on this cohort.
+
+### Per-bin AUROC (best learned = wagner+meta)
+
+| Slides/patient | n | AUROC |
+|---|---|---|
+| 1 | 73 | 0.675 |
+| 2-3 | 109 | 0.735 |
+| 4-6 | 17 | 0.733 |
+| 7+ | 18 | **0.156** |
+
+The 7+ bin (OAUTHC-heavy) collapses across *every* learned config
+(range 0.16–0.66). Learned attention did not rescue the
+more-slides-worse-AUROC pathology that motivated Phase 2.
+
+### Interpretation
+
+1. **Embedding signal is neutral-to-harmful.** Adding any foundation
+   embedding to Wagner+meta reduces AUROC (0.665 → 0.60–0.63 across
+   models). With 217 patients / 41 MSI-H, the attention gate can't learn
+   to weight 768–2560-D embeddings better than a fixed prior.
+2. **Attention over Wagner alone learns nothing new.** `wagner_only`
+   (attention over 1D Wagner scores) scores 0.641 — worse than
+   unweighted mean pooling (0.659). The learned gate is overfitting.
+3. **`wagner_max/√n` is the right aggregator.** The bag-size-calibrated
+   max captures what matters (one strongly-MSI-H slide is enough) and
+   deflates inflated maxes from large bags. 5K-parameter attention
+   can't beat it in the small-label regime.
+
+### Decision
+
+C5 is closed as a negative result. Neither tumor filtering (Phase 1b/1c)
+nor learned slide attention (Phase 2) improves over the calibrated
+`wagner_max/√n` aggregator from C4b. The OAUTHC 7+ degradation is
+intrinsic to that cohort's slide mix (likely a sampling/staining artifact
+per C4b analysis) and cannot be recovered from embeddings alone at this
+sample size.
+
+**Next directions** (not in C5 scope):
+- TCGA pretraining → Nigerian fine-tuning (needs external cohort work)
+- Tile-level ABMIL (full attention over tiles, not slides — ~1000× more
+  parameters, needs proper compute budget)
+- Accept and report: `wagner_max/√n` at AUROC 0.72 is the headline
+  number for the "first West African MSI external validation" framing.
+
+### Training health (fold-by-fold)
+
+Across all 18 learned configs × 5 folds (90 models), validation AUROC
+ranged **0.38–0.79** with early stops at epochs 21–69. Within each config
+the 5 folds are highly dispersed — e.g. `wagner+meta`:
+`[0.488, 0.576, 0.791, 0.644, 0.542]` (range 0.30, std ≈ 0.12). This
+high fold variance is consistent with **insufficient positive-class
+sample size** (9–10 MSI-H patients per val fold) rather than a training
+bug: loss decreased, early stopping fired normally, no NaN/crash folds.
+The result is a real floor, not a plumbing problem.
+
+### Success-criteria checklist (pre-declared above)
+
+| Criterion | Bar | Actual | Met? |
+|---|---|---|---|
+| Overall AUROC beats calibrated max | > 0.72 | 0.665 | ✗ |
+| OAUTHC 7+ bin above chance | > 0.50 | 0.16 | ✗ |
+| Attention agrees with Wagner off-OAUTHC | ρ > 0 | retro_msk +0.28, retro_oau +0.30 | ✓ |
+| Attention diverges from Wagner on OAUTHC | ρ ≈ 0 or < | OAUTHC ρ = −0.05 (p=0.31) | ✓ |
+
+So the attention mechanism *behaviorally* does what we hypothesized —
+it learns that Wagner is informative on the retrospective cohorts and
+uninformative on OAUTHC, and reweights accordingly. But on OAUTHC it has
+no alternative signal to substitute (the embeddings carry no
+MSI-discriminative information in the small-sample regime), so
+"correctly ignoring Wagner" just means "predicting near-randomly."
+This is strong evidence that the OAUTHC degradation is **not a slide
+selection problem** — it's a signal-absence problem at the tile/slide
+embedding level.
+
+Attention also mildly anti-correlates with bag size
+(Spearman −0.19 with `n_tiles`), so the gate is not just selecting the
+biggest slide — a minor sanity check that it learned something
+non-trivial.
+
+### Reproduction
+
+```bash
+# From repo root, on a GPU node (single A6000 is fine)
+sbatch scripts/c5_phase2.sh
+# Runs scripts/c5_phase2_slide_attention.py end-to-end:
+#   - 18 configs × 5 folds StratifiedKFold on 217 patients
+#   - Writes results/analysis/c5_phase2/{ablation_results.csv,
+#     ablation_heatmap.png, attention_weights.csv, oof_predictions.csv}
+# Wall time: ~45 min on nvidia-A6000-20 partition
+```
+
+The two baseline rows (`wagner_mean_pool`, `wagner_max/√n`) are appended
+to `ablation_results.csv` after training by `add_baselines()` in the
+same script; they read from `results/analysis/wagner_zeroshot/` and
+`results/analysis/calibrated_aggregation/` which must already exist
+(both produced in earlier phases, checked into the repo).
+
+Note: the 2026-04-23 run hit a `KeyError: 'y'` inside `add_baselines`
+(duplicate column post-merge — fixed in commit adding this doc).
+The crash was *after* the ablation was written to disk, so no learned
+result was lost; the baseline rows were appended in-place from the
+existing CSV.
+
+### Artifacts
+
+- `scripts/c5_phase2_slide_attention.py` — model + ablation + baselines
+- `scripts/c5_phase2.sh` — SLURM wrapper (single A6000)
+- `results/analysis/c5_phase2/ablation_results.csv` — 20 rows (2 baselines + 18 learned)
+- `results/analysis/c5_phase2/ablation_heatmap.png` — embedding × feature-set heatmap
+- `results/analysis/c5_phase2/attention_weights.csv` — per-slide attention (best config, all 803 slides × 5 folds)
+- `results/analysis/c5_phase2/oof_predictions.csv` — per-patient OOF predictions

@@ -1,10 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=argo_phase2
-#SBATCH --output=scripts/logs/phase2_%j.out
-#SBATCH --time=2:00:00
-#SBATCH --partition=short
+#SBATCH --job-name=mdiberna_argo_c5_phase2
+#SBATCH --partition=20
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=6
 #SBATCH --mem=32G
-#SBATCH --cpus-per-task=4
+#SBATCH --time=02:00:00
+#SBATCH --output=scripts/logs/%x_%j.out
+#SBATCH --error=scripts/logs/%x_%j.err
 
 # =============================================================================
 # ARGO-DeepMSI: C5 Phase 2 — SlideAttentionMSI
