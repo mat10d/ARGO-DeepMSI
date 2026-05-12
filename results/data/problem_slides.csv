@@ -1,0 +1,515 @@
+record_id,Name,pp_name,site,batch_number,ecrf_user,ecrf_date,ecrf_tumor,ecrf_in_focus,ecrf_stain_visible,ecrf_comments,passes_qc,cmo_msi_status,cmo_msi_score,collaboration_identifier
+144-46,B24_096.svs,B24_096.svs,LASUTH,3,Onayemi Seye ,04-16-2026 14:00:59,No,No,No,Partly faded,False,Instable,29.05,T510-226DM-M
+144-34,MSI_B23_2132.svs,MSI_B23_2132.svs,LASUTH,3,Onayemi Seye ,04-07-2026 16:54:43,No,No,No,Not in focus,False,Indeterminate,7.96,T510-182OP-M
+144-12,HP2074_21_5.svs,HP2074_21_5.svs,LASUTH,3,Onayemi Seye ,04-07-2026 16:53:26,No,No,No,Not in focus,False,Indeterminate,4.79,T17UO-54F
+144-13,HP2069_21.svs,HP2069_21.svs,LASUTH,3,Onayemi Seye ,04-16-2026 13:34:42,No,Yes,Yes,No tumour seen,False,Stable,0.58,T16KF-64M
+144-6,HP1353_21_1.svs,HP1353_21_1.svs,LASUTH,3,Onayemi Seye ,04-07-2026 16:52:38,No,No,No,Not in focus,False,Indeterminate,3.72,T9IA-64M
+144-19,1210-2-16.svs,1210-2-16.svs,LASUTH,3,Onayemi Seye ,04-16-2026 13:27:00,No,No,Yes,Partly not in focus,False,Indeterminate,4.14,T24-510-76OLF
+144-19,1210-4-16.svs,1210-4-16.svs,LASUTH,3,Onayemi Seye ,04-16-2026 13:15:29,No,Yes,Yes,No Visible tumour,False,Indeterminate,4.14,T24-510-76OLF
+144-35,b23_2222msi.svs,b23_2222msi.svs,LASUTH,3,Onayemi Seye ,04-07-2026 15:21:37,Yes,No,Yes,Partly not in focus.,False,Indeterminate,5.07,T510-184AS-F
+142-269,H1079-22-19.svs,H1079-22-19.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:43:14,No,Yes,Yes,Lymph node,False,Stable,2.26,T478-328OOM
+142-255,H-1628-EX5-22.svs,H-1628-EX5-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:42:19,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-416,H2338-24-10.svs,H2338-24-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:33:41,No,Yes,Yes,Lymph node,False,Instable,23.35,478--851
+142-374,H182-24-5.svs,H182-24-5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:39:59,No,Yes,Yes,Bone tissue,False,Stable,1.9,T478-658DB-F
+142-416,H2338-24-16.svs,H2338-24-16.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 11:03:57,No,Yes,Yes,,False,Instable,23.35,478--851
+142-309,H504-23-7-001.svs,H504-23-7-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:36:09,No,Yes,Yes,Lymph node,False,Stable,2.39,T478-463OA-M
+142-434,H691-25-1.svs,H691-25-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:32:27,No,Yes,Yes,,False,,,478-892
+142-210,H1175-21-A14.svs,H1175-21-A14.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:22:23,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-269,H1079-22-11.svs,H1079-22-11.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:47:22,No,Yes,Yes,,False,Stable,2.26,T478-328OOM
+142-235,H1641-22-C-1.svs,H1641-22-C-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:00:14,No,No,Yes,Poor slide,False,Stable,0.67,T478-239KJ-M
+142-434,H691-25-10.svs,H691-25-10.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:13:20,No,Yes,Yes,,False,,,478-892
+142-409,H2105-24-14.svs,H2105-24-14.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:19:32,No,Yes,Yes,Ileum,False,Stable,1.8,478-835
+142-312,H742-22-12.svs,H742-22-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:44:30,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-317,H-503-23-11A.svs,H-503-23-11A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:06:51,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-309,H404-23-2.svs,H404-23-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:05:47,No,Yes,Yes,Lymphoid tissue,False,Stable,2.39,T478-463OA-M
+142-344,H334-23.svs,H334-23.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:43:49,No,Yes,Yes,,False,Indeterminate,4.56,T478-450MV-F
+142-335,H1186-23-24.svs,H1186-23-24.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:25:10,No,Yes,Yes,Lymph node,False,Indeterminate,3.12,T478-517AA-F
+142-397,H1299-24-1.svs,H1299-24-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:49:53,No,Yes,Yes,,False,Stable,0.38,478-783
+142-255,H1628-22-EX5.svs,H1628-22-EX5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:14:52,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-335,H1186-23-2.svs,H1186-23-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:35:07,No,Yes,Yes,,False,Indeterminate,3.12,T478-517AA-F
+142-233,H118-22-A3.svs,H118-22-A3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:16:12,No,Yes,Yes,,False,Indeterminate,4.7,T478-236OK-F
+142-247,H-353-2-22-B.svs,H-353-2-22-B.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:03:58,No,Yes,Yes,,False,Stable,2.37,T478-263OFF
+142-210,H1175-21-D2.svs,H1175-21-D2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:51:24,No,Yes,Yes,Lymph nodes,False,Instable,10.01,T41CB-45M
+142-351,H1965-23-8.svs,H1965-23-8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:27:39,No,Yes,Yes,,False,Indeterminate,4.01,T478-564AG-M
+142-409,H2105-24-10.svs,H2105-24-10.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:09:16,No,Yes,Yes,,False,Stable,1.8,478-835
+142-317,H-503-23-14A-1.svs,H-503-23-14A-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:21:33,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-246,H-350-2-22.svs,H-350-2-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:37:18,No,Yes,Yes,,False,Stable,2.29,T478-262KJ-M
+142-269,H1079-22-12.svs,H1079-22-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:18:39,No,Yes,Yes,Processing artefact,False,Stable,2.26,T478-328OOM
+142-312,H742-22-18-1.svs,H742-22-18-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:07:15,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-210,H1175-21-D4.svs,H1175-21-D4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:54:53,No,Yes,Yes,Lymph node,False,Instable,10.01,T41CB-45M
+142-414,H2336-24-2.svs,H2336-24-2.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:34:06,No,Yes,Yes,,False,Stable,1.18,478-849
+142-228,H1800-21-16.svs,H1800-21-16.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:56:07,No,Yes,Yes,Lymph node,False,Stable,1.21,T478-225IO-F
+142-309,H404-23-2-001.svs,H404-23-2-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 15:00:02,No,Yes,Yes,Lymph node,False,Stable,2.39,T478-463OA-M
+142-312,H742-22-27.svs,H742-22-27.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:59:04,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-313,H715-22-8.svs,H715-22-8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 11:09:32,No,Yes,Yes,Appendix,False,Stable,2.99,T478-283KA-M
+142-255,H-1628-B16-22.svs,H-1628-B16-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:31:40,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-421,H261-25-C2.svs,H261-25-C2.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:46:42,No,Yes,Yes,,False,Stable,2.63,478-865
+142-313,H715-22-17.svs,H715-22-17.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:20:53,No,Yes,Yes,,False,Stable,2.99,T478-283KA-M
+142-381,H694-24-15.svs,H694-24-15.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 10:47:35,No,Yes,Yes,Suture material,False,Indeterminate,7.25,T478-682OO-M
+142-226,H1655-21.svs,H1655-21.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:26:15,No,Yes,Yes,,False,Stable,0.86,T478-218IS-M
+142-421,H261-25-A9.svs,H261-25-A9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:05:55,No,Yes,Yes,,False,Stable,2.63,478-865
+142-309,H504-23-1-001.svs,H504-23-1-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:11:23,No,Yes,Yes,Lymph node,False,Stable,2.39,T478-463OA-M
+142-251,H533-1-22.svs,H533-1-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:03:55,No,Yes,Yes,,False,Stable,2.19,T478-267OWM
+142-335,H1186-23-16.svs,H1186-23-16.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:33:34,No,Yes,Yes,Lymph node,False,Indeterminate,3.12,T478-517AA-F
+142-329,H970-23-9.svs,H970-23-9.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 10:59:55,No,Yes,Yes,,False,Stable,1.88,T478-497OM-F
+142-235,H-1641-A-22.svs,H-1641-A-22.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:01:27,No,Yes,Yes,Bad slide,False,Stable,0.67,T478-239KJ-M
+142-317,H-503-23-11B.svs,H-503-23-11B.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:20:55,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-322,H468-A2-23.svs,H468-A2-23.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:22:02,No,Yes,Yes,,False,Instable,31.66,T478-480OD-F
+142-269,H1079-22-17.svs,H1079-22-17.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:27:39,No,Yes,Yes,Lymph node,False,Stable,2.26,T478-328OOM
+142-246,H-350-5-22.svs,H-350-5-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:45:14,No,Yes,Yes,,False,Stable,2.29,T478-262KJ-M
+142-335,H1186-233-10.svs,H1186-233-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 14:44:23,No,Yes,Yes,,False,Indeterminate,3.12,T478-517AA-F
+142-439,H1252-25-1.svs,H1252-25-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 11:07:01,No,Yes,Yes,Small intestine,False,,,478-916
+142-372,H483-24-A6.svs,H483-24-A6.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 11:08:06,No,Yes,Yes,,False,Stable,1.27,T478-641ES-F
+142-372,H483-24-B1.svs,H483-24-B1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:06:43,No,Yes,Yes,,False,Stable,1.27,T478-641ES-F
+142-317,H-503-23-15A.svs,H-503-23-15A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:24:32,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-269,H1079-22-1.svs,H1079-22-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:46:20,No,Yes,Yes,,False,Stable,2.26,T478-328OOM
+142-435,H1669-25-2.svs,H1669-25-2.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:51:17,No,Yes,Yes,,False,,,478-905
+142-290,H1913-22-12.svs,H1913-22-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:40:02,No,Yes,Yes,Lymph node,False,Indeterminate,4.93,T478-390ACF
+142-434,H691-25-4.svs,H691-25-4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:45:05,No,Yes,Yes,Appendix,False,,,478-892
+142-435,H1669-25-15.svs,H1669-25-15.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:08:35,No,Yes,Yes,Venetian blind artefact,False,,,478-905
+142-322,H468-23-A2.svs,H468-23-A2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:15:44,No,Yes,Yes,,False,Instable,31.66,T478-480OD-F
+142-202,H-160-B-21.svs,H-160-B-21.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:45:30,No,Yes,Yes,Skin tissue - ? Lichen planus,False,Stable,0.73,19_72M
+142-228,H1800-21-13.svs,H1800-21-13.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:11:01,No,Yes,Yes,Lymph node,False,Stable,1.21,T478-225IO-F
+142-182,H-1709-21-1.svs,H-1709-21-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:41:20,No,Yes,Yes,Bone marrow,False,Stable,2.33,8_50M
+142-258,H744-22-3.svs,H744-22-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:09:15,No,Yes,Yes,,False,Stable,0.58,T478-290OAF
+142-397,H1299-24-13-001.svs,H1299-24-13-001.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:40:02,No,Yes,Yes,,False,Stable,0.38,478-783
+142-212,H1269-21-1.svs,H1269-21-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 10:53:44,No,Yes,Yes,Adenomatous polyp,False,Stable,1.21,T44OD-35M
+142-372,H483-24-A10.svs,H483-24-A10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:42:42,No,Yes,Yes,,False,Stable,1.27,T478-641ES-F
+142-309,H504-23-5-001.svs,H504-23-5-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:22:17,No,Yes,Yes,Lymphoid tissue,False,Stable,2.39,T478-463OA-M
+142-329,H970-23-3.svs,H970-23-3.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:45:15,No,Yes,Yes,,False,Stable,1.88,T478-497OM-F
+142-228,H1800-21-1.svs,H1800-21-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:20:22,No,Yes,Yes,,False,Stable,1.21,T478-225IO-F
+142-409,H2105-24-25.svs,H2105-24-25.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:37:36,No,Yes,Yes,,False,Stable,1.8,478-835
+142-290,H1913-22-11.svs,H1913-22-11.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:07:40,No,Yes,Yes,,False,Indeterminate,4.93,T478-390ACF
+142-269,H1079-22-2.svs,H1079-22-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 11:00:35,No,Yes,Yes,,False,Stable,2.26,T478-328OOM
+142-393,H1270-24-10.svs,H1270-24-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:41:42,No,Yes,Yes,,False,Instable,30.45,478-756
+142-255,H-1628-B2-22.svs,H-1628-B2-22.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:03:33,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-393,H1270-24-17.svs,H1270-24-17.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:09:32,No,Yes,Yes,,False,Instable,30.45,478-756
+142-409,H2105-24-13.svs,H2105-24-13.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:40:53,No,Yes,Yes,,False,Stable,1.8,478-835
+142-312,H742-22-37.svs,H742-22-37.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:38:48,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-294,H1986-22-10.svs,H1986-22-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:38:02,No,No,No,,False,Stable,1.71,T478-396OT-M
+142-179,H1684-20-A2.svs,H1684-20-A2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:05:20,No,Yes,Yes,,False,Indeterminate,5.84,5_89M
+142-286,H1633-22-12.svs,H1633-22-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:19:28,No,Yes,Yes,,False,Stable,0.09,T478-379OOM
+142-309,H504-23-9.svs,H504-23-9.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 14:45:56,No,Yes,Yes,Lymphoid tissue,False,Stable,2.39,T478-463OA-M
+142-434,H691-25-22.svs,H691-25-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:39:01,No,Yes,Yes,,False,,,478-892
+142-317,H-503-23-2B1.svs,H-503-23-2B1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:05:20,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-421,H261-25-A6.svs,H261-25-A6.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:46:08,No,Yes,Yes,,False,Stable,2.63,478-865
+142-317,H-503-23-15A-1.svs,H-503-23-15A-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:55:19,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-409,H2105-24-9.svs,H2105-24-9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:45:33,No,Yes,Yes,? Colostomy stump,False,Stable,1.8,478-835
+142-255,H-1628-B17-22.svs,H-1628-B17-22.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:45:49,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-312,H742-22-30.svs,H742-22-30.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:49:43,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-313,H715-22-5.svs,H715-22-5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:22:12,No,Yes,Yes,,False,Stable,2.99,T478-283KA-M
+142-255,H1628-B12-22.svs,H1628-B12-22.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:45:19,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-312,H742-22-25-1.svs,H742-22-25-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:01:48,No,Yes,Yes,Too many artefacts,False,Indeterminate,8.04,T478-292OY-F
+142-216,H1356-21.svs,H1356-21.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:11:27,No,Yes,Yes,,False,Instable,20.81,T478-161OA41M
+142-278,H1487-22-A9.svs,H1487-22-A9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:03:12,No,No,No,Out of focus,False,Stable,2.16,T478-360ABF
+142-294,H1986-22-B1.svs,H1986-22-B1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:36:25,No,Yes,Yes,Ileum,False,Stable,1.71,T478-396OT-M
+142-247,H-353-2-22.svs,H-353-2-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:48:28,No,Yes,Yes,,False,Stable,2.37,T478-263OFF
+142-317,H-503-23-20A.svs,H-503-23-20A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:15:10,No,Yes,Yes,Lymph node,False,Stable,0.24,T478-457MO-M
+142-381,H694-24-8.svs,H694-24-8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:34:14,No,Yes,Yes,,False,Indeterminate,7.25,T478-682OO-M
+142-317,H-503-23-B1.svs,H-503-23-B1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:02:38,No,Yes,Yes,Duodenum,False,Stable,0.24,T478-457MO-M
+142-329,H970-23-8-A.svs,H970-23-8-A.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:21:54,No,Yes,Yes,,False,Stable,1.88,T478-497OM-F
+142-312,H742-22-29.svs,H742-22-29.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:59:07,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-255,H1628-22-B12.svs,H1628-22-B12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:12:58,No,Yes,Yes,Has many artefacts,False,Stable,0.47,T478-274AAF
+142-297,H2097-22.svs,H2097-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 10:49:43,No,Yes,Yes,Suspicious areas seen,False,Instable,30.49,T478-408OE-M
+142-222,H1440-21-26.svs,H1440-21-26.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:27:52,No,Yes,Yes,,False,Indeterminate,4.03,T478-208MO-F
+142-313,H715-22-8-1.svs,H715-22-8-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 11:12:02,No,Yes,Yes,Appendix,False,Stable,2.99,T478-283KA-M
+142-237,H-147-2-22.svs,H-147-2-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:10:46,No,Yes,Yes,,False,Stable,1.23,T478-245AA-M
+142-306,H473-23-B.svs,H473-23-B.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:38:55,No,Yes,Yes,,False,Indeterminate,5.36,T478-459AK-M
+142-269,H1079-22-8.svs,H1079-22-8.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:08:56,Yes,No,Yes,,False,Stable,2.26,T478-328OOM
+142-210,H1175-21-B2.svs,H1175-21-B2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:25:35,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-247,H-353-1-22-B.svs,H-353-1-22-B.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:34:23,No,Yes,Yes,,False,Stable,2.37,T478-263OFF
+142-279,H1560-22-6-1.svs,H1560-22-6-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 10:50:33,No,No,Yes,Out of focus. Presence of tumor could not be ascertained,False,Indeterminate,3.59,T478-364JDF
+142-421,H261-25-B2.svs,H261-25-B2.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:14:27,No,Yes,Yes,,False,Stable,2.63,478-865
+142-278,H1487-23-B2.svs,H1487-23-B2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:36:57,No,Yes,Yes,,False,Stable,2.16,T478-360ABF
+142-302,H82-23-1.svs,H82-23-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:47:03,No,Yes,Yes,,False,Instable,30.33,T478-423TO-F
+142-372,H483-24-B2.svs,H483-24-B2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:44:18,No,Yes,Yes,,False,Stable,1.27,T478-641ES-F
+142-421,H261-22-15.svs,H261-22-15.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:50:00,No,Yes,Yes,,False,Stable,2.63,478-865
+142-420,H2522-24-2.svs,H2522-24-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:16:38,No,Yes,Yes,,False,Instable,25.58,478-864
+142-421,H261-25-A21.svs,H261-25-A21.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:09:06,No,Yes,Yes,,False,Stable,2.63,478-865
+142-397,H1299-24-2.svs,H1299-24-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:59:34,No,Yes,Yes,,False,Stable,0.38,478-783
+142-381,H694-24-3.svs,H694-24-3.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:12:07,No,Yes,Yes,,False,Indeterminate,7.25,T478-682OO-M
+142-438,H955-25-EX8.svs,H955-25-EX8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:58:50,No,Yes,Yes,Fat tissue,False,,,478-913
+142-255,H-1628-B14-22.svs,H-1628-B14-22.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:35:13,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-222,H1440-21-21-1.svs,H1440-21-21-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:35:24,No,Yes,Yes,Lymph node,False,Indeterminate,4.03,T478-208MO-F
+142-210,H1175-21-A1.svs,H1175-21-A1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:13:30,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-317,H-503-23-18A.svs,H-503-23-18A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:14:17,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-337,H1205-23-A.svs,H1205-23-A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 10:55:51,No,Yes,Yes,Adenomatous polyp,False,Indeterminate,3.98,T478-523AI-M
+142-312,H742-22-32.svs,H742-22-32.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:20:05,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-409,H2105-24-8.svs,H2105-24-8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:48:01,No,No,Yes,,False,Stable,1.8,478-835
+142-255,H-1628-B8-22.svs,H-1628-B8-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:38:14,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-318,H617-23-1.svs,H617-23-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:43:32,No,Yes,Yes,,False,Indeterminate,3.84,T478-472AM-M
+142-284,H1552-22-7.svs,H1552-22-7.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:08:03,No,Yes,Yes,Has artefacts,False,Indeterminate,3.42,T478-376LBM
+142-222,H1440-21-15.svs,H1440-21-15.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:18:47,No,Yes,Yes,Lymph node,False,Indeterminate,4.03,T478-208MO-F
+142-351,H1965-23-13.svs,H1965-23-13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:18:08,No,Yes,Yes,Lymph node,False,Indeterminate,4.01,T478-564AG-M
+142-381,H694-24-2.svs,H694-24-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:16:21,No,Yes,Yes,,False,Indeterminate,7.25,T478-682OO-M
+142-312,H742-22-28.svs,H742-22-28.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:14:22,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-351,H1965-23-1.svs,H1965-23-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:51:45,No,Yes,Yes,,False,Indeterminate,4.01,T478-564AG-M
+142-302,H82-23-10.svs,H82-23-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:32:36,No,Yes,Yes,,False,Instable,30.33,T478-423TO-F
+142-312,H742-22-17.svs,H742-22-17.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:06:23,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-255,H-1628-B10-22.svs,H-1628-B10-22.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:53:24,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-216,H1356-21-1.svs,H1356-21-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:03:28,No,Yes,Yes,,False,Instable,20.81,T478-161OA41M
+142-222,H1440-21-29.svs,H1440-21-29.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:44:26,No,Yes,Yes,Gall bladder,False,Indeterminate,4.03,T478-208MO-F
+142-329,H970-23-4.svs,H970-23-4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:07:38,No,Yes,Yes,,False,Stable,1.88,T478-497OM-F
+142-309,H504-23-6-001.svs,H504-23-6-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:23:16,No,No,Yes,Lymphoid tissue. Some areas out of focus.,False,Stable,2.39,T478-463OA-M
+142-438,H955-25-EX5.svs,H955-25-EX5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:53:44,No,Yes,Yes,Fat,False,,,478-913
+142-222,H1440-21-17.svs,H1440-21-17.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:05:00,No,Yes,Yes,Lymph node,False,Indeterminate,4.03,T478-208MO-F
+142-439,H1252-25-3.svs,H1252-25-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:25:36,No,Yes,Yes,,False,,,478-916
+142-309,H504-23-4-001.svs,H504-23-4-001.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:48:39,No,Yes,Yes,Lymphoid tissue,False,Stable,2.39,T478-463OA-M
+142-222,H1440-21-4.svs,H1440-21-4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:25:20,No,Yes,Yes,,False,Indeterminate,4.03,T478-208MO-F
+142-416,H2338-24-11.svs,H2338-24-11.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:48:37,No,Yes,Yes,Lymph node,False,Instable,23.35,478--851
+142-416,H2338-24-13.svs,H2338-24-13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:24:42,No,Yes,Yes,Lymph node,False,Instable,23.35,478--851
+142-397,H1299-24-7.svs,H1299-24-7.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:30:54,No,Yes,Yes,,False,Stable,0.38,478-783
+142-313,H715-22-1.svs,H715-22-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:32:58,No,Yes,Yes,Lymph node,False,Stable,2.99,T478-283KA-M
+142-438,H955-25-EX10.svs,H955-25-EX10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:17:54,No,Yes,Yes,,False,,,478-913
+142-389,H1092-24-A.svs,H1092-24-A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-24-2026 11:56:54,No,No,No,,False,Instable,23.13,478-730
+142-258,H744-22-4.svs,H744-22-4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:31:08,No,Yes,Yes,Skin,False,Stable,0.58,T478-290OAF
+142-286,H1633-22-15.svs,H1633-22-15.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:20:11,No,Yes,Yes,,False,Stable,0.09,T478-379OOM
+142-309,H504-23-7.svs,H504-23-7.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 14:45:17,No,Yes,Yes,,False,Stable,2.39,T478-463OA-M
+142-235,H1641-22-C.svs,H1641-22-C.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:37:21,No,Yes,Yes,Gastric tissue. Too much artefact,False,Stable,0.67,T478-239KJ-M
+142-278,H1487-22-A14.svs,H1487-22-A14.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:08:24,No,Yes,Yes,Lymph node,False,Stable,2.16,T478-360ABF
+142-438,H955-25-EX4.svs,H955-25-EX4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:23:07,No,Yes,Yes,,False,,,478-913
+142-312,H742-22-33.svs,H742-22-33.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:29:16,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-344,H334-23-EX1.svs,H334-23-EX1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:28:57,No,Yes,Yes,,False,Indeterminate,4.56,T478-450MV-F
+142-303,H215-23-2.svs,H215-23-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:31:23,No,Yes,Yes,,False,Instable,34.29,T478-446OS-M
+142-400,H1463-24-18.svs,H1463-24-18.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:15:23,No,Yes,Yes,Too many artefacts,False,Stable,1.31,478-790
+142-255,H1628-22-B6.svs,H1628-22-B6.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:09:10,No,No,Yes,,False,Stable,0.47,T478-274AAF
+142-286,H1633-22-7.svs,H1633-22-7.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:35:48,No,Yes,Yes,,False,Stable,0.09,T478-379OOM
+142-312,H-712-22.svs,H-712-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:09:41,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-210,H1175-21-B1-1.svs,H1175-21-B1-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:32:04,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-438,H955-25-EX3.svs,H955-25-EX3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 14:49:56,No,Yes,Yes,Lymph node,False,,,478-913
+142-335,H1186-23-21.svs,H1186-23-21.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:14:07,No,Yes,Yes,Lymphoid tissue,False,Indeterminate,3.12,T478-517AA-F
+142-313,H715-22-10.svs,H715-22-10.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:47:03,No,Yes,Yes,,False,Stable,2.99,T478-283KA-M
+142-438,H955-25-EX1.svs,H955-25-EX1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:47:54,No,Yes,Yes,,False,,,478-913
+142-269,H1079-22-10.svs,H1079-22-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:27:49,No,Yes,Yes,,False,Stable,2.26,T478-328OOM
+142-312,H742-22-36B.svs,H742-22-36B.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:47:02,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-228,H1800-21-18.svs,H1800-21-18.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 11:06:25,No,Yes,Yes,,False,Stable,1.21,T478-225IO-F
+142-312,H742-22-26.svs,H742-22-26.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:51:17,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-312,H742-22-20.svs,H742-22-20.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:19:51,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-439,H1252-25-2.svs,H1252-25-2.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:51:00,No,Yes,Yes,,False,,,478-916
+142-416,H2338-24-18.svs,H2338-24-18.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:09:16,No,No,Yes,,False,Instable,23.35,478--851
+142-434,H691-25-21.svs,H691-25-21.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:54:01,No,Yes,Yes,,False,,,478-892
+142-332,H1925-22-1.svs,H1925-22-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-22-2026 12:47:10,Yes,No,Yes,Too much distortion by artefact,False,Stable,1.89,T478-505OB-F
+142-297,H2097-22-1.svs,H2097-22-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:29:24,No,Yes,Yes,,False,Instable,30.49,T478-408OE-M
+142-235,H1641-22-B.svs,H1641-22-B.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:47:43,No,Yes,Yes,Gastric mucosa,False,Stable,0.67,T478-239KJ-M
+142-222,H1440-21-21.svs,H1440-21-21.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:21:29,No,Yes,Yes,Lymph node,False,Indeterminate,4.03,T478-208MO-F
+142-309,H504-23-4.svs,H504-23-4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:10:40,No,Yes,Yes,Lymph node,False,Stable,2.39,T478-463OA-M
+142-312,H742-22-23.svs,H742-22-23.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:14:03,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-329,H970-23-EX5.svs,H970-23-EX5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:44:23,No,Yes,Yes,,False,Stable,1.88,T478-497OM-F
+142-421,H261-25-A24.svs,H261-25-A24.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:03:37,No,Yes,Yes,,False,Stable,2.63,478-865
+142-317,H503-23-17A.svs,H503-23-17A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 10:56:41,No,Yes,Yes,Lymph node,False,Stable,0.24,T478-457MO-M
+142-210,H1175-21-D8.svs,H1175-21-D8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:37:41,No,Yes,Yes,Lymph node,False,Instable,10.01,T41CB-45M
+142-435,H1669-25-5.svs,H1669-25-5.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:04:31,No,Yes,Yes,Has many artefacts,False,,,478-905
+142-421,H261-25-A20-001.svs,H261-25-A20-001.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:58:31,No,Yes,Yes,,False,Stable,2.63,478-865
+142-228,H1800-21-3.svs,H1800-21-3.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:26:08,No,Yes,Yes,,False,Stable,1.21,T478-225IO-F
+142-286,H1633-22-11.svs,H1633-22-11.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:59:40,No,Yes,Yes,,False,Stable,0.09,T478-379OOM
+142-375,H607-24-10.svs,H607-24-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:15:43,No,Yes,Yes,Appendix,False,Indeterminate,3.31,T478-667AB-M
+142-312,H742-22-39-1.svs,H742-22-39-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:24:31,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-210,H1175-21-B10.svs,H1175-21-B10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:33:55,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-278,H1487-23-A10.svs,H1487-23-A10.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:36:12,No,Yes,Yes,Lymph node,False,Stable,2.16,T478-360ABF
+142-286,H1633-22-17.svs,H1633-22-17.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:28:46,No,Yes,Yes,,False,Stable,0.09,T478-379OOM
+142-335,H1186-23-9.svs,H1186-23-9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:01:00,No,Yes,Yes,,False,Indeterminate,3.12,T478-517AA-F
+142-312,H742-22-3.svs,H742-22-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:31:02,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-312,H742-22-14.svs,H742-22-14.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:33:44,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-222,H1440-21-5.svs,H1440-21-5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:56:40,No,Yes,Yes,,False,Indeterminate,4.03,T478-208MO-F
+142-438,H955-25-EX6.svs,H955-25-EX6.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:19:33,No,No,No,Slide not seen,False,,,478-913
+142-309,H504-23-2-001.svs,H504-23-2-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:36:16,No,Yes,Yes,Lymphoid tissue,False,Stable,2.39,T478-463OA-M
+142-375,H607-24-15.svs,H607-24-15.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:56:26,No,Yes,Yes,Lymph node,False,Indeterminate,3.31,T478-667AB-M
+142-255,H-1628-B5-22.svs,H-1628-B5-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:18:50,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-374,182-24-1.svs,182-24-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:23:56,No,Yes,Yes,Bone tissue. Has artefacts,False,Stable,1.9,T478-658DB-F
+142-262,H884-22-2.svs,H884-22-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:05:17,No,Yes,Yes,Lymph node,False,Stable,0.46,T478-310SJM
+142-392,H1166-24-2-H&E.svs,H1166-24-2-H&E.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:30:30,No,Yes,Yes,,False,Stable,0.13,478-743
+142-309,H504-23-2.svs,H504-23-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:53:42,No,Yes,Yes,Lymphoid tissue,False,Stable,2.39,T478-463OA-M
+142-397,H1299-24-11.svs,H1299-24-11.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:22:19,No,Yes,Yes,,False,Stable,0.38,478-783
+142-278,H1487-22-A7.svs,H1487-22-A7.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:36:47,No,Yes,Yes,,False,Stable,2.16,T478-360ABF
+142-309,H404-23-3.svs,H404-23-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:36:02,No,Yes,Yes,Lymphoid tissue,False,Stable,2.39,T478-463OA-M
+142-312,H742-22-2.svs,H742-22-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:47:24,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-434,H691-25-5.svs,H691-25-5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:20:29,No,Yes,Yes,Benign appendix,False,,,478-892
+142-397,H1299-24-8.svs,H1299-24-8.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:47:24,No,Yes,Yes,,False,Stable,0.38,478-783
+142-438,H955-25-EX9.svs,H955-25-EX9.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:49:04,No,Yes,Yes,Fat,False,,,478-913
+142-402,H1637-24-1.svs,H1637-24-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:54:19,No,Yes,Yes,,False,Stable,0.81,478-809
+142-309,H504-23-8-001.svs,H504-23-8-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:22:56,No,Yes,Yes,Lymphoid tissue,False,Stable,2.39,T478-463OA-M
+142-294,H1986-22-A5.svs,H1986-22-A5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:22:50,Yes,No,No,Very bad slide,False,Stable,1.71,T478-396OT-M
+142-400,H1463-24-2.svs,H1463-24-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:09:07,No,Yes,Yes,,False,Stable,1.31,478-790
+142-180,H1689-20-B.svs,H1689-20-B.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:44:20,No,Yes,Yes,Breast tissue,False,Indeterminate,3.02,6_59F
+142-190,H625-21-A.svs,H625-21-A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:09:23,No,Yes,Yes,,False,Indeterminate,3.09,22_59M
+142-212,H1269-21.svs,H1269-21.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:13:16,No,Yes,Yes,Atypical glands,False,Stable,1.21,T44OD-35M
+142-418,H2451-24-B2.svs,H2451-24-B2.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:07:46,Yes,No,Yes,,False,Indeterminate,3.8,478-857
+142-286,H1633-22-6.svs,H1633-22-6.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:47:08,No,Yes,Yes,,False,Stable,0.09,T478-379OOM
+142-335,H1186-23-31.svs,H1186-23-31.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:15:03,No,Yes,Yes,Lymph node,False,Indeterminate,3.12,T478-517AA-F
+142-251,H533-22-10.svs,H533-22-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:35:29,No,Yes,Yes,Lymph node,False,Stable,2.19,T478-267OWM
+142-294,H1986-22-A9.svs,H1986-22-A9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:03:29,No,Yes,Yes,Too many artefacts,False,Stable,1.71,T478-396OT-M
+142-409,H2105-24-7.svs,H2105-24-7.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:28:52,No,Yes,Yes,,False,Stable,1.8,478-835
+142-269,H1079-22-27.svs,H1079-22-27.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:35:19,No,Yes,Yes,? Necrotic tumor,False,Stable,2.26,T478-328OOM
+142-210,H1175-21-D9.svs,H1175-21-D9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:07:15,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-313,H715-22-3.svs,H715-22-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:40:31,No,Yes,Yes,Lymph node,False,Stable,2.99,T478-283KA-M
+142-284,H1552-22-1.svs,H1552-22-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:44:59,No,Yes,Yes,,False,Indeterminate,3.42,T478-376LBM
+142-302,H82-23-2.svs,H82-23-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 14:53:40,No,Yes,Yes,,False,Instable,30.33,T478-423TO-F
+142-228,H1800-21-2.svs,H1800-21-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:54:06,No,Yes,Yes,,False,Stable,1.21,T478-225IO-F
+142-400,H1463-24-1.svs,H1463-24-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:00:08,No,Yes,Yes,,False,Stable,1.31,478-790
+142-375,H607-24-13.svs,H607-24-13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:57:58,No,Yes,Yes,,False,Indeterminate,3.31,T478-667AB-M
+142-335,H1186-23-23-001.svs,H1186-23-23-001.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:53:22,No,Yes,Yes,Ovary,False,Indeterminate,3.12,T478-517AA-F
+142-247,H-353-1-22.svs,H-353-1-22.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:42:47,No,Yes,Yes,,False,Stable,2.37,T478-263OFF
+142-393,H1270-24-2.svs,H1270-24-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:24:21,No,Yes,Yes,,False,Instable,30.45,478-756
+142-421,H261-25-A17.svs,H261-25-A17.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:01:22,No,Yes,Yes,Lymph node,False,Stable,2.63,478-865
+142-421,H261-25-B3.svs,H261-25-B3.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:15:05,No,Yes,Yes,,False,Stable,2.63,478-865
+142-434,H691-25-9.svs,H691-25-9.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:23:16,No,Yes,Yes,,False,,,478-892
+142-351,H1965-23-2.svs,H1965-23-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:18:18,No,Yes,Yes,,False,Indeterminate,4.01,T478-564AG-M
+142-381,H694-24-2-001.svs,H694-24-2-001.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:23:32,No,Yes,Yes,,False,Indeterminate,7.25,T478-682OO-M
+142-435,H1669-25-7.svs,H1669-25-7.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:57:40,No,Yes,Yes,,False,,,478-905
+142-309,H404-23-4.svs,H404-23-4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:49:48,No,Yes,Yes,Lymphoid tissue,False,Stable,2.39,T478-463OA-M
+142-401,H1640-24.svs,H1640-24.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:33:53,No,Yes,No,,False,Stable,0.19,478-804
+142-290,H1913-22-13-1.svs,H1913-22-13-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:50:27,No,Yes,Yes,Lymph node,False,Indeterminate,4.93,T478-390ACF
+142-409,H2105-24-12.svs,H2105-24-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:21:06,No,Yes,Yes,Small intestine,False,Stable,1.8,478-835
+142-279,H1560-22-3.svs,H1560-22-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:48:29,No,Yes,Yes,,False,Indeterminate,3.59,T478-364JDF
+142-278,H1487-22-A5.svs,H1487-22-A5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:19:05,Yes,No,No,Out of focus,False,Stable,2.16,T478-360ABF
+142-233,H118-23-B1.svs,H118-23-B1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:05:52,No,Yes,Yes,,False,Indeterminate,4.7,T478-236OK-F
+142-351,H1965-23-10.svs,H1965-23-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-22-2026 13:02:22,No,Yes,Yes,,False,Indeterminate,4.01,T478-564AG-M
+142-279,H1560-22-9.svs,H1560-22-9.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:31:45,No,No,Yes,Out of focus,False,Indeterminate,3.59,T478-364JDF
+142-294,H1986-22-A4.svs,H1986-22-A4.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:31:59,No,Yes,Yes,,False,Stable,1.71,T478-396OT-M
+142-375,H607-24-9.svs,H607-24-9.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:14:44,No,Yes,Yes,,False,Indeterminate,3.31,T478-667AB-M
+142-287,H1566-22-2.svs,H1566-22-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:22:34,No,Yes,Yes,Testis,False,Instable,19.09,T478-380AJM
+142-421,H261-25-A18.svs,H261-25-A18.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:52:27,No,Yes,Yes,,False,Stable,2.63,478-865
+142-222,H1440-21-1.svs,H1440-21-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 14:58:15,No,Yes,Yes,,False,Indeterminate,4.03,T478-208MO-F
+142-312,H742-22-15.svs,H742-22-15.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:54:56,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-329,H970-23-8.svs,H970-23-8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:38:39,No,Yes,Yes,,False,Stable,1.88,T478-497OM-F
+142-317,H-503-23-A2.svs,H-503-23-A2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:40:19,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-235,H1641-22-B-1.svs,H1641-22-B-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:32:11,No,Yes,Yes,Many artefacts. ? Gastric tissue,False,Stable,0.67,T478-239KJ-M
+142-278,H1487-22-A8.svs,H1487-22-A8.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:28:31,No,Yes,Yes,,False,Stable,2.16,T478-360ABF
+142-210,H1175-21-B4.svs,H1175-21-B4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:43:41,No,Yes,Yes,Small intestine,False,Instable,10.01,T41CB-45M
+142-210,H1175-21-A2.svs,H1175-21-A2.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:32:38,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-210,H1175-21-D3.svs,H1175-21-D3.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:57:53,No,Yes,Yes,Lymph node,False,Instable,10.01,T41CB-45M
+142-312,H742-22-34.svs,H742-22-34.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:33:05,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-438,H955-25-EX7.svs,H955-25-EX7.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:27:50,No,Yes,Yes,Fat tissue,False,,,478-913
+142-222,H1440-21-19.svs,H1440-21-19.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:30:55,No,Yes,Yes,Lymph node,False,Indeterminate,4.03,T478-208MO-F
+142-306,H473-23-B-1.svs,H473-23-B-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:30:09,No,Yes,Yes,,False,Indeterminate,5.36,T478-459AK-M
+142-287,H1566-22-1.svs,H1566-22-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:58:00,No,Yes,Yes,Testis,False,Instable,19.09,T478-380AJM
+142-255,H-1628-B18-22.svs,H-1628-B18-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:24:43,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-284,H1552-22-5.svs,H1552-22-5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:25:12,No,Yes,Yes,,False,Indeterminate,3.42,T478-376LBM
+142-434,H691-25-19.svs,H691-25-19.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:35:01,No,Yes,Yes,,False,,,478-892
+142-222,H1440-21-13.svs,H1440-21-13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:24:01,No,No,No,Poor slide,False,Indeterminate,4.03,T478-208MO-F
+142-381,H694-24-9.svs,H694-24-9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:38:57,No,Yes,Yes,,False,Indeterminate,7.25,T478-682OO-M
+142-309,H504-23-5.svs,H504-23-5.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:48:37,No,Yes,Yes,,False,Stable,2.39,T478-463OA-M
+142-286,H1633-22-9.svs,H1633-22-9.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:37:48,No,Yes,Yes,Appendix. Some areas not in focus,False,Stable,0.09,T478-379OOM
+142-335,H1186-23-20.svs,H1186-23-20.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:26:19,No,Yes,Yes,Lymph node,False,Indeterminate,3.12,T478-517AA-F
+142-255,H-1628-B6-22.svs,H-1628-B6-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:08:10,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-284,H1552-22-2.svs,H1552-22-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:44:49,No,Yes,Yes,,False,Indeterminate,3.42,T478-376LBM
+142-317,H-503-23-10A.svs,H-503-23-10A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:08:04,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-335,H1186-23-22.svs,H1186-23-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:32:47,No,Yes,Yes,Lymph node,False,Indeterminate,3.12,T478-517AA-F
+142-228,H1800-21-14.svs,H1800-21-14.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:54:51,No,Yes,Yes,Lymph node,False,Stable,1.21,T478-225IO-F
+142-258,H744-22-13.svs,H744-22-13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:30:11,No,Yes,Yes,,False,Stable,0.58,T478-290OAF
+142-416,H2338-24-18-001.svs,H2338-24-18-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:40:38,No,Yes,Yes,,False,Instable,23.35,478--851
+142-269,H1079-22-2-1.svs,H1079-22-2-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:38:43,No,Yes,Yes,,False,Stable,2.26,T478-328OOM
+142-290,H1913-22-15.svs,H1913-22-15.svs,OAUTHC,3,Olaofe Olaejirinde ,04-22-2026 12:50:29,No,Yes,Yes,Lymph node,False,Indeterminate,4.93,T478-390ACF
+142-210,H1175-21-B10-1.svs,H1175-21-B10-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:49:01,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-222,H1440-21-14.svs,H1440-21-14.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:31:00,No,Yes,Yes,,False,Indeterminate,4.03,T478-208MO-F
+142-329,H970-23-EX4.svs,H970-23-EX4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:03:29,No,Yes,Yes,,False,Stable,1.88,T478-497OM-F
+142-235,H-1641-A-22-B.svs,H-1641-A-22-B.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:41:22,No,Yes,Yes,Too many artefacts,False,Stable,0.67,T478-239KJ-M
+142-312,H742-22-29-1.svs,H742-22-29-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:09:44,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-335,H1186-23-11.svs,H1186-23-11.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:18:51,No,Yes,Yes,,False,Indeterminate,3.12,T478-517AA-F
+142-279,H1560-22-1.svs,H1560-22-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:29:41,No,Yes,Yes,,False,Indeterminate,3.59,T478-364JDF
+142-435,H1669-25-12.svs,H1669-25-12.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:07:29,No,Yes,Yes,,False,,,478-905
+142-335,H1186-23-18.svs,H1186-23-18.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:34:13,No,Yes,Yes,,False,Indeterminate,3.12,T478-517AA-F
+142-255,H-1628-B15-22-A.svs,H-1628-B15-22-A.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:57:51,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-255,H1628-22-B1-1.svs,H1628-22-B1-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:18:34,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-290,H1913-22-13.svs,H1913-22-13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 14:52:17,No,Yes,Yes,Lymph node,False,Indeterminate,4.93,T478-390ACF
+142-405,H687-24-B4.svs,H687-24-B4.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:10:03,No,Yes,Yes,,False,Stable,0.54,478-825
+142-312,H742-22-13.svs,H742-22-13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 10:58:41,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-312,H742-22-40.svs,H742-22-40.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:32:03,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-335,H1186--25-23.svs,H1186--25-23.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:08:43,No,Yes,Yes,Lymph node,False,Indeterminate,3.12,T478-517AA-F
+142-421,H261-25-A22.svs,H261-25-A22.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:43:38,No,Yes,Yes,,False,Stable,2.63,478-865
+142-278,H1487-22-A11.svs,H1487-22-A11.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:26:32,No,Yes,Yes,,False,Stable,2.16,T478-360ABF
+142-255,H1628-B15-22.svs,H1628-B15-22.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:00:09,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-375,H607-24-7.svs,H607-24-7.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:57:08,No,Yes,Yes,,False,Indeterminate,3.31,T478-667AB-M
+142-290,H1913-22-14.svs,H1913-22-14.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:01:20,No,Yes,Yes,Has artefacts. Lymph node,False,Indeterminate,4.93,T478-390ACF
+142-397,H1299-24-10.svs,H1299-24-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:54:31,No,Yes,Yes,,False,Stable,0.38,478-783
+142-416,H2338-24-15.svs,H2338-24-15.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:13:23,No,Yes,Yes,,False,Instable,23.35,478--851
+142-255,H1628-22-B1.svs,H1628-22-B1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:34:24,No,Yes,Yes,Many artefact,False,Stable,0.47,T478-274AAF
+142-434,H691-25-20.svs,H691-25-20.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:35:12,No,Yes,Yes,Fat and lymph node,False,,,478-892
+142-251,H533-22-9.svs,H533-22-9.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:53:43,No,Yes,Yes,,False,Stable,2.19,T478-267OWM
+142-375,H607-24-14.svs,H607-24-14.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:16:58,No,Yes,Yes,,False,Indeterminate,3.31,T478-667AB-M
+142-375,H607-24-11.svs,H607-24-11.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:12:49,No,Yes,Yes,,False,Indeterminate,3.31,T478-667AB-M
+142-309,H504-23-8.svs,H504-23-8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:22:53,No,Yes,Yes,Lymph node,False,Stable,2.39,T478-463OA-M
+142-397,H1299-24-13.svs,H1299-24-13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:22:36,No,Yes,Yes,,False,Stable,0.38,478-783
+142-191,H609-21-11.svs,H609-21-11.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:00:22,No,Yes,Yes,,False,Stable,1.4,23_39F
+142-295,H733-22-2.svs,H733-22-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:53:08,No,Yes,Yes,Skin,False,Instable,38.27,T478-398OP-M
+142-286,H1633-22-3.svs,H1633-22-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:03:14,No,No,Yes,,False,Stable,0.09,T478-379OOM
+142-434,H691-25-13.svs,H691-25-13.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:12:28,No,Yes,Yes,,False,,,478-892
+142-393,H1270-24-12.svs,H1270-24-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:36:03,No,Yes,Yes,Fat tissue,False,Instable,30.45,478-756
+142-375,H607-24-12.svs,H607-24-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:23:16,No,Yes,Yes,,False,Indeterminate,3.31,T478-667AB-M
+142-312,H742-22-36A.svs,H742-22-36A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:07:56,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-258,H744-22-14.svs,H744-22-14.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:57:13,No,Yes,Yes,,False,Stable,0.58,T478-290OAF
+142-409,H2105-24-17.svs,H2105-24-17.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:13:16,No,Yes,Yes,? Liver tissue,False,Stable,1.8,478-835
+142-269,H1079-22-9.svs,H1079-22-9.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:32:09,No,Yes,Yes,Unsure of diagnosis,False,Stable,2.26,T478-328OOM
+142-269,H1079-22-18.svs,H1079-22-18.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:29:53,No,Yes,Yes,,False,Stable,2.26,T478-328OOM
+142-312,H742-22-4.svs,H742-22-4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:09:23,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-202,H160-21-B.svs,H160-21-B.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:15:34,No,Yes,Yes,Skin ? Lichenoid dermatitis,False,Stable,0.73,19_72M
+142-421,H261-25-B1.svs,H261-25-B1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:05:03,No,Yes,Yes,,False,Stable,2.63,478-865
+142-335,H1186-23-17.svs,H1186-23-17.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:02:50,No,Yes,Yes,Lymph node,False,Indeterminate,3.12,T478-517AA-F
+142-210,H1175-21-A4.svs,H1175-21-A4.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:20:01,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-421,H261-25-A10.svs,H261-25-A10.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:17:00,No,Yes,Yes,,False,Stable,2.63,478-865
+142-210,H1175-21-D1.svs,H1175-21-D1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:06:07,No,Yes,Yes,Lymph node,False,Instable,10.01,T41CB-45M
+142-421,H261-25-C1.svs,H261-25-C1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:11:25,No,Yes,Yes,,False,Stable,2.63,478-865
+142-381,H694-24-11.svs,H694-24-11.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:09:00,No,Yes,Yes,,False,Indeterminate,7.25,T478-682OO-M
+142-372,H483-24-A8.svs,H483-24-A8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:32:15,No,Yes,Yes,,False,Stable,1.27,T478-641ES-F
+142-414,H2336-24-1.svs,H2336-24-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:52:03,No,Yes,Yes,,False,Stable,1.18,478-849
+142-416,H2338-24-17.svs,H2338-24-17.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:26:49,No,Yes,Yes,,False,Instable,23.35,478--851
+142-237,H-147-1-22.svs,H-147-1-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:30:25,No,Yes,Yes,,False,Stable,1.23,T478-245AA-M
+142-421,H261-25-A2.svs,H261-25-A2.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:02:36,No,Yes,Yes,,False,Stable,2.63,478-865
+142-210,H1175-21-D7.svs,H1175-21-D7.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:18:11,No,Yes,Yes,Lymph node,False,Instable,10.01,T41CB-45M
+142-312,H742-22-39.svs,H742-22-39.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:54:44,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-226,H1655-21-1.svs,H1655-21-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:04:05,No,Yes,Yes,Some areas are out of focus,False,Stable,0.86,T478-218IS-M
+142-372,H483-24-A14.svs,H483-24-A14.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:57:12,No,Yes,Yes,,False,Stable,1.27,T478-641ES-F
+142-402,H1637-24-14.svs,H1637-24-14.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:04:09,No,Yes,Yes,Lymph node,False,Stable,0.81,478-809
+142-313,H715-22-6.svs,H715-22-6.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:22:22,No,Yes,Yes,,False,Stable,2.99,T478-283KA-M
+142-312,H742-22-24.svs,H742-22-24.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:41:27,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-416,H2338-24-1.svs,H2338-24-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:45:42,No,Yes,Yes,,False,Instable,23.35,478--851
+142-222,H1440-21-18.svs,H1440-21-18.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:51:57,No,Yes,Yes,,False,Indeterminate,4.03,T478-208MO-F
+142-418,H2451-24-B1.svs,H2451-24-B1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:02:56,No,Yes,Yes,,False,Indeterminate,3.8,478-857
+142-255,H1628-22-B9.svs,H1628-22-B9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:53:45,No,No,No,,False,Stable,0.47,T478-274AAF
+142-222,H1440-21-16.svs,H1440-21-16.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:56:47,No,Yes,Yes,,False,Indeterminate,4.03,T478-208MO-F
+142-372,H483-24-A9.svs,H483-24-A9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:39:59,No,Yes,Yes,,False,Stable,1.27,T478-641ES-F
+142-421,H261-25-A1.svs,H261-25-A1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:09:59,No,Yes,Yes,,False,Stable,2.63,478-865
+142-279,H1560-22-2.svs,H1560-22-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:01:01,No,Yes,Yes,,False,Indeterminate,3.59,T478-364JDF
+142-294,H1986-22-A2.svs,H1986-22-A2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:33:10,No,Yes,Yes,,False,Stable,1.71,T478-396OT-M
+142-372,H483-24-A13.svs,H483-24-A13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:48:34,No,Yes,Yes,,False,Stable,1.27,T478-641ES-F
+142-434,H691-25-16.svs,H691-25-16.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:10:05,No,Yes,Yes,Fat,False,,,478-892
+142-294,H1986-22-A11.svs,H1986-22-A11.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:15:32,No,Yes,Yes,,False,Stable,1.71,T478-396OT-M
+142-286,H1633-22-16.svs,H1633-22-16.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:14:10,No,Yes,Yes,Lymph node,False,Stable,0.09,T478-379OOM
+142-312,H742-22-21.svs,H742-22-21.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 13:45:34,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-286,H1633-22-1.svs,H1633-22-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:39:43,No,Yes,Yes,,False,Stable,0.09,T478-379OOM
+142-210,H1175-21-A6.svs,H1175-21-A6.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:04:34,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-302,H82-23-4.svs,H82-23-4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:38:20,No,Yes,Yes,,False,Instable,30.33,T478-423TO-F
+142-335,H1186-23-26.svs,H1186-23-26.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:14:28,No,Yes,Yes,Lymph node,False,Indeterminate,3.12,T478-517AA-F
+142-335,H1186-23-3.svs,H1186-23-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:19:39,Yes,No,Yes,,False,Indeterminate,3.12,T478-517AA-F
+142-255,H1628-22-B10.svs,H1628-22-B10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:56:02,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-329,H970-23-EX2.svs,H970-23-EX2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:58:19,No,Yes,Yes,Lymph node,False,Stable,1.88,T478-497OM-F
+142-372,H483-24-A12.svs,H483-24-A12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:20:55,No,Yes,Yes,,False,Stable,1.27,T478-641ES-F
+142-317,H503-23-A16.svs,H503-23-A16.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:29:18,No,Yes,Yes,Lymph nodes,False,Stable,0.24,T478-457MO-M
+142-414,H2336-24-7.svs,H2336-24-7.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 11:15:17,Yes,No,Yes,,False,Stable,1.18,478-849
+142-210,H1175-21-B9.svs,H1175-21-B9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:36:39,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-255,H-1628-B13-22.svs,H-1628-B13-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:13:30,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-381,H694-24-12.svs,H694-24-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:46:45,No,Yes,Yes,,False,Indeterminate,7.25,T478-682OO-M
+142-255,H-1628-B18-22-A.svs,H-1628-B18-22-A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:46:25,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-312,H742-22-16.svs,H742-22-16.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:35:16,No,Yes,Yes,,False,Indeterminate,8.04,T478-292OY-F
+142-302,H82-23-18.svs,H82-23-18.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:25:31,No,Yes,Yes,,False,Instable,30.33,T478-423TO-F
+142-416,H2338-24-20.svs,H2338-24-20.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:15:57,No,Yes,Yes,,False,Instable,23.35,478--851
+142-416,H2338-24-2.svs,H2338-24-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:29:03,No,Yes,Yes,,False,Instable,23.35,478--851
+142-409,H2105-24-18.svs,H2105-24-18.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:55:26,No,Yes,Yes,Liver,False,Stable,1.8,478-835
+142-434,H691-25-2.svs,H691-25-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:48:58,No,Yes,Yes,,False,,,478-892
+142-279,H1560-22-4.svs,H1560-22-4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 11:05:06,No,Yes,Yes,,False,Indeterminate,3.59,T478-364JDF
+142-182,H-1709-21.svs,H-1709-21.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:49:29,No,Yes,Yes,Bone marrow,False,Stable,2.33,8_50M
+142-294,H1986-22-A8.svs,H1986-22-A8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 10:52:26,No,Yes,Yes,Adenomatous Polyp. Some areas are out of focus and with lots of artefacts,False,Stable,1.71,T478-396OT-M
+142-317,H-503-23-A1.svs,H-503-23-A1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:52:37,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-279,H1560-22-6.svs,H1560-22-6.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 13:32:22,No,No,No,Not in focus,False,Indeterminate,3.59,T478-364JDF
+142-351,H1965-23-9.svs,H1965-23-9.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:30:10,No,Yes,Yes,,False,Indeterminate,4.01,T478-564AG-M
+142-286,H1633-22-14.svs,H1633-22-14.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:56:56,No,Yes,Yes,,False,Stable,0.09,T478-379OOM
+142-222,H1440-21-30.svs,H1440-21-30.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:45:24,No,Yes,Yes,,False,Indeterminate,4.03,T478-208MO-F
+142-309,H504-23-9-001.svs,H504-23-9-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:39:21,No,Yes,Yes,Lymphoid tissue,False,Stable,2.39,T478-463OA-M
+142-294,H1986-22-A4-1.svs,H1986-22-A4-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:43:57,No,Yes,Yes,,False,Stable,1.71,T478-396OT-M
+142-402,H1637-24-16.svs,H1637-24-16.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:33:08,No,Yes,Yes,,False,Stable,0.81,478-809
+142-262,H884-22-1.svs,H884-22-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:12:31,No,Yes,Yes,Lymph node,False,Stable,0.46,T478-310SJM
+142-246,H-350-1-22.svs,H-350-1-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:36:25,No,Yes,Yes,,False,Stable,2.29,T478-262KJ-M
+142-416,H2338-24-14.svs,H2338-24-14.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:13:28,No,Yes,Yes,,False,Instable,23.35,478--851
+142-317,H-503-23-19A.svs,H-503-23-19A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:30:16,No,No,No,Out of focus,False,Stable,0.24,T478-457MO-M
+142-434,H691-25-3.svs,H691-25-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:07:24,No,Yes,Yes,,False,,,478-892
+142-246,H-350-4-22.svs,H-350-4-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:38:53,No,Yes,Yes,Adenomatous Polyp,False,Stable,2.29,T478-262KJ-M
+142-416,H2338-24-12.svs,H2338-24-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:21:51,No,Yes,Yes,,False,Instable,23.35,478--851
+142-309,H504-23-6.svs,H504-23-6.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:58:14,No,Yes,Yes,Lymph node,False,Stable,2.39,T478-463OA-M
+142-284,H1552-22-A.svs,H1552-22-A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:48:24,No,Yes,Yes,,False,Indeterminate,3.42,T478-376LBM
+142-286,H1633-22-10.svs,H1633-22-10.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:29:10,No,Yes,Yes,,False,Stable,0.09,T478-379OOM
+142-421,H261-25-A16.svs,H261-25-A16.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:42:45,No,Yes,Yes,,False,Stable,2.63,478-865
+142-255,H1628-22-B9-1.svs,H1628-22-B9-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:05:02,No,Yes,Yes,Has some artefacts,False,Stable,0.47,T478-274AAF
+142-393,H1270-24-1.svs,H1270-24-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:13:48,No,Yes,Yes,,False,Instable,30.45,478-756
+142-409,H2105-24-11.svs,H2105-24-11.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:11:12,No,Yes,Yes,,False,Stable,1.8,478-835
+142-210,H1175-21-A15.svs,H1175-21-A15.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:01:47,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-393,H1270-24-9-001.svs,H1270-24-9-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:42:41,No,Yes,Yes,,False,Instable,30.45,478-756
+142-278,H1487-22-B1.svs,H1487-22-B1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:13:54,No,Yes,Yes,,False,Stable,2.16,T478-360ABF
+142-284,H1552-22-8.svs,H1552-22-8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:27:16,No,Yes,Yes,,False,Indeterminate,3.42,T478-376LBM
+142-434,H691-25-18.svs,H691-25-18.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:39:38,No,Yes,Yes,Lymph node,False,,,478-892
+142-317,H-503-23-14A.svs,H-503-23-14A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:34:21,No,Yes,Yes,,False,Stable,0.24,T478-457MO-M
+142-312,H742-22-25.svs,H742-22-25.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:32:29,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-335,H1186-23-19.svs,H1186-23-19.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:47:44,No,Yes,Yes,Lymph node,False,Indeterminate,3.12,T478-517AA-F
+142-287,H1566-22-4.svs,H1566-22-4.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:19:18,No,Yes,Yes,Its testicular tissue,False,Instable,19.09,T478-380AJM
+142-421,H261-25-A11.svs,H261-25-A11.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:16:19,No,Yes,Yes,,False,Stable,2.63,478-865
+142-405,H687-24-B6.svs,H687-24-B6.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:11:01,No,Yes,Yes,,False,Stable,0.54,478-825
+142-409,H2105-24-8-001.svs,H2105-24-8-001.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:39:08,No,Yes,Yes,,False,Stable,1.8,478-835
+142-312,H742-22-22.svs,H742-22-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:40:54,No,Yes,Yes,Lymph node,False,Indeterminate,8.04,T478-292OY-F
+142-210,H1175-21-A3.svs,H1175-21-A3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:33:46,No,Yes,Yes,Mainly inflammatory,False,Instable,10.01,T41CB-45M
+142-222,H1440-21-23.svs,H1440-21-23.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:36:52,No,Yes,Yes,,False,Indeterminate,4.03,T478-208MO-F
+142-255,H-1628-B11-22.svs,H-1628-B11-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:20:06,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-287,H1566-22-3.svs,H1566-22-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:33:57,No,Yes,No,Testis,False,Instable,19.09,T478-380AJM
+142-302,H82-23-12.svs,H82-23-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:19:18,No,Yes,Yes,,False,Instable,30.33,T478-423TO-F
+142-312,H742-22-1.svs,H742-22-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:19:53,No,No,No,Bad slide,False,Indeterminate,8.04,T478-292OY-F
+142-294,H1986-22-A3.svs,H1986-22-A3.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:36:31,No,Yes,Yes,,False,Stable,1.71,T478-396OT-M
+142-434,H691-25-6.svs,H691-25-6.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:29:13,Yes,No,Yes,,False,,,478-892
+142-317,H503-23-A19.svs,H503-23-A19.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:54:27,No,No,No,No slide seen,False,Stable,0.24,T478-457MO-M
+142-286,H1633-22-13.svs,H1633-22-13.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 12:08:37,No,Yes,Yes,Lymph node,False,Stable,0.09,T478-379OOM
+142-329,H970-23-7.svs,H970-23-7.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:46:16,No,Yes,Yes,,False,Stable,1.88,T478-497OM-F
+142-255,H1628-22-B7.svs,H1628-22-B7.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:53:25,No,Yes,Yes,Fat,False,Stable,0.47,T478-274AAF
+142-421,H261-25-A13.svs,H261-25-A13.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:53:31,No,Yes,Yes,,False,Stable,2.63,478-865
+142-278,H1487-23-B2-1.svs,H1487-23-B2-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:16:22,No,Yes,Yes,Has many artefacts,False,Stable,2.16,T478-360ABF
+142-255,H1628-22-B8.svs,H1628-22-B8.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:19:46,No,Yes,Yes,,False,Stable,0.47,T478-274AAF
+142-329,H970-23-2.svs,H970-23-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 14:58:35,No,Yes,Yes,,False,Stable,1.88,T478-497OM-F
+142-180,H88-21-A2.svs,H88-21-A2.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:46:11,No,Yes,Yes,,False,Indeterminate,3.02,6_59F
+142-228,H1800-21-15.svs,H1800-21-15.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 13:57:19,No,Yes,Yes,Lymph node,False,Stable,1.21,T478-225IO-F
+142-375,H607-24-8.svs,H607-24-8.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:26:34,No,Yes,Yes,,False,Indeterminate,3.31,T478-667AB-M
+142-294,H1986-22-B3.svs,H1986-22-B3.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:06:41,No,Yes,Yes,,False,Stable,1.71,T478-396OT-M
+142-262,H884-22-1A.svs,H884-22-1A.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:58:08,No,Yes,Yes,,False,Stable,0.46,T478-310SJM
+142-434,H691-25-11.svs,H691-25-11.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 01:44:31,No,Yes,Yes,,False,,,478-892
+142-438,H955-25-EX2.svs,H955-25-EX2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:59:27,No,No,Yes,Out of focus,False,,,478-913
+142-309,H404-23-1.svs,H404-23-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:46:32,No,Yes,Yes,Lymphoid tissue. unsure of diagnosis,False,Stable,2.39,T478-463OA-M
+142-222,H1440-21-28.svs,H1440-21-28.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:01:07,No,Yes,Yes,,False,Indeterminate,4.03,T478-208MO-F
+142-434,H691-25-12.svs,H691-25-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:01:07,No,Yes,Yes,,False,,,478-892
+142-374,H182-24-3.svs,H182-24-3.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:42:42,No,Yes,Yes,Bone marrow,False,Stable,1.9,T478-658DB-F
+142-210,H1175-21-B1.svs,H1175-21-B1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:47:28,No,Yes,Yes,Small intestine,False,Instable,10.01,T41CB-45M
+142-269,H1079-22-13.svs,H1079-22-13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:32:32,No,No,Yes,,False,Stable,2.26,T478-328OOM
+142-351,H1965-23-11.svs,H1965-23-11.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:31:07,No,Yes,Yes,Lymph node,False,Indeterminate,4.01,T478-564AG-M
+142-286,H1633-22-2.svs,H1633-22-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:25:31,No,Yes,Yes,,False,Stable,0.09,T478-379OOM
+142-302,H82-23-13.svs,H82-23-13.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 12:30:54,No,Yes,Yes,,False,Instable,30.33,T478-423TO-F
+142-313,H715-22-7.svs,H715-22-7.svs,OAUTHC,3,Olaofe Olaejirinde ,04-21-2026 14:29:59,No,Yes,Yes,,False,Stable,2.99,T478-283KA-M
+142-344,H334-23-EX2.svs,H334-23-EX2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 16:41:16,No,Yes,Yes,Suspicious tissue,False,Indeterminate,4.56,T478-450MV-F
+142-278,H1487-22-A10.svs,H1487-22-A10.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:52:52,No,Yes,Yes,,False,Stable,2.16,T478-360ABF
+142-222,H1440-21-25.svs,H1440-21-25.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 14:37:43,No,Yes,Yes,Lymph node,False,Indeterminate,4.03,T478-208MO-F
+142-312,H742-22-18.svs,H742-22-18.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 16:01:01,No,Yes,Yes,Lymphoid tissue,False,Indeterminate,8.04,T478-292OY-F
+142-313,H715-22-2.svs,H715-22-2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:08:58,No,Yes,Yes,Lymph node,False,Stable,2.99,T478-283KA-M
+142-434,H691-25-15.svs,H691-25-15.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:14:41,No,Yes,Yes,Lymph node,False,,,478-892
+142-351,H1965-23-14.svs,H1965-23-14.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:20:33,No,No,No,Slide not seen,False,Indeterminate,4.01,T478-564AG-M
+142-210,H1175-21-B3.svs,H1175-21-B3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 10:56:14,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-309,H504-23-3-001.svs,H504-23-3-001.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:26:27,No,Yes,Yes,Unsure of tissue,False,Stable,2.39,T478-463OA-M
+142-416,H2338-24-3.svs,H2338-24-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:30:06,No,Yes,Yes,,False,Instable,23.35,478--851
+142-434,H691-25-23.svs,H691-25-23.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 13:43:43,No,Yes,Yes,,False,,,478-892
+142-278,H1487-22-A2.svs,H1487-22-A2.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 15:50:50,No,No,Yes,Out of focus,False,Stable,2.16,T478-360ABF
+142-332,H1925-22.svs,H1925-22.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 17:52:19,Yes,No,Yes,Too many artefacts,False,Stable,1.89,T478-505OB-F
+142-414,H2336-24-8.svs,H2336-24-8.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:02:25,No,Yes,Yes,,False,Stable,1.18,478-849
+142-290,H1913-22-10.svs,H1913-22-10.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:32:39,No,Yes,Yes,,False,Indeterminate,4.93,T478-390ACF
+142-278,H1487-22-A13.svs,H1487-22-A13.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:40:50,No,Yes,Yes,Lymph node,False,Stable,2.16,T478-360ABF
+142-309,H504-23-1.svs,H504-23-1.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:18:33,No,Yes,Yes,Lymph node,False,Stable,2.39,T478-463OA-M
+142-322,H468-23-A1.svs,H468-23-A1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 14:54:47,No,Yes,Yes,,False,Instable,31.66,T478-480OD-F
+142-393,H1270-24-9.svs,H1270-24-9.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:38:21,No,Yes,Yes,,False,Instable,30.45,478-756
+142-269,H1079-22-21.svs,H1079-22-21.svs,OAUTHC,3,Olaofe Olaejirinde ,04-23-2026 13:30:21,No,Yes,Yes,benign breast tissue,False,Stable,2.26,T478-328OOM
+142-351,H1965-23-12.svs,H1965-23-12.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:25:17,No,Yes,Yes,Lymph ode,False,Indeterminate,4.01,T478-564AG-M
+142-375,H607-24-6.svs,H607-24-6.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:53:46,No,Yes,Yes,,False,Indeterminate,3.31,T478-667AB-M
+142-210,H1175-21-A5.svs,H1175-21-A5.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 11:42:00,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-421,H261-25-A12.svs,H261-25-A12.svs,OAUTHC,3,Olaofe Olaejirinde ,05-02-2026 02:05:24,No,Yes,Yes,,False,Stable,2.63,478-865
+142-284,H1552-22-7-1.svs,H1552-22-7-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 15:20:45,No,Yes,Yes,,False,Indeterminate,3.42,T478-376LBM
+142-222,H1440-21-3.svs,H1440-21-3.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 17:25:29,No,Yes,Yes,Small Intestine,False,Indeterminate,4.03,T478-208MO-F
+142-290,H1913-22-8.svs,H1913-22-8.svs,OAUTHC,3,Olaofe Olaejirinde ,05-01-2026 15:37:07,No,Yes,Yes,,False,Indeterminate,4.93,T478-390ACF
+142-434,H691-25-17.svs,H691-25-17.svs,OAUTHC,3,Olaofe Olaejirinde ,04-18-2026 14:23:32,No,Yes,Yes,Lymph node,False,,,478-892
+142-210,H1175-21-D5.svs,H1175-21-D5.svs,OAUTHC,3,Olaofe Olaejirinde ,04-26-2026 16:28:41,No,Yes,Yes,,False,Instable,10.01,T41CB-45M
+142-409,H2105-24-1.svs,H2105-24-1.svs,OAUTHC,3,Olaofe Olaejirinde ,04-25-2026 14:23:52,No,Yes,Yes,,False,Stable,1.8,478-835
+145-26,TH808-23-2.svs,TH808-23-2.svs,UITH,3,Folaranmi Olaleke ,04-07-2026 15:19:09,Yes,No,Yes,There are artefactual lines over all the fields,False,Indeterminate,6.78,T481-295FF-M
+145-26,TH808-23-3.svs,TH808-23-3.svs,UITH,3,Folaranmi Olaleke ,04-07-2026 14:57:12,No,Yes,Yes,"No tumour tissue seen, just colonic mucosal tissue",False,Indeterminate,6.78,T481-295FF-M
+143-44,MSI_B957_23.svs,MSI_B957_23.svs,LUTH,3,Orah Nnamdi ,04-07-2026 15:27:24,No,No,Yes,out of focus,False,Indeterminate,6.83,T479-327TT-F
+143-27,MSI--634-22B.svs,MSI--634-22B.svs,LUTH,3,Orah Nnamdi ,04-07-2026 15:26:49,No,No,No,out of focus,False,Stable,1.41,T479-237HAF56
+143-27,MSI-B634-22.svs,MSI-B634-22.svs,LUTH,3,Orah Nnamdi ,04-07-2026 15:23:30,No,No,No,none,False,Stable,1.41,T479-237HAF56
+143-35,MSI-B2912-2-22.svs,MSI-B2912-2-22.svs,LUTH,3,Orah Nnamdi ,04-07-2026 15:26:22,Yes,No,Yes,partially out of focus,False,Stable,2.56,T479-298FO-F
+143-27,MSI-B634-22B.svs,MSI-B634-22B.svs,LUTH,3,Orah Nnamdi ,04-07-2026 15:17:17,No,No,No,out of focus,False,Stable,1.41,T479-237HAF56
+143-33,MSI-B516-23.svs,MSI-B516-23.svs,LUTH,3,Orah Nnamdi ,04-07-2026 15:14:19,No,No,No,none,False,Instable,29.83,T479-152SD-M
+143-23,MSI-B985-22.svs,MSI-B985-22.svs,LUTH,3,Orah Nnamdi ,04-07-2026 15:06:57,No,No,No,out of focus,False,Stable,0.24,T479-206AMM
+143-41,MSI-B464-23-.svs,MSI-B464-23-.svs,LUTH,3,Orah Nnamdi ,04-07-2026 15:05:01,No,No,No,out of focus,False,Indeterminate,4.42,T479-309RG-F
+143-44,MSI_B900_23.svs,MSI_B900_23.svs,LUTH,3,Orah Nnamdi ,04-07-2026 14:53:50,No,Yes,Yes,none,False,Indeterminate,6.83,T479-327TT-F
+143-23,MSI-B985_3_22.svs,MSI-B985_3_22.svs,LUTH,3,Orah Nnamdi ,04-07-2026 14:56:48,No,No,No,out of focus,False,Stable,0.24,T479-206AMM
+143-24,MSI_B975-22.svs,MSI_B975-22.svs,LUTH,3,Orah Nnamdi ,04-07-2026 15:41:43,No,No,No,out of focus,False,Instable,33.66,T479-208ODF
+143-27,MSI-B634_2_22.svs,MSI-B634_2_22.svs,LUTH,3,Orah Nnamdi ,04-07-2026 15:42:09,No,No,Yes,out of focus,False,Stable,1.41,T479-237HAF56
+147-1,S-0376-23.svs,S-0376-23.svs,UMTH,3,Zarami Abba Bukar,04-29-2026 13:28:10,No,No,No,The slide is not good,False,Indeterminate,3.09,694-32
+147-4,S0500-24-3.svs,S0500-24-3.svs,UMTH,3,Zarami Abba Bukar,04-29-2026 13:13:14,No,Yes,Yes,No tumor seen,False,Stable,0.39,694-110
