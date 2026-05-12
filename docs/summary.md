@@ -19,11 +19,12 @@ filter-only since they have no parameters to refit.
 |------|-------------------------|-------|-------|---------------|------------|
 | 1    | wagner_zeroshot         | 0.710 | 0.717 | no       | slide      |
 | 1    | calibrated_pool         | 0.710 | 0.717 | no       | patient    |
-| 3    | slide_attention_mil     | 0.669 | 0.665 | yes      | patient    |
-| 4    | score_fusion            | 0.578 | 0.601 | yes      | slide      |
-| 5    | vl_text_cosine          | 0.562 | 0.598 | no       | slide      |
-| 6    | transductive_smoothing  | 0.555 | 0.582 | no       | slide      |
-| 7    | nuclear_morphology      | 0.513 | 0.529 | yes      | slide      |
+| 3    | simple_grid             | 0.670 | 0.622 | yes      | slide      |
+| 4    | slide_attention_mil     | 0.669 | 0.665 | yes      | patient    |
+| 5    | score_fusion            | 0.578 | 0.601 | yes      | slide      |
+| 6    | vl_text_cosine          | 0.562 | 0.598 | no       | slide      |
+| 7    | transductive_smoothing  | 0.555 | 0.582 | no       | slide      |
+| 8    | nuclear_morphology      | 0.513 | 0.529 | yes      | slide      |
 
 Reproducible: `python -m argo_deepmsi.eval.qc_comparison`. Raw artefacts
 under `results/comparison/`:
@@ -79,12 +80,13 @@ Notes:
 
 ## Per-scorer details
 
-- `docs/scorers/wagner_zeroshot.md` — pretrained Western baseline
-- `docs/scorers/calibrated_pool.md` — **headline winner**
-- `docs/scorers/slide_attention_mil.md` — best cohort-trained head
-- `docs/scorers/vl_text_cosine.md` — VL zero-shot (A1)
-- `docs/scorers/transductive_smoothing.md` — kNN label propagation on vl_text_cosine scores
-- `docs/scorers/nuclear_morphology.md` — NuLite + LR (D)
+- `docs/scorers/wagner_zeroshot.md` — pretrained Western baseline (tied #1)
+- `docs/scorers/calibrated_pool.md` — max/√n + MSS Emax (tied #1)
+- `docs/scorers/simple_grid.md` — LR/RF/XGB × 6 embeddings sweep (best cohort-trained)
+- `docs/scorers/slide_attention_mil.md` — attention-MIL on patient bags
+- `docs/scorers/vl_text_cosine.md` — TITAN text-image cosine
+- `docs/scorers/transductive_smoothing.md` — kNN propagation on vl_text_cosine scores
+- `docs/scorers/nuclear_morphology.md` — NuLite cell-class fractions + LR
 - `docs/scorers/score_fusion.md` — late-average over embeddings
 
 ## Scorer interface

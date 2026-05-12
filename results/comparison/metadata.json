@@ -3,6 +3,7 @@
     "calibrated_pool",
     "nuclear_morphology",
     "score_fusion",
+    "simple_grid",
     "slide_attention_mil",
     "transductive_smoothing",
     "vl_text_cosine",
