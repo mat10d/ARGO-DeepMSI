@@ -1,0 +1,13 @@
+{
+  "scorers_evaluated": [
+    "calibrated_pool",
+    "nuclear_morphology",
+    "score_fusion",
+    "slide_attention_mil",
+    "transductive_smoothing",
+    "vl_text_cosine",
+    "wagner_zeroshot"
+  ],
+  "qc_excluded_slides": 514,
+  "qc_csv": "results/data/problem_slides.csv"
+}

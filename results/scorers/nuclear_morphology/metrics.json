@@ -1,0 +1,53 @@
+{
+  "n_slides": 783,
+  "n_patients": 212,
+  "feature_cols": [
+    "frac_neoplastic",
+    "frac_inflammatory",
+    "frac_connective",
+    "frac_dead",
+    "frac_epithelial",
+    "til_density",
+    "stroma_ratio",
+    "immune_density",
+    "necrosis_fraction",
+    "mitotic_density",
+    "cells_per_tile"
+  ],
+  "slide_auroc": 0.43832347753916384,
+  "slide_auprc": 0.1708818125967163,
+  "patient_auroc": 0.5286911669890393,
+  "patient_auprc": 0.22686067698616585,
+  "per_site": {
+    "LASUTH": {
+      "n": 12,
+      "prevalence": 0.25,
+      "auroc": 0.5185185185185185
+    },
+    "LUTH": {
+      "n": 22,
+      "prevalence": 0.13636363636363635,
+      "auroc": 0.19298245614035087
+    },
+    "OAUTHC": {
+      "n": 468,
+      "prevalence": 0.17735042735042736,
+      "auroc": 0.43188859333437646
+    },
+    "UITH": {
+      "n": 12,
+      "prevalence": 0.5,
+      "auroc": 0.2222222222222222
+    },
+    "retrospective_msk": {
+      "n": 97,
+      "prevalence": 0.20618556701030927,
+      "auroc": 0.4857142857142857
+    },
+    "retrospective_oau": {
+      "n": 172,
+      "prevalence": 0.22093023255813954,
+      "auroc": 0.4501178318931658
+    }
+  }
+}

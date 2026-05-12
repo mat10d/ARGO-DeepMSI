@@ -26,11 +26,18 @@ logs/
 !results/analysis/**
 !results/autoresearch/
 !results/autoresearch/**
+!results/scorers/
+!results/scorers/**
+!results/comparison/
+!results/comparison/**
 # Exclude bulk thumbnail dumps — keep the manifest, drop the PNGs
 results/analysis/**/thumbnails/**/*.png
 results/analysis/**/thumbnails/**/*.jpg
 # Feature caches (reproducible from extraction scripts, too large for git)
 results/analysis/**/*.npz
+# Heavy intermediates inside scorer dirs (kept regenerable)
+results/scorers/**/text_embeddings.npy
+results/scorers/**/_*.csv
 
 # ============================================
 # Cache & Temporary Files
@@ -78,7 +85,7 @@ credentials.json
 # SLURM Output Files
 # ============================================
 scripts/out/
-scripts/archive/
+scripts/logs/
 *.out
 slurm-*.out
 
@@ -94,6 +101,9 @@ slurm-*.out
 !docs/**/*.pdf
 !results/analysis/**/*.png
 !results/autoresearch/**/*.png
+# … but never commit bulk thumbnail dumps (overrides the rule above)
+results/analysis/**/thumbnails/**/*.png
+results/analysis/**/thumbnails/**/*.jpg
 
 # ============================================
 # Model Checkpoints & Weights (too large)

@@ -1,0 +1,21 @@
+{
+  "msi_prompts": [
+    "colorectal adenocarcinoma with dense tumor-infiltrating lymphocytes",
+    "poorly differentiated colorectal carcinoma with mucinous features",
+    "medullary-type colorectal carcinoma with prominent lymphoid response",
+    "colorectal tumor with Crohn's-like peritumoral lymphoid reaction",
+    "signet ring cell features in colorectal adenocarcinoma",
+    "microsatellite-unstable colorectal cancer with abundant intraepithelial lymphocytes",
+    "colorectal carcinoma with mucin pools and poor gland formation"
+  ],
+  "mss_prompts": [
+    "well-differentiated colorectal adenocarcinoma",
+    "moderately differentiated tubular adenocarcinoma",
+    "colorectal adenocarcinoma without significant lymphocytic infiltrate",
+    "conventional colorectal adenocarcinoma with glandular architecture",
+    "microsatellite-stable colorectal cancer with low lymphocyte infiltration",
+    "colorectal carcinoma with well-formed glands and minimal stromal lymphocytes"
+  ],
+  "n_msi": 7,
+  "n_mss": 6
+}

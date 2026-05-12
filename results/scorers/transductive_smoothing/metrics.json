@@ -1,0 +1,241 @@
+{
+  "n_slides": 803,
+  "n_patients": 217,
+  "config": {
+    "msi_prompts": [
+      "colorectal adenocarcinoma with dense tumor-infiltrating lymphocytes",
+      "poorly differentiated colorectal carcinoma with mucinous features",
+      "medullary-type colorectal carcinoma with prominent lymphoid response",
+      "colorectal tumor with Crohn's-like peritumoral lymphoid reaction",
+      "signet ring cell features in colorectal adenocarcinoma",
+      "microsatellite-unstable colorectal cancer with abundant intraepithelial lymphocytes",
+      "colorectal carcinoma with mucin pools and poor gland formation"
+    ],
+    "mss_prompts": [
+      "well-differentiated colorectal adenocarcinoma",
+      "moderately differentiated tubular adenocarcinoma",
+      "colorectal adenocarcinoma without significant lymphocytic infiltrate",
+      "conventional colorectal adenocarcinoma with glandular architecture",
+      "microsatellite-stable colorectal cancer with low lymphocyte infiltration",
+      "colorectal carcinoma with well-formed glands and minimal stromal lymphocytes"
+    ],
+    "n_msi": 7,
+    "n_mss": 6,
+    "k": 10,
+    "alpha": 0.7,
+    "n_iter": 5,
+    "topk": 64
+  },
+  "variants": {
+    "smooth_mean": {
+      "slide_auroc": 0.4692533968342905,
+      "patient_auroc": 0.5483103879849812,
+      "per_site": {
+        "LASUTH": {
+          "n": 15,
+          "prevalence": 0.2,
+          "auroc": 0.6666666666666667,
+          "auprc": 0.3206349206349206
+        },
+        "LUTH": {
+          "n": 31,
+          "prevalence": 0.12903225806451613,
+          "auroc": 0.3981481481481482,
+          "auprc": 0.13096153846153846
+        },
+        "OAUTHC": {
+          "n": 476,
+          "prevalence": 0.17436974789915966,
+          "auroc": 0.4720561635856403,
+          "auprc": 0.16435711774611605
+        },
+        "UITH": {
+          "n": 12,
+          "prevalence": 0.5,
+          "auroc": 0.5277777777777778,
+          "auprc": 0.5896464646464646
+        },
+        "retrospective_msk": {
+          "n": 97,
+          "prevalence": 0.20618556701030927,
+          "auroc": 0.474025974025974,
+          "auprc": 0.20989028585281316
+        },
+        "retrospective_oau": {
+          "n": 172,
+          "prevalence": 0.22093023255813954,
+          "auroc": 0.5274941084053417,
+          "auprc": 0.30488070385624033
+        }
+      }
+    },
+    "smooth_topk": {
+      "slide_auroc": 0.5287755387909472,
+      "patient_auroc": 0.5828535669586984,
+      "per_site": {
+        "LASUTH": {
+          "n": 15,
+          "prevalence": 0.2,
+          "auroc": 0.4722222222222222,
+          "auprc": 0.23095238095238096
+        },
+        "LUTH": {
+          "n": 31,
+          "prevalence": 0.12903225806451613,
+          "auroc": 0.2314814814814815,
+          "auprc": 0.10202380952380952
+        },
+        "OAUTHC": {
+          "n": 476,
+          "prevalence": 0.17436974789915966,
+          "auroc": 0.5516416812287317,
+          "auprc": 0.2102772060817612
+        },
+        "UITH": {
+          "n": 12,
+          "prevalence": 0.5,
+          "auroc": 0.6944444444444444,
+          "auprc": 0.6627344877344877
+        },
+        "retrospective_msk": {
+          "n": 97,
+          "prevalence": 0.20618556701030927,
+          "auroc": 0.5857142857142857,
+          "auprc": 0.3349593656272819
+        },
+        "retrospective_oau": {
+          "n": 172,
+          "prevalence": 0.22093023255813954,
+          "auroc": 0.6606441476826393,
+          "auprc": 0.4257411151533075
+        }
+      }
+    },
+    "smooth_max": {
+      "slide_auroc": 0.5366297800812438,
+      "patient_auroc": 0.5824780976220275,
+      "per_site": {
+        "LASUTH": {
+          "n": 15,
+          "prevalence": 0.2,
+          "auroc": 0.4444444444444444,
+          "auprc": 0.22186147186147187
+        },
+        "LUTH": {
+          "n": 31,
+          "prevalence": 0.12903225806451613,
+          "auroc": 0.20370370370370375,
+          "auprc": 0.09861111111111111
+        },
+        "OAUTHC": {
+          "n": 476,
+          "prevalence": 0.17436974789915966,
+          "auroc": 0.5804285845672768,
+          "auprc": 0.22416315135343834
+        },
+        "UITH": {
+          "n": 12,
+          "prevalence": 0.5,
+          "auroc": 0.6666666666666666,
+          "auprc": 0.6988455988455988
+        },
+        "retrospective_msk": {
+          "n": 97,
+          "prevalence": 0.20618556701030927,
+          "auroc": 0.5785714285714286,
+          "auprc": 0.35556455848645246
+        },
+        "retrospective_oau": {
+          "n": 172,
+          "prevalence": 0.22093023255813954,
+          "auroc": 0.6347211311861743,
+          "auprc": 0.399372861229244
+        }
+      }
+    },
+    "raw_topk": {
+      "slide_auroc": 0.5354291317311348,
+      "patient_auroc": 0.6082603254067585,
+      "per_site": {
+        "LASUTH": {
+          "n": 15,
+          "prevalence": 0.2,
+          "auroc": 0.4444444444444444,
+          "auprc": 0.2216931216931217
+        },
+        "LUTH": {
+          "n": 31,
+          "prevalence": 0.12903225806451613,
+          "auroc": 0.25,
+          "auprc": 0.10429430171277998
+        },
+        "OAUTHC": {
+          "n": 476,
+          "prevalence": 0.17436974789915966,
+          "auroc": 0.5574358502713143,
+          "auprc": 0.21528649074326184
+        },
+        "UITH": {
+          "n": 12,
+          "prevalence": 0.5,
+          "auroc": 0.5833333333333334,
+          "auprc": 0.5541666666666666
+        },
+        "retrospective_msk": {
+          "n": 97,
+          "prevalence": 0.20618556701030927,
+          "auroc": 0.624025974025974,
+          "auprc": 0.37949655084136225
+        },
+        "retrospective_oau": {
+          "n": 172,
+          "prevalence": 0.22093023255813954,
+          "auroc": 0.6753731343283582,
+          "auprc": 0.46975395074615045
+        }
+      }
+    },
+    "raw_max": {
+      "slide_auroc": 0.5563604346347029,
+      "patient_auroc": 0.597747183979975,
+      "per_site": {
+        "LASUTH": {
+          "n": 15,
+          "prevalence": 0.2,
+          "auroc": 0.3333333333333333,
+          "auprc": 0.19166666666666668
+        },
+        "LUTH": {
+          "n": 31,
+          "prevalence": 0.12903225806451613,
+          "auroc": 0.14814814814814814,
+          "auprc": 0.09328290923662592
+        },
+        "OAUTHC": {
+          "n": 476,
+          "prevalence": 0.17436974789915966,
+          "auroc": 0.6035746037585457,
+          "auprc": 0.2317764312234073
+        },
+        "UITH": {
+          "n": 12,
+          "prevalence": 0.5,
+          "auroc": 0.5277777777777778,
+          "auprc": 0.5612794612794613
+        },
+        "retrospective_msk": {
+          "n": 97,
+          "prevalence": 0.20618556701030927,
+          "auroc": 0.5883116883116883,
+          "auprc": 0.3625285526789099
+        },
+        "retrospective_oau": {
+          "n": 172,
+          "prevalence": 0.22093023255813954,
+          "auroc": 0.6341319717203457,
+          "auprc": 0.4296967562280878
+        }
+      }
+    }
+  }
+}
