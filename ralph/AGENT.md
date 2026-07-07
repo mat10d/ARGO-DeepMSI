@@ -10,21 +10,36 @@ package is slow (~40s, pulls torch/lazyslide) — expect that overhead per verif
 work submit SLURM jobs through `ralph/gpu_gate.sh` (hard cap 3); CPU partitions are `24`/`20`/`18`,
 GPU partitions include `nvidia-A6000-20`/`nvidia-A100-20`, accounts `wibrusers`/`weissman`.
 
-## CRITICAL: each iteration is a single one-shot turn — run everything FOREGROUND
+## CRITICAL: each iteration is a single one-shot turn — you cannot "wait" or "resume"
 You are invoked as `claude -p` (headless, one prompt, no follow-up). When your turn
-ends, YOU ARE GONE — there is no "later", no wake-up, no monitor callback. Therefore:
-- **NEVER background a job and say "waiting".** Run long jobs (SLURM leaderboard regen,
-  training, extraction) in the FOREGROUND and BLOCK until they finish within THIS turn:
-  use `srun ... <cmd>` (blocking) or `sbatch --wait ... <script>`, not `sbatch &` /
-  `nohup &` / `submit + return`. A backgrounded job is orphaned and killed the moment
-  your turn ends (this already happened once and cost an iteration).
-- **A leaderboard regen takes 15-30 min — that is fine, block on it.** One long
-  foreground iteration is correct; a short iteration that defers work is a bug.
-- **Every turn must end in a terminal, consistent state:** either (a) task fully done,
-  verify green, committed, JOURNAL line appended; or (b) task reverted and marked
-  `blocked` with a reason; or (c) if genuinely mid-multistep, commit a coherent WIP with
-  the task left `doing` and a `checkpoint:` note in BACKLOG.yaml — but NEVER leave an
-  uncommitted dirty tree (the driver halts on it).
+ends, YOU ARE GONE — there is no "later", no wake-up, no monitor callback. NEVER say
+"I'll resume when notified" or background a job and end — it will be orphaned. There are
+exactly two ways to run long work:
+
+**(A) CPU work that fits (< ~40 min): run it FOREGROUND, blocking, within this turn.**
+Leaderboard regen (15-30 min), CPU extraction, small fits — use blocking `srun ... <cmd>`
+or `sbatch --wait ... <script>`, finish, verify, commit, journal. One long foreground
+iteration is correct; a short iteration that defers work is a bug.
+
+**(B) GPU work (or any multi-hour job): SUBMIT, hand off to the driver, end cleanly.**
+The driver waits across turns for you. Protocol:
+  1. Submit via `bash ralph/gpu_gate.sh sbatch <script>` (respects the 3-GPU cap).
+     Capture the job/array id from sbatch's stdout.
+  2. Write JUST that id to `ralph/.waiting_on` (e.g. `echo 10300717 > ralph/.waiting_on`).
+  3. Leave the task `status: doing`, add a `checkpoint:` note in BACKLOG.yaml saying what
+     the pending job produces and how to reduce it.
+  4. `git add -A && git commit` the WIP (scripts + code + marker). Do NOT append a JOURNAL
+     `done` line yet. End your turn.
+  5. The driver blocks until job id in `.waiting_on` clears the queue, then starts the next
+     iteration — the HARVEST turn. In that turn: see `.waiting_on` present + task `doing`,
+     REDUCE the job outputs (e.g. `python -m argo_deepmsi.eval.cohort --artifact-qc-dir ...`),
+     run verify, and only then `rm ralph/.waiting_on`, set `status: done`, write the
+     experiment doc, append the JOURNAL line, commit.
+
+- **Every turn must end committed.** Either: task fully done (verify green, JOURNAL line,
+  committed); OR a GPU handoff WIP committed with `.waiting_on` set + task `doing` (B above);
+  OR task reverted and marked `blocked` with a `reason:`. NEVER leave an uncommitted dirty
+  tree — the driver halts on it.
 - The terminal markers you append must start the line exactly: `LOOP-COMPLETE <UTC>` or
   `HALT-BLOCKED <UTC> <ids>` (the driver greps `^LOOP-COMPLETE ` / `^HALT-BLOCKED `).
 
