@@ -55,7 +55,7 @@ tasks:
 
   - id: Q2-artifact-qc
     priority: 89
-    status: todo
+    status: doing
     deps: [Q1-ecrf-qc]
     gpu: true
     summary: >

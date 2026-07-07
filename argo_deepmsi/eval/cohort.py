@@ -148,6 +148,67 @@ def build_clean_cohort(
     return out, manifest
 
 
+def add_artifact_qc(
+    cohort_csv: Path,
+    artifact_qc_dir: Path,
+    manifest_csv: Path,
+    floor: float = 0.5,
+) -> tuple[pd.DataFrame, dict]:
+    """Merge GrandQC artifact-QC shard CSVs into cohort_clean.csv (Q2 layer).
+
+    Reads every ``artifact_qc.part*.csv`` under ``artifact_qc_dir`` (written by
+    ``scripts/artifact_qc.py``), attaches ``artifact_fraction`` per slide, and
+    flags ``passes_artifact_qc = artifact_fraction <= floor`` (a slide whose seg
+    failed → NaN fraction → flagged False). This layer is FLAG-only:
+    ``in_clean_set`` is left untouched (dropping is deferred to Q3/Q4).
+
+    Rewrites ``cohort_clean.csv`` in place and returns the updated
+    ``(cohort_df, manifest_dict)`` with an ``artifact_qc`` block appended.
+    """
+    cohort = pd.read_csv(cohort_csv)
+    parts = sorted(Path(artifact_qc_dir).glob("artifact_qc.part*.csv"))
+    if not parts:
+        raise FileNotFoundError(f"no artifact_qc.part*.csv under {artifact_qc_dir}")
+    aq = pd.concat([pd.read_csv(p) for p in parts], ignore_index=True)
+    aq = aq.drop_duplicates("slide_id", keep="last")
+
+    cohort = cohort.drop(
+        columns=[c for c in ("artifact_fraction", "passes_artifact_qc") if c in cohort.columns]
+    )
+    cohort = cohort.merge(
+        aq[["slide_id", "artifact_fraction"]], on="slide_id", how="left"
+    )
+    cohort["passes_artifact_qc"] = (
+        cohort["artifact_fraction"].notna() & (cohort["artifact_fraction"] <= floor)
+    )
+    cohort.to_csv(cohort_csv, index=False)
+
+    manifest = json.loads(Path(manifest_csv).read_text())
+    clean_mask = cohort["in_clean_set"] == 1
+    n_scored = int(cohort.loc[clean_mask, "artifact_fraction"].notna().sum())
+    per_site = {}
+    for site, sub in cohort[clean_mask].groupby("site"):
+        per_site[str(site)] = {
+            "n_in_clean_set": int(len(sub)),
+            "n_artifact_scored": int(sub["artifact_fraction"].notna().sum()),
+            "n_flagged_artifact": int((~sub["passes_artifact_qc"]).sum()),
+        }
+    manifest.setdefault("layers", [])
+    if "artifact_qc" not in manifest["layers"]:
+        manifest["layers"].append("artifact_qc")
+    manifest["artifact_qc"] = {
+        "model": "grandqc-artifact",
+        "reduce": "polygon_area_fraction",
+        "flag_floor": floor,
+        "note": "flag-only (in_clean_set unchanged); drop deferred to Q3/Q4",
+        "n_clean_scored": n_scored,
+        "n_clean_flagged": int((~cohort.loc[clean_mask, "passes_artifact_qc"]).sum()),
+        "by_site": per_site,
+    }
+    Path(manifest_csv).write_text(json.dumps(manifest, indent=2))
+    return cohort, manifest
+
+
 def patient_folds(
     df: pd.DataFrame,
     n_splits: int = 5,
@@ -166,7 +227,11 @@ def patient_folds(
 
 
 def main() -> None:
-    """Build results/data/cohort_clean.csv + cohort_manifest.json (eCRF layer)."""
+    """Build/extend results/data/cohort_clean.csv + cohort_manifest.json.
+
+    Default mode builds the v0 eCRF cohort. Pass ``--artifact-qc-dir`` to instead
+    merge the GrandQC artifact-QC layer (Q2) into an existing cohort_clean.csv.
+    """
     import argparse
 
     p = argparse.ArgumentParser(description=main.__doc__)
@@ -174,12 +239,27 @@ def main() -> None:
     p.add_argument("--clinical", default="results/data/clinical_table.csv", type=Path)
     p.add_argument("--ecrf-qc", default="results/data/problem_slides.csv", type=Path)
     p.add_argument("--outdir", default="results/data", type=Path)
+    p.add_argument("--artifact-qc-dir", default=None, type=Path,
+                   help="if set, merge artifact-QC shards into the existing cohort (Q2)")
+    p.add_argument("--artifact-floor", default=0.5, type=float)
     a = p.parse_args()
 
-    cohort, manifest = build_clean_cohort(a.slide_table, a.clinical, a.ecrf_qc)
     a.outdir.mkdir(parents=True, exist_ok=True)
-    cohort.to_csv(a.outdir / "cohort_clean.csv", index=False)
-    (a.outdir / "cohort_manifest.json").write_text(json.dumps(manifest, indent=2))
+    cohort_csv = a.outdir / "cohort_clean.csv"
+    manifest_csv = a.outdir / "cohort_manifest.json"
+
+    if a.artifact_qc_dir is not None:
+        cohort, manifest = add_artifact_qc(cohort_csv, a.artifact_qc_dir, manifest_csv,
+                                           floor=a.artifact_floor)
+        blk = manifest["artifact_qc"]
+        print(f"artifact-QC merged: {blk['n_clean_scored']} clean slides scored, "
+              f"{blk['n_clean_flagged']} flagged (floor={blk['flag_floor']}).")
+        print(json.dumps(blk, indent=2))
+        return
+
+    cohort, manifest = build_clean_cohort(a.slide_table, a.clinical, a.ecrf_qc)
+    cohort.to_csv(cohort_csv, index=False)
+    manifest_csv.write_text(json.dumps(manifest, indent=2))
     print(f"cohort_clean.csv: {len(cohort)} slides, "
           f"{manifest['n_slides_in_clean_set']} in clean set "
           f"({manifest['n_patients_in_clean_set']} patients).")
