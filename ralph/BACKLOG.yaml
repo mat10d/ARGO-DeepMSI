@@ -41,7 +41,7 @@ tasks:
   # ---- Phase Q: canonical clean dataset (QC + tumor foundation) ----
   - id: Q1-ecrf-qc
     priority: 90
-    status: todo
+    status: done
     deps: [E00-metrics-layer]
     gpu: false
     summary: >
