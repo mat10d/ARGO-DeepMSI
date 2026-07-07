@@ -1,7 +1,16 @@
 # You are extending ARGO-DeepMSI in the NO-NEW-TRAINING-DATA regime.
 
-Read `ralph/CONTRACT.md` first — every rule there is binding. Then, each iteration, do
-EXACTLY ONE thing:
+Read `ralph/CONTRACT.md` first — every rule there is binding.
+
+## Environment
+Run all python in the `argo` conda env: `conda activate argo` (root
+`/lab/barcheese01/mdiberna/miniconda3`) or use
+`/lab/barcheese01/mdiberna/miniconda3/envs/argo/bin/python` directly. Importing the argo
+package is slow (~40s, pulls torch/lazyslide) — expect that overhead per verify run. For GPU
+work submit SLURM jobs through `ralph/gpu_gate.sh` (hard cap 3); CPU partitions are `24`/`20`/`18`,
+GPU partitions include `nvidia-A6000-20`/`nvidia-A100-20`, accounts `wibrusers`/`weissman`.
+
+Then, each iteration, do EXACTLY ONE thing:
 
 1. Read `ralph/BACKLOG.yaml`. Read the last 30 lines of `ralph/JOURNAL.md`.
 2. Pick the highest-`priority` task with `status: todo` whose `deps` are all `done`.

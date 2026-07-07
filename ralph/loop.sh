@@ -9,6 +9,14 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 mkdir -p ralph/logs
 
+# Activate argo env so the iteration's python/pytest resolve.
+CONDA_ROOT="${CONDA_ROOT:-/lab/barcheese01/mdiberna/miniconda3}"
+if [ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]; then
+  # shellcheck disable=SC1091
+  source "$CONDA_ROOT/etc/profile.d/conda.sh"
+  conda activate argo
+fi
+
 MAX_ITERS="${1:-200}"
 MODEL="${RALPH_MODEL:-opus}"
 
