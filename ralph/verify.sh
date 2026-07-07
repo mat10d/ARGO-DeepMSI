@@ -12,7 +12,10 @@ if [ -f "$CONDA_ROOT/etc/profile.d/conda.sh" ]; then
   source "$CONDA_ROOT/etc/profile.d/conda.sh"
   conda activate argo
 fi
-echo "python: $(which python)"
+# Always call tools through the env interpreter — `python -m pytest`, NOT bare
+# `pytest` (a stale system pytest can shadow the env's on PATH and crash).
+PY="${PY:-python}"
+echo "python: $(which "$PY")"
 
 echo "=== [1/4] contract + regime tests ==="
 # Scope to the harness's own guards + any scorer-contract tests the loop adds.
@@ -21,24 +24,24 @@ echo "=== [1/4] contract + regime tests ==="
 GATE_TESTS=(tests/test_screening_metrics.py tests/test_no_external_data.py)
 [ -f tests/test_scorer_contract.py ] && GATE_TESTS+=(tests/test_scorer_contract.py)
 for t in tests/test_scorer_*.py; do [ -f "$t" ] && GATE_TESTS+=("$t"); done
-pytest "${GATE_TESTS[@]}" -q -x -p no:cacheprovider
+"$PY" -m pytest "${GATE_TESTS[@]}" -q -x -p no:cacheprovider
 
 echo "=== [2/4] metric-block contract (no AUROC-only landings) ==="
-python ralph/check_metrics_contract.py
+"$PY" ralph/check_metrics_contract.py
 
 echo "=== [3/4] regenerate leaderboard (never hand-edited) ==="
 # The real entrypoint that emits results/comparison/leaderboard.csv.
 # Uses cohort_clean.csv once Q-phase builds it; falls back to problem_slides.csv pre-Q.
 if [ -f results/data/cohort_clean.csv ]; then
-  python -m argo_deepmsi.eval.qc_comparison \
+  "$PY" -m argo_deepmsi.eval.qc_comparison \
       --qc-csv results/data/problem_slides.csv \
       --slide-table results/data/slide_table_pyramidal.csv \
       --outdir results/comparison
 else
-  python -m argo_deepmsi.eval.qc_comparison --outdir results/comparison
+  "$PY" -m argo_deepmsi.eval.qc_comparison --outdir results/comparison
 fi
 
 echo "=== [4/4] no-regression floor ==="
-python ralph/no_regression.py
+"$PY" ralph/no_regression.py
 
 echo "=== verify.sh OK ==="
