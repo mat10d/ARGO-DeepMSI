@@ -29,12 +29,15 @@ for i in $(seq 1 "$MAX_ITERS"); do
   cat ralph/AGENT.md | claude -p --dangerously-skip-permissions --model "$MODEL" \
       > "$log" 2>&1 || echo "[loop] claude exited non-zero on iter $i (see $log)" | tee -a ralph/logs/driver.log
 
-  # Stop conditions written by the agent into the journal.
-  if tail -n 5 ralph/JOURNAL.md 2>/dev/null | grep -q "LOOP-COMPLETE"; then
+  # Stop conditions written by the agent into the journal. Markers are REAL only
+  # when they start a line (anchored) — this avoids matching the header comment
+  # "# terminal markers: LOOP-COMPLETE ... | HALT-BLOCKED ...". Also require the
+  # marker to be in the last 3 lines (i.e. just written), not anywhere in history.
+  if tail -n 3 ralph/JOURNAL.md 2>/dev/null | grep -qE '^LOOP-COMPLETE '; then
     echo "[loop] LOOP-COMPLETE detected — stopping at iter $i." | tee -a ralph/logs/driver.log
     break
   fi
-  if tail -n 5 ralph/JOURNAL.md 2>/dev/null | grep -q "HALT-BLOCKED"; then
+  if tail -n 3 ralph/JOURNAL.md 2>/dev/null | grep -qE '^HALT-BLOCKED '; then
     echo "[loop] HALT-BLOCKED detected — stopping for human review at iter $i." | tee -a ralph/logs/driver.log
     break
   fi

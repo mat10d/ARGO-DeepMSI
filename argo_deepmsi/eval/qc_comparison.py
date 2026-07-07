@@ -35,6 +35,7 @@ from ..scorers import get_scorer, list_scorers
 from .cohort import load_qc_exclusion
 from .metrics import aggregate_to_patient, evaluate_scorer
 from .plotting import auroc_bar, per_site_grid, roc_overlay
+from .screening import screening_block
 
 
 def _apply_qc_slide_level(df: pd.DataFrame, excluded: set[str]) -> pd.DataFrame:
@@ -109,6 +110,15 @@ def evaluate_one_scorer(
     if s.resolution == "slide":
         summary["slide_auroc_dirty"] = _safe_auroc(df["y"], df[s.primary_score])
         summary["slide_auroc_clean"] = _safe_auroc(df_clean["y"], df_clean[s.primary_score])
+
+    # MSIntuit-comparable operating points on the clean patient scores.
+    if pat_clean["y"].nunique() == 2:
+        block = screening_block(pat_clean["y"].to_numpy(), pat_clean["score"].to_numpy())
+        for k in ("spec_at_sens90", "spec_at_sens95", "spec_at_sens96", "npv_at_sens95"):
+            summary[k] = float(block[k])
+    else:
+        for k in ("spec_at_sens90", "spec_at_sens95", "spec_at_sens96", "npv_at_sens95"):
+            summary[k] = float("nan")
 
     # Per-site rows
     per_site_rows = []

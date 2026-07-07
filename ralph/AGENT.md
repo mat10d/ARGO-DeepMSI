@@ -10,6 +10,24 @@ package is slow (~40s, pulls torch/lazyslide) — expect that overhead per verif
 work submit SLURM jobs through `ralph/gpu_gate.sh` (hard cap 3); CPU partitions are `24`/`20`/`18`,
 GPU partitions include `nvidia-A6000-20`/`nvidia-A100-20`, accounts `wibrusers`/`weissman`.
 
+## CRITICAL: each iteration is a single one-shot turn — run everything FOREGROUND
+You are invoked as `claude -p` (headless, one prompt, no follow-up). When your turn
+ends, YOU ARE GONE — there is no "later", no wake-up, no monitor callback. Therefore:
+- **NEVER background a job and say "waiting".** Run long jobs (SLURM leaderboard regen,
+  training, extraction) in the FOREGROUND and BLOCK until they finish within THIS turn:
+  use `srun ... <cmd>` (blocking) or `sbatch --wait ... <script>`, not `sbatch &` /
+  `nohup &` / `submit + return`. A backgrounded job is orphaned and killed the moment
+  your turn ends (this already happened once and cost an iteration).
+- **A leaderboard regen takes 15-30 min — that is fine, block on it.** One long
+  foreground iteration is correct; a short iteration that defers work is a bug.
+- **Every turn must end in a terminal, consistent state:** either (a) task fully done,
+  verify green, committed, JOURNAL line appended; or (b) task reverted and marked
+  `blocked` with a reason; or (c) if genuinely mid-multistep, commit a coherent WIP with
+  the task left `doing` and a `checkpoint:` note in BACKLOG.yaml — but NEVER leave an
+  uncommitted dirty tree (the driver halts on it).
+- The terminal markers you append must start the line exactly: `LOOP-COMPLETE <UTC>` or
+  `HALT-BLOCKED <UTC> <ids>` (the driver greps `^LOOP-COMPLETE ` / `^HALT-BLOCKED `).
+
 ## Leaderboard is your responsibility, not the gate's
 Whenever your iteration lands a new scorer or changes any scorer's scores, you MUST
 regenerate the leaderboard yourself before running verify:

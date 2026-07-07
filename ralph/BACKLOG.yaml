@@ -23,7 +23,7 @@ tasks:
   # ---- Phase E0: instrument (no GPU) ----
   - id: E00-metrics-layer
     priority: 100
-    status: todo
+    status: done
     deps: []
     gpu: false
     summary: >
