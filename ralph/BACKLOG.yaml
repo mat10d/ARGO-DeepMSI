@@ -1,0 +1,273 @@
+# ARGO-DeepMSI autorun backlog.
+# State machine per task: todo -> doing -> {done | blocked}.
+# The loop picks the highest-priority `todo` whose `deps` are all `done`.
+# NEVER hand-edit results; NEVER weaken a gate to close a task (see ralph/CONTRACT.md).
+
+meta:
+  regime: no_new_training_data
+  seed: 42
+  cv: StratifiedGroupKFold(patient_id, n_splits=5)
+  gpu_max_concurrent: 3
+  target:
+    msintuit_sensitivity: [0.96, 0.98]
+    msintuit_specificity: [0.46, 0.47]
+    fm_benchmark_conch: {status: "unread — transcribe spec@sens from full text (ScienceDirect PII S0895611125001892) before use"}
+    current_best_patient_auroc: 0.710
+  stop_bar:
+    specificity: 0.47
+    at_sensitivity: 0.96
+    on: cohort_clean.csv
+    plus_fairness_gate: T3
+
+tasks:
+  # ---- Phase E0: instrument (no GPU) ----
+  - id: E00-metrics-layer
+    priority: 100
+    status: todo
+    deps: []
+    gpu: false
+    summary: >
+      Add screening operating-point metrics (sensitivity, specificity@sens{.90,.95},
+      NPV) in eval/screening.py; thread them into eval/metrics.evaluate_scorer and add
+      spec_at_sens95/spec_at_sens90/npv_at_sens95 columns to the leaderboard produced by
+      eval/qc_comparison. Standardize `python -m argo_deepmsi.eval.qc_comparison` as THE
+      leaderboard entrypoint (no new CLI needed). Re-score all existing cached predictions.
+    done_when:
+      - "eval/screening.py exposes specificity_at_sensitivity, npv_at_threshold, screening_block"
+      - "tests/test_screening_metrics.py green"
+      - "leaderboard.csv gains columns spec_at_sens95, spec_at_sens90, npv_at_sens95"
+      - "results/comparison/leaderboard.csv regenerates without error on the existing cohort"
+
+  # ---- Phase Q: canonical clean dataset (QC + tumor foundation) ----
+  - id: Q1-ecrf-qc
+    priority: 90
+    status: todo
+    deps: [E00-metrics-layer]
+    gpu: false
+    summary: >
+      Build results/data/cohort_clean.csv v0 by applying the pathologist eCRF exclusion
+      (results/data/problem_slides.csv, passes_qc=False) to the slide+clinical join. Add
+      columns: slide_id, patient_id, site, y, n_tiles, passes_ecrf_qc, in_clean_set.
+    done_when:
+      - "results/data/cohort_clean.csv exists with the declared columns"
+      - "cohort_manifest.json records per-site drop counts for the eCRF layer"
+      - "tests/test_no_external_data.py::test_fit_only_sees_our_cohort_patients green"
+
+  - id: Q2-artifact-qc
+    priority: 89
+    status: todo
+    deps: [Q1-ecrf-qc]
+    gpu: true
+    summary: >
+      Run `argo qc --model grandqc-artifact` over retained slides; add passes_artifact_qc
+      column. Flag (do not yet drop) artifact-heavy slides. Update manifest.
+    done_when:
+      - "cohort_clean.csv gains passes_artifact_qc"
+      - "cohort_manifest.json records artifact-QC counts per site"
+
+  - id: Q3-tumor-filter
+    priority: 88
+    status: todo
+    deps: [Q2-artifact-qc]
+    gpu: true
+    summary: >
+      SMOKE-OFF two tumor-area filters on a fixed 20-slide probe set: (a) GrandQC tumor/tissue
+      segmentation head, (b) existing scripts/tumor_tile_classifier. Keep whichever retains
+      more MSI signal (higher tumor-tile recall on known-tumor slides, fewer false drops).
+      Apply the winner to all retained slides: write results/data/tumor_tiles/<slide>.npy
+      (tumor tile indices) + tumor_fraction column; drop slides below a tumor-fraction floor.
+      Record the chosen method + floor in the manifest.
+    done_when:
+      - "results/data/tumor_tiles/ populated for retained slides"
+      - "cohort_clean.csv gains n_tumor_tiles, tumor_fraction"
+      - "cohort_manifest.json records chosen tumor filter + floor + smoke-off metrics"
+
+  - id: Q4-rebuild-manifest
+    priority: 87
+    status: todo
+    deps: [Q3-tumor-filter]
+    gpu: false
+    summary: >
+      Freeze cohort_manifest.json (all QC layers, thresholds, per-site+overall counts). Set
+      in_clean_set. Re-race the board on the clean cohort. Record the no-regression floor
+      (current champion clean patient AUROC) into cohort_manifest.json.
+    done_when:
+      - "cohort_manifest.json frozen with layer counts + no_regression_floor"
+      - "results/comparison/leaderboard.csv regenerated on the clean cohort"
+      - "ralph/verify.sh no-regression floor reads from cohort_manifest.json"
+
+  # ---- Phase S: low-N scorers on the clean tumor-only view ----
+  - id: S1-slidefm-linearprobe
+    priority: 80
+    status: todo
+    deps: [Q4-rebuild-manifest]
+    gpu: false
+    summary: >
+      Scorer: linear probe (logistic regression) on TITAN and PRISM slide embeddings
+      (already extracted). Report few-shot curve K in {1,2,4,8,16,all}. Frozen embeddings only.
+    done_when:
+      - "argo_deepmsi/scorers/slidefm_linearprobe.py registered + contract test"
+      - "results/scorers/slidefm_linearprobe/metrics.json full block"
+      - "docs/experiments/S1-slidefm-linearprobe.md written"
+
+  - id: S2-protonet-cluster
+    priority: 79
+    status: todo
+    deps: [Q4-rebuild-manifest]
+    gpu: true
+    summary: >
+      Scorer: CONCH tile features -> cluster aggregation + ProtoNet few-shot (a low-N recipe
+      from the FM-MSI benchmark; confirm the exact recipe by reading that paper first).
+      Tumor-only tiles. Report spec@sens vs MSIntuit (and vs the FM benchmark once its numbers
+      are transcribed).
+    done_when:
+      - "argo_deepmsi/scorers/protonet_cluster.py registered + contract test"
+      - "results/scorers/protonet_cluster/metrics.json full block"
+      - "docs/experiments/S2-protonet-cluster.md written"
+
+  - id: S3-tip-adapter
+    priority: 78
+    status: todo
+    deps: [Q4-rebuild-manifest]
+    gpu: true
+    summary: >
+      Scorer: training-free Tip-Adapter + CoOp learned prompts on CONCH (pathology CLIP).
+      Extends the underperforming vl_text_cosine from hand prompts to cached/learned prompts.
+    done_when:
+      - "argo_deepmsi/scorers/tip_adapter.py registered + contract test"
+      - "results/scorers/tip_adapter/metrics.json full block"
+      - "docs/experiments/S3-tip-adapter.md written"
+
+  - id: S4-clam-tilemil
+    priority: 77
+    status: todo
+    deps: [Q4-rebuild-manifest]
+    gpu: true
+    summary: >
+      Scorer: CLAM/ABMIL tile-level MIL on tumor-only bags, with a MIL variance-reduction step
+      (Reducing Variability of MIL Methods, MICCAI 2025; confirm the exact mechanism from the
+      paper). Frozen tile features (CONCH/UNI2/Virchow2).
+    done_when:
+      - "argo_deepmsi/scorers/clam_tilemil.py registered + contract test"
+      - "results/scorers/clam_tilemil/metrics.json full block"
+      - "docs/experiments/S4-clam-tilemil.md written"
+
+  - id: S5-setencoder-agg
+    priority: 76
+    status: todo
+    deps: [Q4-rebuild-manifest]
+    gpu: true
+    summary: >
+      Scorer: Deep-Sets / Set-Transformer patient-bag aggregator (principled fix for bag-size
+      inflation). Cardinality-calibrated aggregation over each patient's slide bag.
+    done_when:
+      - "argo_deepmsi/scorers/setencoder_agg.py registered + contract test"
+      - "results/scorers/setencoder_agg/metrics.json full block"
+      - "docs/experiments/S5-setencoder-agg.md written"
+
+  # ---- Phase R: site-robustness / the OAUTHC problem ----
+  - id: R1-stain-aug-tta
+    priority: 70
+    status: todo
+    deps: [Q4-rebuild-manifest]
+    gpu: true
+    summary: >
+      5-Crop + stain-augmentation test-time robustness on the best S-scorer. Report
+      inter-condition Cohen's kappa (matches MSIntuit's inter-scanner kappa claim).
+    done_when:
+      - "results/scorers/<base>_stainaug/metrics.json with inter_condition_kappa"
+      - "docs/experiments/R1-stain-aug-tta.md written"
+
+  - id: R2-flex-bottleneck
+    priority: 69
+    status: todo
+    deps: [S2-protonet-cluster]
+    gpu: true
+    summary: >
+      FLEX-style knowledge-guided information bottleneck on CONCH features for site-invariance
+      (published fix for the diagnosed OAUTHC failure). Report per-site delta vs champion.
+    done_when:
+      - "argo_deepmsi/scorers/flex_bottleneck.py registered + contract test"
+      - "results/scorers/flex_bottleneck/metrics.json full block incl. by_site"
+      - "docs/experiments/R2-flex-bottleneck.md written"
+
+  - id: R3-fmmap
+    priority: 68
+    status: todo
+    deps: [Q4-rebuild-manifest]
+    gpu: false
+    summary: >
+      Supervised-UMAP (fmMAP) projection suppressing site while retaining MSI biology, applied
+      to frozen features; re-score best linear probe in the projected space.
+    done_when:
+      - "argo_deepmsi/scorers/fmmap_probe.py registered + contract test"
+      - "results/scorers/fmmap_probe/metrics.json full block incl. by_site"
+      - "docs/experiments/R3-fmmap.md written"
+
+  # ---- Phase T: novelty stack (CV-transfer, the big-paper angle) ----
+  - id: T1-selective-abstention
+    priority: 60
+    status: todo
+    deps: [S1-slidefm-linearprobe]
+    gpu: false
+    summary: >
+      Wrap the best scorer in a conformal / selective screener that abstains on OOD
+      (OAUTHC-type) slides with a coverage guarantee. Report coverage-risk curve + group-
+      conditional (per-site) coverage.
+    done_when:
+      - "argo_deepmsi/scorers/selective_abstention.py registered + contract test"
+      - "results/scorers/selective_abstention/metrics.json incl. coverage_risk + per_site_coverage"
+      - "docs/experiments/T1-selective-abstention.md written"
+
+  - id: T2-ood-characterization
+    priority: 59
+    status: todo
+    deps: [S1-slidefm-linearprobe]
+    gpu: false
+    summary: >
+      Long-tailed OOD score quantifying OAUTHC as measured covariate shift; feed it to the T1
+      abstention gate. Report OOD-AUROC (site-in vs site-out) + correlation with error.
+    done_when:
+      - "argo_deepmsi/eval/ood.py with the OOD score + tests"
+      - "results/analysis/ood/ood_report.json"
+      - "docs/experiments/T2-ood-characterization.md written"
+
+  - id: T3-fairness-eval
+    priority: 58
+    status: todo
+    deps: [T1-selective-abstention]
+    gpu: false
+    summary: >
+      Per-site / per-demographic fairness metrics + coverage-adjusted performance gap vs
+      champion. This is the fairness GATE referenced by the stop bar.
+    done_when:
+      - "argo_deepmsi/eval/fairness.py + tests"
+      - "results/analysis/fairness/fairness_report.json with per-site gaps"
+      - "docs/experiments/T3-fairness-eval.md written"
+
+  # ---- Phase F: fusion + finalize ----
+  - id: F1-fusion
+    priority: 50
+    status: todo
+    deps: [S1-slidefm-linearprobe, S2-protonet-cluster, S3-tip-adapter, S4-clam-tilemil, S5-setencoder-agg]
+    gpu: false
+    summary: >
+      Stack the top-3 clean scorers (only those individually clearing their gate). Report vs
+      champion + MSIntuit operating point.
+    done_when:
+      - "argo_deepmsi/scorers/fusion_top3.py registered + contract test"
+      - "results/scorers/fusion_top3/metrics.json full block"
+      - "docs/experiments/F1-fusion.md written"
+
+  - id: F2-paper-tables
+    priority: 40
+    status: todo
+    deps: [F1-fusion, T3-fairness-eval]
+    gpu: false
+    summary: >
+      Freeze results/comparison/ figures + the head-to-head-vs-MSIntuit table (spec@sens,
+      NPV, kappa, per-site) for the manuscript. No new modeling.
+    done_when:
+      - "results/comparison/head_to_head_msintuit.csv"
+      - "results/comparison/figure_*.png regenerated"
+      - "docs/experiments/F2-paper-tables.md written"
