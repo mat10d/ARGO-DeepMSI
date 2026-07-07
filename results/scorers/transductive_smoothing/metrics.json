@@ -237,5 +237,87 @@
         }
       }
     }
-  }
+  },
+  "auroc": 0.568986568986569,
+  "auprc": 0.2526609212903253,
+  "spec_at_sens90": 0.1346153846153846,
+  "spec_at_sens95": 0.08974358974358974,
+  "npv_at_sens95": 0.875,
+  "operating_threshold": -0.0200101938098669,
+  "by_site": {
+    "LASUTH": {
+      "n": 11,
+      "prevalence": 0.2727272727272727,
+      "auroc": 0.75,
+      "spec_at_sens95": 0.75
+    },
+    "LUTH": {
+      "n": 16,
+      "prevalence": 0.125,
+      "auroc": 0.32142857142857145,
+      "spec_at_sens95": 0.14285714285714285
+    },
+    "OAUTHC": {
+      "n": 67,
+      "prevalence": 0.19402985074626866,
+      "auroc": 0.5227920227920229,
+      "spec_at_sens95": 0.07407407407407407
+    },
+    "UITH": {
+      "n": 10,
+      "prevalence": 0.4,
+      "auroc": 0.5833333333333334,
+      "spec_at_sens95": 0.0
+    },
+    "retrospective_msk": {
+      "n": 94,
+      "prevalence": 0.2127659574468085,
+      "auroc": 0.5695945945945946,
+      "spec_at_sens95": 0.013513513513513514
+    }
+  },
+  "screening_clean": {
+    "op_sens90": {
+      "target_sensitivity": 0.9,
+      "sensitivity": 0.9047619047619048,
+      "specificity": 0.1346153846153846,
+      "npv": 0.84,
+      "ruled_out_fraction": 0.12626262626262627,
+      "threshold": -0.016633278464763885
+    },
+    "spec_at_sens90": 0.1346153846153846,
+    "npv_at_sens90": 0.84,
+    "op_sens95": {
+      "target_sensitivity": 0.95,
+      "sensitivity": 0.9523809523809523,
+      "specificity": 0.08974358974358974,
+      "npv": 0.875,
+      "ruled_out_fraction": 0.08080808080808081,
+      "threshold": -0.0200101938098669
+    },
+    "spec_at_sens95": 0.08974358974358974,
+    "npv_at_sens95": 0.875,
+    "op_sens96": {
+      "target_sensitivity": 0.96,
+      "sensitivity": 0.9761904761904762,
+      "specificity": 0.08974358974358974,
+      "npv": 0.9333333333333333,
+      "ruled_out_fraction": 0.07575757575757576,
+      "threshold": -0.0206250082701444
+    },
+    "spec_at_sens96": 0.08974358974358974,
+    "npv_at_sens96": 0.9333333333333333,
+    "op_sens98": {
+      "target_sensitivity": 0.98,
+      "sensitivity": 1.0,
+      "specificity": 0.00641025641025641,
+      "npv": 1.0,
+      "ruled_out_fraction": 0.005050505050505051,
+      "threshold": -0.0272377971559762
+    },
+    "spec_at_sens98": 0.00641025641025641,
+    "npv_at_sens98": 1.0
+  },
+  "screening_primary_variant": "smooth_mean",
+  "screening_n_patients_clean": 198
 }

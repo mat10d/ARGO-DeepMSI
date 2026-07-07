@@ -26,20 +26,33 @@ GATE_TESTS=(tests/test_screening_metrics.py tests/test_no_external_data.py)
 for t in tests/test_scorer_*.py; do [ -f "$t" ] && GATE_TESTS+=("$t"); done
 "$PY" -m pytest "${GATE_TESTS[@]}" -q -x -p no:cacheprovider
 
-echo "=== [2/4] metric-block contract (no AUROC-only landings) ==="
+echo "=== [2/4] backfill screening block into any metrics.json, then check contract ==="
+# Idempotent: adds spec@sens/NPV/by_site to every cached scorer's metrics.json from
+# its own slide_scores.csv (no model inference). Keeps legacy scorers gate-compliant.
+"$PY" ralph/backfill_screening.py
 "$PY" ralph/check_metrics_contract.py
 
-echo "=== [3/4] regenerate leaderboard (never hand-edited) ==="
-# The real entrypoint that emits results/comparison/leaderboard.csv.
-# Uses cohort_clean.csv once Q-phase builds it; falls back to problem_slides.csv pre-Q.
-if [ -f results/data/cohort_clean.csv ]; then
-  "$PY" -m argo_deepmsi.eval.qc_comparison \
-      --qc-csv results/data/problem_slides.csv \
-      --slide-table results/data/slide_table_pyramidal.csv \
-      --outdir results/comparison
-else
-  "$PY" -m argo_deepmsi.eval.qc_comparison --outdir results/comparison
+echo "=== [3/4] leaderboard freshness (do NOT regenerate here) ==="
+# Regenerating the leaderboard re-runs every scorer's compute_batch (reloads FM
+# embeddings) and takes 15+ min — far too expensive to run every iteration. The
+# ITERATION that lands/changes a scorer is responsible for running:
+#   python -m argo_deepmsi.eval.qc_comparison --outdir results/comparison
+# (see AGENT.md). This gate only asserts the leaderboard is present and FRESH —
+# i.e. no scorer output is newer than leaderboard.csv. A stale leaderboard means
+# the iteration changed scores without regenerating it → fail.
+LB=results/comparison/leaderboard.csv
+if [ ! -f "$LB" ]; then
+  echo "[freshness] FAIL: $LB missing — iteration must regenerate it."
+  exit 1
 fi
+newer="$(find results/scorers -name 'slide_scores.csv' -newer "$LB" 2>/dev/null || true)"
+if [ -n "$newer" ]; then
+  echo "[freshness] FAIL: scorer outputs newer than leaderboard — regenerate it:"
+  echo "$newer" | sed 's/^/    /'
+  echo "    python -m argo_deepmsi.eval.qc_comparison --outdir results/comparison"
+  exit 1
+fi
+echo "[freshness] OK: $LB is newer than all scorer outputs."
 
 echo "=== [4/4] no-regression floor ==="
 "$PY" ralph/no_regression.py

@@ -10,6 +10,17 @@ package is slow (~40s, pulls torch/lazyslide) — expect that overhead per verif
 work submit SLURM jobs through `ralph/gpu_gate.sh` (hard cap 3); CPU partitions are `24`/`20`/`18`,
 GPU partitions include `nvidia-A6000-20`/`nvidia-A100-20`, accounts `wibrusers`/`weissman`.
 
+## Leaderboard is your responsibility, not the gate's
+Whenever your iteration lands a new scorer or changes any scorer's scores, you MUST
+regenerate the leaderboard yourself before running verify:
+```
+python -m argo_deepmsi.eval.qc_comparison --outdir results/comparison
+```
+(add `--qc-csv results/data/problem_slides.csv --slide-table results/data/slide_table_pyramidal.csv`
+once the Q-phase has built `cohort_clean.csv`). This re-runs every scorer's compute_batch and
+takes 15+ min, so it is NOT in verify.sh — verify only checks the leaderboard is present and
+newer than all scorer outputs. If you skip it, the freshness gate fails.
+
 Then, each iteration, do EXACTLY ONE thing:
 
 1. Read `ralph/BACKLOG.yaml`. Read the last 30 lines of `ralph/JOURNAL.md`.
