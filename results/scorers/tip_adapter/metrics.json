@@ -15,7 +15,7 @@
   "spec_at_sens95": 0.03571428571428571,
   "spec_at_sens96": 0.0,
   "npv_at_sens95": 0.7142857142857143,
-  "operating_threshold": 0.12893646677664544,
+  "operating_threshold": 0.12893638899489954,
   "by_site": {
     "LASUTH": {
       "n": 9,
@@ -111,7 +111,7 @@
       "specificity": 0.05,
       "npv": 0.7,
       "ruled_out_fraction": 0.055248618784530384,
-      "threshold": 0.1354183716638305
+      "threshold": 0.1354184524928682
     },
     "spec_at_sens90": 0.05,
     "npv_at_sens90": 0.7,
@@ -121,7 +121,7 @@
       "specificity": 0.03571428571428571,
       "npv": 0.7142857142857143,
       "ruled_out_fraction": 0.03867403314917127,
-      "threshold": 0.12893646677664544
+      "threshold": 0.12893638899489954
     },
     "spec_at_sens95": 0.03571428571428571,
     "npv_at_sens95": 0.7142857142857143,
@@ -131,7 +131,7 @@
       "specificity": 0.0,
       "npv": 0.0,
       "ruled_out_fraction": 0.0055248618784530384,
-      "threshold": 0.07976755034912902
+      "threshold": 0.07976762540466402
     },
     "spec_at_sens96": 0.0,
     "npv_at_sens96": 0.0,
@@ -141,7 +141,7 @@
       "specificity": 0.0,
       "npv": NaN,
       "ruled_out_fraction": 0.0,
-      "threshold": 0.07856711
+      "threshold": 0.078567225
     },
     "spec_at_sens98": 0.0,
     "npv_at_sens98": NaN
