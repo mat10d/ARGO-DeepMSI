@@ -249,7 +249,7 @@ tasks:
 
   - id: T3-fairness-eval
     priority: 58
-    status: todo
+    status: done
     deps: [T1-selective-abstention]
     gpu: false
     summary: >

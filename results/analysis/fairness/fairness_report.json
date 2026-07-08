@@ -1,0 +1,107 @@
+{
+  "target_for": 0.1,
+  "global_tau": 0.3386427340860211,
+  "n_patients": 181,
+  "per_site": {
+    "LASUTH": {
+      "n": 9,
+      "prevalence": 0.3333333333333333,
+      "auroc": 0.888888888888889,
+      "spec_at_sens95": 0.6666666666666666,
+      "for_at_global_tau": 0.0,
+      "coverage_at_global_tau": 0.3333333333333333
+    },
+    "LUTH": {
+      "n": 15,
+      "prevalence": 0.13333333333333333,
+      "auroc": 1.0,
+      "spec_at_sens95": 1.0,
+      "for_at_global_tau": 0.0,
+      "coverage_at_global_tau": 0.6
+    },
+    "OAUTHC": {
+      "n": 64,
+      "prevalence": 0.203125,
+      "auroc": 0.579185520361991,
+      "spec_at_sens95": 0.0,
+      "for_at_global_tau": 0.1111111111111111,
+      "coverage_at_global_tau": 0.5625
+    },
+    "UITH": {
+      "n": 10,
+      "prevalence": 0.4,
+      "auroc": 0.75,
+      "spec_at_sens95": 0.5,
+      "for_at_global_tau": 0.3333333333333333,
+      "coverage_at_global_tau": 0.6
+    },
+    "retrospective_msk": {
+      "n": 60,
+      "prevalence": 0.23333333333333334,
+      "auroc": 0.7934782608695653,
+      "spec_at_sens95": 0.13043478260869565,
+      "for_at_global_tau": 0.09523809523809523,
+      "coverage_at_global_tau": 0.7
+    },
+    "retrospective_oau": {
+      "n": 23,
+      "prevalence": 0.21739130434782608,
+      "auroc": 0.8,
+      "spec_at_sens95": 0.7222222222222222,
+      "for_at_global_tau": 0.07142857142857142,
+      "coverage_at_global_tau": 0.6086956521739131
+    }
+  },
+  "group_conditional_conformal": {
+    "LASUTH": {
+      "n": 9,
+      "coverage": NaN,
+      "for": NaN,
+      "note": "too small to calibrate"
+    },
+    "LUTH": {
+      "n": 15,
+      "coverage": 0.7425,
+      "for": 0.0
+    },
+    "OAUTHC": {
+      "n": 64,
+      "coverage": 0.34375,
+      "for": 0.19779395882612394
+    },
+    "UITH": {
+      "n": 10,
+      "coverage": NaN,
+      "for": NaN,
+      "note": "too small to calibrate"
+    },
+    "retrospective_msk": {
+      "n": 60,
+      "coverage": 0.6526666666666666,
+      "for": 0.1008503503309332
+    },
+    "retrospective_oau": {
+      "n": 23,
+      "coverage": 0.6299999999999999,
+      "for": 0.09671428571428571
+    }
+  },
+  "auroc_gap_max_minus_min": 0.420814479638009,
+  "worst_site_auroc": 0.579185520361991,
+  "global_tau_for_disparity": {
+    "min": 0.0,
+    "max": 0.3333333333333333
+  },
+  "coverage_adjusted_gap": 0.39875000000000005,
+  "min_safe_coverage_servable": 0.34375,
+  "fairness_gate": {
+    "pass": false,
+    "disqualifying_outliers": [
+      "OAUTHC"
+    ],
+    "min_site_n": 15,
+    "disqualify_coverage_below": 0.05,
+    "for_slack": 0.05,
+    "rationale": "FAIL: site(s) ['OAUTHC'] cannot be safely served under group-conditional conformal \u2014 either safe coverage < 5% or out-of-sample FOR exceeds target+0.05 (the site has no MSI signal to calibrate on). A disqualifying per-site outlier."
+  }
+}
