@@ -1,0 +1,13 @@
+embedding,overall,OAUTHC,retro_oau,MSK
+conch_v1.5_titan,0.645,0.611,0.756,0.702
+conch_v1.5_titan_harmony,0.656,0.685,0.622,0.697
+conch_v1.5_mean,0.608,0.627,0.778,0.683
+conch_v1.5_mean_harmony,0.61,0.548,0.778,0.716
+uni2_mean,0.569,0.477,0.689,0.71
+uni2_mean_harmony,0.54,0.427,0.856,0.66
+virchow2_mean,0.606,0.522,0.733,0.725
+virchow2_mean_harmony,0.564,0.551,0.711,0.599
+virchow2_prism,0.632,0.617,0.622,0.767
+virchow2_prism_harmony,0.503,0.505,0.6,0.536
+ctranspath_mean,0.503,0.44,0.611,0.655
+ctranspath_mean_harmony,0.552,0.52,0.689,0.637
