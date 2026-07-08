@@ -169,7 +169,7 @@ tasks:
 
   - id: S5-setencoder-agg
     priority: 76
-    status: todo
+    status: done
     deps: [Q4-rebuild-manifest]
     gpu: true
     summary: >

@@ -1,0 +1,13 @@
+{
+  "name": "setencoder_agg",
+  "description": "Deep-Sets patient-bag aggregator: a permutation-invariant encoder over each patient's [Wagner p(MSI-H) \u2016 TITAN slide-emb] slide set, pooled mean\u2295max with explicit cardinality features and an MLP head \u2014 a learned, cardinality-calibrated replacement for the champion's max/\u221an. M-model ensemble, patient-grouped CV, few-shot curve K\u2208{1,2,4,8,16,all}.",
+  "needs_training_on_our_data": true,
+  "score_columns": [
+    {
+      "name": "p_msih",
+      "description": "Deep-Sets patient p(MSI-H)",
+      "primary": true
+    }
+  ],
+  "primary_score": "p_msih"
+}

@@ -5,6 +5,7 @@
     "nuclear_morphology",
     "protonet_cluster",
     "score_fusion",
+    "setencoder_agg",
     "simple_grid",
     "slide_attention_mil",
     "slidefm_linearprobe",
