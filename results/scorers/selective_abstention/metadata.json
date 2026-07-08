@@ -1,0 +1,13 @@
+{
+  "name": "selective_abstention",
+  "description": "Selective / split-conformal abstention screener wrapping the champion (calibrated_pool). Abstains on the least-confident patients (distance from the sens-95 threshold) for a risk-coverage guarantee; reports group-conditional (per-site) coverage. Board score = champion score (abstention is an overlay).",
+  "needs_training_on_our_data": false,
+  "score_columns": [
+    {
+      "name": "p_msih",
+      "description": "champion (calibrated_pool) patient score",
+      "primary": true
+    }
+  ],
+  "primary_score": "p_msih"
+}

@@ -222,7 +222,7 @@ tasks:
   # ---- Phase T: novelty stack (CV-transfer, the big-paper angle) ----
   - id: T1-selective-abstention
     priority: 60
-    status: todo
+    status: done
     deps: [S1-slidefm-linearprobe]
     gpu: false
     summary: >

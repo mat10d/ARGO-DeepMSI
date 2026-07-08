@@ -12,6 +12,7 @@ from . import fmmap_probe  # noqa: F401
 from . import nuclear_morphology  # noqa: F401
 from . import protonet_cluster  # noqa: F401
 from . import score_fusion  # noqa: F401
+from . import selective_abstention  # noqa: F401
 from . import setencoder_agg  # noqa: F401
 from . import simple_grid  # noqa: F401
 from . import slide_attention_mil  # noqa: F401

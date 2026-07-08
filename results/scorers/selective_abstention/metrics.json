@@ -1,0 +1,226 @@
+{
+  "scorer": "selective_abstention",
+  "base": "calibrated_pool (champion)",
+  "operating_threshold": 0.13745258981791145,
+  "target_sensitivity": 0.95,
+  "n_patients": 181,
+  "prevalence_patient": 0.2265193370165746,
+  "auroc": 0.7127177700348433,
+  "auprc": 0.4114956443634056,
+  "spec_at_sens90": 0.19285714285714287,
+  "spec_at_sens95": 0.17857142857142858,
+  "spec_at_sens96": 0.07857142857142857,
+  "npv_at_sens95": 0.9259259259259259,
+  "sensitivity": 0.9512195121951219,
+  "aurc": 0.13036497472349204,
+  "coverage_risk": [
+    {
+      "coverage": 0.049723756906077346,
+      "n_covered": 9,
+      "risk": 0.1111111111111111
+    },
+    {
+      "coverage": 0.09944751381215469,
+      "n_covered": 18,
+      "risk": 0.1111111111111111
+    },
+    {
+      "coverage": 0.14917127071823205,
+      "n_covered": 27,
+      "risk": 0.07407407407407407
+    },
+    {
+      "coverage": 0.19889502762430938,
+      "n_covered": 36,
+      "risk": 0.1111111111111111
+    },
+    {
+      "coverage": 0.24861878453038674,
+      "n_covered": 45,
+      "risk": 0.1111111111111111
+    },
+    {
+      "coverage": 0.2983425414364641,
+      "n_covered": 54,
+      "risk": 0.09259259259259259
+    },
+    {
+      "coverage": 0.34806629834254144,
+      "n_covered": 63,
+      "risk": 0.07936507936507936
+    },
+    {
+      "coverage": 0.39779005524861877,
+      "n_covered": 72,
+      "risk": 0.06944444444444445
+    },
+    {
+      "coverage": 0.44751381215469616,
+      "n_covered": 81,
+      "risk": 0.07407407407407407
+    },
+    {
+      "coverage": 0.4972375690607735,
+      "n_covered": 90,
+      "risk": 0.08888888888888889
+    },
+    {
+      "coverage": 0.5524861878453039,
+      "n_covered": 100,
+      "risk": 0.1
+    },
+    {
+      "coverage": 0.6022099447513812,
+      "n_covered": 109,
+      "risk": 0.10091743119266056
+    },
+    {
+      "coverage": 0.6519337016574586,
+      "n_covered": 118,
+      "risk": 0.13559322033898305
+    },
+    {
+      "coverage": 0.7016574585635359,
+      "n_covered": 127,
+      "risk": 0.15748031496062992
+    },
+    {
+      "coverage": 0.7513812154696132,
+      "n_covered": 136,
+      "risk": 0.16911764705882354
+    },
+    {
+      "coverage": 0.8011049723756906,
+      "n_covered": 145,
+      "risk": 0.19310344827586207
+    },
+    {
+      "coverage": 0.850828729281768,
+      "n_covered": 154,
+      "risk": 0.21428571428571427
+    },
+    {
+      "coverage": 0.9005524861878453,
+      "n_covered": 163,
+      "risk": 0.2147239263803681
+    },
+    {
+      "coverage": 0.9502762430939227,
+      "n_covered": 172,
+      "risk": 0.21511627906976744
+    },
+    {
+      "coverage": 1.0,
+      "n_covered": 181,
+      "risk": 0.2265193370165746
+    }
+  ],
+  "conformal": {
+    "target_risk": 0.1,
+    "mean_tau": 0.29350873772880226,
+    "guaranteed_coverage": 0.4863736263736264,
+    "empirical_covered_for": 0.09265538779493433,
+    "per_site_coverage": {
+      "LASUTH": {
+        "n": 9,
+        "coverage": 0.36011904761904767,
+        "false_omission_rate": 0.0
+      },
+      "LUTH": {
+        "n": 15,
+        "coverage": 0.5246443001443002,
+        "false_omission_rate": 0.0
+      },
+      "OAUTHC": {
+        "n": 64,
+        "coverage": 0.4426577124101623,
+        "false_omission_rate": 0.13384124735144828
+      },
+      "UITH": {
+        "n": 10,
+        "coverage": 0.514420634920635,
+        "false_omission_rate": 0.2880434782608695
+      },
+      "retrospective_msk": {
+        "n": 60,
+        "coverage": 0.552560090871768,
+        "false_omission_rate": 0.07764583643096609
+      },
+      "retrospective_oau": {
+        "n": 23,
+        "coverage": 0.4717539192833311,
+        "false_omission_rate": 0.047025449298176564
+      }
+    }
+  },
+  "per_site_coverage": {
+    "LASUTH": {
+      "n": 9,
+      "coverage": 0.36011904761904767,
+      "false_omission_rate": 0.0
+    },
+    "LUTH": {
+      "n": 15,
+      "coverage": 0.5246443001443002,
+      "false_omission_rate": 0.0
+    },
+    "OAUTHC": {
+      "n": 64,
+      "coverage": 0.4426577124101623,
+      "false_omission_rate": 0.13384124735144828
+    },
+    "UITH": {
+      "n": 10,
+      "coverage": 0.514420634920635,
+      "false_omission_rate": 0.2880434782608695
+    },
+    "retrospective_msk": {
+      "n": 60,
+      "coverage": 0.552560090871768,
+      "false_omission_rate": 0.07764583643096609
+    },
+    "retrospective_oau": {
+      "n": 23,
+      "coverage": 0.4717539192833311,
+      "false_omission_rate": 0.047025449298176564
+    }
+  },
+  "by_site": {
+    "LASUTH": {
+      "n": 9,
+      "prevalence": 0.3333333333333333,
+      "auroc": 0.888888888888889,
+      "spec_at_sens95": 0.6666666666666666
+    },
+    "LUTH": {
+      "n": 15,
+      "prevalence": 0.13333333333333333,
+      "auroc": 1.0,
+      "spec_at_sens95": 1.0
+    },
+    "OAUTHC": {
+      "n": 64,
+      "prevalence": 0.203125,
+      "auroc": 0.579185520361991,
+      "spec_at_sens95": 0.0
+    },
+    "UITH": {
+      "n": 10,
+      "prevalence": 0.4,
+      "auroc": 0.75,
+      "spec_at_sens95": 0.5
+    },
+    "retrospective_msk": {
+      "n": 60,
+      "prevalence": 0.23333333333333334,
+      "auroc": 0.7934782608695653,
+      "spec_at_sens95": 0.13043478260869565
+    },
+    "retrospective_oau": {
+      "n": 23,
+      "prevalence": 0.21739130434782608,
+      "auroc": 0.8,
+      "spec_at_sens95": 0.7222222222222222
+    }
+  }
+}
