@@ -17,22 +17,21 @@ Medical Imaging and Graphics* 2025, PII S0895611125001892). Two stages:
    prototypes. Few-shot curve K∈{1,2,4,8,16,all} = K patients/class forming the prototypes
    (10 random draws averaged). Frozen features only.
 
-**Headline vs MSIntuit** (sens 0.96–0.98 @ spec 0.46–0.47) **and the FM benchmark** (CONCH
-spec 0.65@sens0.90, spec 0.45@sens0.94 on TCGA/PAIP). On our clean cohort (428 slides / 181
+**Headline vs MSIntuit** (sens 0.96–0.98 @ spec 0.46–0.47) and the FM-MSI benchmark (FM-MSI benchmark (CONCH; ScienceDirect PII S0895611125001892 -- closed-access, full text NOT obtained; operating points NOT transcribed, do not cite figures)). On our clean cohort (428 slides / 181
 patients): patient AUROC **0.521**, AUPRC 0.264, spec@sens90 0.157, **spec@sens95 0.086**,
 spec@sens96 0.014, NPV@sens95 0.857.
 
 **Verdict — negative result.** ProtoNet on cluster-aggregated CONCH tumor tiles is
 **essentially at chance** (0.521) on this cohort — the worst scorer on the board, far below
 the zero-param champion (`calibrated_pool` 0.713), S1's linear probe (0.646), and the FM
-benchmark's own CONCH numbers on TCGA/PAIP. The few-shot curve is flat at ≈0.51 across every
+benchmark (whose operating points we could not obtain from the closed-access paper). The few-shot curve is flat at ≈0.51 across every
 K, i.e. adding shots does not help because the base feature space barely separates the
 classes. The `_proto_scores` unit test confirms the head is correct on separable data, so
 this reflects weak MSI signal in unsupervised cluster-mean features + a distance classifier,
 not an implementation bug. Two compounding causes: (a) a distance-to-prototype head is weaker
 than a learned linear head (S1 got 0.646 from the same CONCH via TITAN); (b) global k-means
 cluster means average away the discriminative sub-population. The paper's stronger CONCH
-numbers are on TCGA/PAIP, cohorts without our Nigerian site shift.
+comparator cohorts (TCGA/PAIP) lack our Nigerian site shift; we did not obtain its exact operating points.
 
 **Few-shot learning curve (patient AUROC):**
 

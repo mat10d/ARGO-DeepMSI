@@ -19,8 +19,7 @@ few-shot curve K∈{1,2,4,8,16,all} rebuilds it from K patients/class (K=0 ⇒ z
 prompt-context tuning would require differentiating through TITAN's text transformer; scoped
 out in favour of the training-free cache.)
 
-**Headline vs MSIntuit** (sens 0.96–0.98 @ spec 0.46–0.47) **and the FM benchmark** (CONCH
-spec 0.65@sens0.90, 0.45@sens0.94 on TCGA/PAIP). On our clean cohort (181 patients):
+**Headline vs MSIntuit** (sens 0.96–0.98 @ spec 0.46–0.47) and the FM-MSI benchmark (FM-MSI benchmark (CONCH; ScienceDirect PII S0895611125001892 -- closed-access, full text NOT obtained; operating points NOT transcribed, do not cite figures)). On our clean cohort (181 patients):
 patient AUROC **0.444**, spec@sens95 **0.036**, NPV 0.714.
 
 **Verdict — negative result (below chance).** Tip-Adapter **0.444**, CoOp-lite 0.502,

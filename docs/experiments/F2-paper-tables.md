@@ -10,14 +10,13 @@ Final deliverable freeze. No new modeling — synthesises the frozen board + R1 
 | **ARGO champion** (calibrated_pool) | Nigerian CRC (ours, 181 pt) | 0.95 | 0.193 | **0.179** | 0.079 | **0.926** | **0.927** | 0.713 |
 | ARGO fusion (top-3 stack) | ours | 0.95 | 0.329 | 0.107 | 0.043 | 0.882 | — | 0.703 |
 | **MSIntuit CRC** (Owkin 2023) | external PRECISE | 0.96–0.98 | — | — | **0.46–0.47** | high | 0.82 | — |
-| FM-MSI benchmark (CONCH, CMIG 2025) | external TCGA/PAIP | 0.90/0.94 | 0.65 | — | — | — | — | — |
+| FM-MSI benchmark (CONCH; PII S0895611125001892) | external TCGA/PAIP | - | - | - | - | - | - | - |
 
 ## The two honest headlines
 
 **1. On the rule-out operating point, we do NOT match MSIntuit.** At sens ≈ 0.95–0.96 our best
 model holds **spec ≈ 0.08–0.18**, against MSIntuit's **0.46–0.47** — a 3–6× gap in the metric
-that defines a pre-screening rule-out test. The FM-MSI benchmark's CONCH (spec 0.65 @ sens 0.90
-on TCGA/PAIP) is likewise far above us. On *our* Nigerian cohort, an open-source, no-new-training
+that defines a pre-screening rule-out test. The FM-MSI benchmark (closed-access; operating points not obtained) is a named comparator only; its exact spec@sens were not transcribed and are omitted. On *our* Nigerian cohort, an open-source, no-new-training
 pipeline is **not competitive with MSIntuit** for rule-out specificity.
 
 **2. On robustness we exceed it, and NPV is respectable.** Our inter-condition κ = **0.927** (R1)
