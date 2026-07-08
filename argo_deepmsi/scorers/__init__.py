@@ -20,6 +20,7 @@ from . import setencoder_agg  # noqa: F401
 from . import simple_grid  # noqa: F401
 from . import slide_attention_mil  # noqa: F401
 from . import slidefm_linearprobe  # noqa: F401
+from . import stainnorm_probe  # noqa: F401
 from . import tip_adapter  # noqa: F401
 from . import transductive_smoothing  # noqa: F401
 from . import vl_text_cosine  # noqa: F401
