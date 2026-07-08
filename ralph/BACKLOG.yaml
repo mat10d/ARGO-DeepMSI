@@ -263,7 +263,7 @@ tasks:
   # ---- Phase F: fusion + finalize ----
   - id: F1-fusion
     priority: 50
-    status: todo
+    status: done
     deps: [S1-slidefm-linearprobe, S2-protonet-cluster, S3-tip-adapter, S4-clam-tilemil, S5-setencoder-agg]
     gpu: false
     summary: >
