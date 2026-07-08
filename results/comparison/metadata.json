@@ -1,6 +1,7 @@
 {
   "scorers_evaluated": [
     "calibrated_pool",
+    "clam_tilemil",
     "nuclear_morphology",
     "protonet_cluster",
     "score_fusion",

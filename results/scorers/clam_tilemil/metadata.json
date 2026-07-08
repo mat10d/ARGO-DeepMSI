@@ -1,0 +1,13 @@
+{
+  "name": "clam_tilemil",
+  "description": "Gated attention-MIL (ABMIL) on tumor-only CONCH tile bags with Multi-Fidelity Model Fusion (Mammadov et al., MICCAI 2025) for variance reduction: per outer fold, M models are trained on an inner-train split, the top-k by inner-val patient AUROC are averaged. Few-shot curve K\u2208{1,2,4,8,16,all}. Frozen features.",
+  "needs_training_on_our_data": true,
+  "score_columns": [
+    {
+      "name": "p_msih",
+      "description": "fused ABMIL OOF p(MSI-H) on tumor CONCH bags",
+      "primary": true
+    }
+  ],
+  "primary_score": "p_msih"
+}

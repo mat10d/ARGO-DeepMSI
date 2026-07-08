@@ -1,0 +1,8 @@
+{
+  "model": "conch_v1.5",
+  "dim": 768,
+  "max_tiles": 500,
+  "seed": 42,
+  "n_slides": 428,
+  "total_tiles": 140851
+}

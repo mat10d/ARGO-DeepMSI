@@ -155,7 +155,7 @@ tasks:
 
   - id: S4-clam-tilemil
     priority: 77
-    status: todo
+    status: done
     deps: [Q4-rebuild-manifest]
     gpu: true
     summary: >
