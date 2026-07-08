@@ -32,7 +32,7 @@ import pandas as pd
 from sklearn.metrics import roc_auc_score
 
 from ..scorers import get_scorer, list_scorers
-from .cohort import load_qc_exclusion
+from .cohort import load_clean_exclusion, load_qc_exclusion
 from .metrics import aggregate_to_patient, evaluate_scorer
 from .plotting import auroc_bar, per_site_grid, roc_overlay
 from .screening import screening_block
@@ -144,11 +144,20 @@ def run(
     slide_table_csv: Path,
     outdir: Path,
     only: list[str] | None = None,
+    clean_csv: Path | None = None,
 ) -> None:
     outdir.mkdir(parents=True, exist_ok=True)
-    excluded = load_qc_exclusion(qc_csv)
+    # Prefer the canonical clean cohort (all QC layers) when given; fall back to
+    # the eCRF-only pathologist list for backward compatibility.
+    if clean_csv is not None:
+        excluded = load_clean_exclusion(clean_csv)
+        exclusion_source = str(clean_csv)
+        print(f"Clean-cohort exclusion: {len(excluded)} slides not in_clean_set ({clean_csv})")
+    else:
+        excluded = load_qc_exclusion(qc_csv)
+        exclusion_source = str(qc_csv)
+        print(f"QC exclusion list: {len(excluded)} slides flagged in {qc_csv}")
     slide_table = pd.read_csv(slide_table_csv)
-    print(f"QC exclusion list: {len(excluded)} slides flagged in {qc_csv}")
 
     names = list_scorers() if only is None else only
     summaries, per_site_dfs, roc_all = [], [], {}
@@ -208,7 +217,8 @@ def run(
     (outdir / "metadata.json").write_text(json.dumps({
         "scorers_evaluated": [s["scorer"] for s in summaries],
         "qc_excluded_slides": len(excluded),
-        "qc_csv": str(qc_csv),
+        "exclusion_source": exclusion_source,
+        "clean_cohort": clean_csv is not None,
     }, indent=2))
 
 
@@ -216,11 +226,13 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--qc-csv", default="results/data/problem_slides.csv", type=Path)
     p.add_argument("--slide-table", default="results/data/slide_table_pyramidal.csv", type=Path)
+    p.add_argument("--clean-csv", default=None, type=Path,
+                   help="canonical cohort_clean.csv; race on in_clean_set instead of --qc-csv")
     p.add_argument("--outdir", default="results/comparison", type=Path)
     p.add_argument("--only", nargs="*", default=None,
                    help="Restrict to a subset of scorer names")
     a = p.parse_args()
-    run(a.qc_csv, a.slide_table, a.outdir, only=a.only)
+    run(a.qc_csv, a.slide_table, a.outdir, only=a.only, clean_csv=a.clean_csv)
 
 
 if __name__ == "__main__":

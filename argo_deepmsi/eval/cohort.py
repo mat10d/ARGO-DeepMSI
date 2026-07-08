@@ -43,6 +43,20 @@ def load_qc_exclusion(qc_csv: Path | None) -> set[str]:
     return {Path(n).stem for n in bad}
 
 
+def load_clean_exclusion(clean_csv: Path | None) -> set[str]:
+    """Return the slide_ids to EXCLUDE per the canonical clean cohort.
+
+    Reads ``cohort_clean.csv`` (all 808 slides, ``in_clean_set`` 0/1 after every
+    QC layer) and returns the complement of the clean set — the slides any board
+    re-race must drop. This is a superset of ``load_qc_exclusion`` (eCRF only):
+    it also carries the artifact-missing and tumor-filter drops.
+    """
+    if clean_csv is None or not Path(clean_csv).exists():
+        return set()
+    df = pd.read_csv(clean_csv)
+    return {str(s) for s in df.loc[df["in_clean_set"] != 1, "slide_id"]}
+
+
 def build_cohort(
     slide_table_csv: Path,
     clinical_csv: Path,
@@ -277,6 +291,50 @@ def add_tumor_filter(
     return cohort, manifest
 
 
+def freeze_manifest(
+    cohort_csv: Path,
+    manifest_csv: Path,
+    leaderboard_csv: Path,
+) -> dict:
+    """Freeze cohort_manifest.json after all QC layers land (Q4).
+
+    Records the final clean-cohort layer counts and the no-regression floor read
+    from the re-raced leaderboard (best ``patient_auroc_clean``). ``no_regression.py``
+    reads ``no_regression_floor`` from here; the gate ratchets from this value.
+    """
+    manifest = json.loads(Path(manifest_csv).read_text())
+    cohort = pd.read_csv(cohort_csv)
+    clean = cohort[cohort["in_clean_set"] == 1]
+
+    lb = pd.read_csv(leaderboard_csv)
+    best_auroc = float(lb["patient_auroc_clean"].max())
+    champion = str(lb.sort_values("patient_auroc_clean", ascending=False)["scorer"].iloc[0])
+
+    per_site = {}
+    for site, sub in cohort.groupby("site"):
+        sub_clean = sub[sub["in_clean_set"] == 1]
+        per_site[str(site)] = {
+            "n_total": int(len(sub)),
+            "n_in_clean_set": int(len(sub_clean)),
+            "n_patients_in_clean_set": int(sub_clean["patient_id"].nunique()),
+        }
+
+    manifest["cohort_version"] = "v1-ecrf+artifact+tumor"
+    manifest["frozen"] = True
+    manifest["clean_cohort"] = {
+        "csv": str(cohort_csv),
+        "layers": list(manifest.get("layers", [])),
+        "n_slides_in_clean_set": int(len(clean)),
+        "n_patients_in_clean_set": int(clean["patient_id"].nunique()),
+        "clean_prevalence": float(clean["y"].mean()) if len(clean) else float("nan"),
+        "by_site": per_site,
+    }
+    manifest["no_regression_floor"] = best_auroc
+    manifest["no_regression_champion"] = champion
+    Path(manifest_csv).write_text(json.dumps(manifest, indent=2))
+    return manifest
+
+
 def patient_folds(
     df: pd.DataFrame,
     n_splits: int = 5,
@@ -316,11 +374,24 @@ def main() -> None:
     p.add_argument("--tumor-floor", default=0.0, type=float)
     p.add_argument("--smokeoff-json",
                    default="results/data/tumor_smokeoff/smokeoff_metrics.json", type=Path)
+    p.add_argument("--freeze", action="store_true",
+                   help="freeze the manifest (Q4): set layer counts + no_regression_floor")
+    p.add_argument("--leaderboard",
+                   default="results/comparison/leaderboard.csv", type=Path)
     a = p.parse_args()
 
     a.outdir.mkdir(parents=True, exist_ok=True)
     cohort_csv = a.outdir / "cohort_clean.csv"
     manifest_csv = a.outdir / "cohort_manifest.json"
+
+    if a.freeze:
+        manifest = freeze_manifest(cohort_csv, manifest_csv, a.leaderboard)
+        cc = manifest["clean_cohort"]
+        print(f"manifest frozen ({manifest['cohort_version']}): "
+              f"{cc['n_slides_in_clean_set']} slides / {cc['n_patients_in_clean_set']} patients; "
+              f"no_regression_floor={manifest['no_regression_floor']:.4f} "
+              f"({manifest['no_regression_champion']}).")
+        return
 
     if a.tumor_tiles_dir is not None:
         cohort, manifest = add_tumor_filter(

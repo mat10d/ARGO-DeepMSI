@@ -1,1 +1,1 @@
-embedding=conch_v1.5_titan  classifier=logistic_regression  representation=pca100  patient_auroc=0.6697
+embedding=conch_v1.5_titan  classifier=logistic_regression  representation=raw  patient_auroc=0.6462

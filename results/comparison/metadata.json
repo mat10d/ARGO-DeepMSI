@@ -9,6 +9,7 @@
     "vl_text_cosine",
     "wagner_zeroshot"
   ],
-  "qc_excluded_slides": 514,
-  "qc_csv": "results/data/problem_slides.csv"
+  "qc_excluded_slides": 380,
+  "exclusion_source": "results/data/cohort_clean.csv",
+  "clean_cohort": true
 }

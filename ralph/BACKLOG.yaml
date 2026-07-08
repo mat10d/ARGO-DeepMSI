@@ -99,7 +99,7 @@ tasks:
 
   - id: Q4-rebuild-manifest
     priority: 87
-    status: todo
+    status: done
     deps: [Q3-tumor-filter]
     gpu: false
     summary: >
