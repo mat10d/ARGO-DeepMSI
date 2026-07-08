@@ -236,7 +236,7 @@ tasks:
 
   - id: T2-ood-characterization
     priority: 59
-    status: todo
+    status: done
     deps: [S1-slidefm-linearprobe]
     gpu: false
     summary: >

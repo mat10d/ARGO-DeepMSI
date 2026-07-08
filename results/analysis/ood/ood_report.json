@@ -1,0 +1,68 @@
+{
+  "n_slides": 428,
+  "k": 10,
+  "methods": {
+    "knn": {
+      "per_site_ood_auroc": {
+        "LASUTH": {
+          "n": 9,
+          "ood_auroc": 0.8634314505436222
+        },
+        "LUTH": {
+          "n": 18,
+          "ood_auroc": 0.8650406504065041
+        },
+        "OAUTHC": {
+          "n": 182,
+          "ood_auroc": 0.8387161618868936
+        },
+        "UITH": {
+          "n": 12,
+          "ood_auroc": 0.5606971153846154
+        },
+        "retrospective_msk": {
+          "n": 61,
+          "ood_auroc": 0.9757895207039801
+        },
+        "retrospective_oau": {
+          "n": 146,
+          "ood_auroc": 0.917152433692801
+        }
+      },
+      "mean_ood_auroc": 0.8368045554364029,
+      "ood_predicts_error_auroc": 0.5519104084321476,
+      "ood_error_spearman": 0.08655536863567694
+    },
+    "mahalanobis": {
+      "per_site_ood_auroc": {
+        "LASUTH": {
+          "n": 9,
+          "ood_auroc": 1.0
+        },
+        "LUTH": {
+          "n": 18,
+          "ood_auroc": 1.0
+        },
+        "OAUTHC": {
+          "n": 182,
+          "ood_auroc": 1.0
+        },
+        "UITH": {
+          "n": 12,
+          "ood_auroc": 0.9867788461538461
+        },
+        "retrospective_msk": {
+          "n": 61,
+          "ood_auroc": 1.0
+        },
+        "retrospective_oau": {
+          "n": 146,
+          "ood_auroc": 1.0
+        }
+      },
+      "mean_ood_auroc": 0.9977964743589745,
+      "ood_predicts_error_auroc": 0.5446640316205534,
+      "ood_error_spearman": 0.0744727664149606
+    }
+  }
+}
