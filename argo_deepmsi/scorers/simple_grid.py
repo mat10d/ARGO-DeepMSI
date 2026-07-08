@@ -54,6 +54,13 @@ EMBEDDINGS = (
     "uni2_mean",
     "virchow2_mean",
     "virchow2_prism",
+    # Harmony batch-corrected variants (A-phase; skipped automatically if absent).
+    "conch_v1.5_mean_harmony",
+    "conch_v1.5_titan_harmony",
+    "ctranspath_mean_harmony",
+    "uni2_mean_harmony",
+    "virchow2_mean_harmony",
+    "virchow2_prism_harmony",
 )
 REPRESENTATIONS = ("raw", "pca100")
 

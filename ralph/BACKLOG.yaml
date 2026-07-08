@@ -298,7 +298,7 @@ tasks:
   # conch_v1.5_titan + Harmony.
   - id: A0-harmony-scorer
     priority: 95
-    status: todo
+    status: done
     deps: []
     gpu: false
     summary: >

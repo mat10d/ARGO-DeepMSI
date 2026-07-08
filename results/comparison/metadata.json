@@ -5,6 +5,7 @@
     "flex_bottleneck",
     "fmmap_probe",
     "fusion_top3",
+    "harmony_probe",
     "nuclear_morphology",
     "protonet_cluster",
     "score_fusion",
