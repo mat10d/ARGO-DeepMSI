@@ -153,3 +153,6 @@ Thumbs.db
 
 # Keep example notebooks
 !examples/**/*.ipynb
+
+# S4: large rebuildable tumor-tile bag matrix (rebuild via scripts/build_tilemil_bags.py)
+results/scorers/clam_tilemil/bags_concat.npy
