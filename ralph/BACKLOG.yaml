@@ -276,7 +276,7 @@ tasks:
 
   - id: F2-paper-tables
     priority: 40
-    status: todo
+    status: done
     deps: [F1-fusion, T3-fairness-eval]
     gpu: false
     summary: >
