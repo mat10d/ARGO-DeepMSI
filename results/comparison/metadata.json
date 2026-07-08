@@ -1,5 +1,6 @@
 {
   "scorers_evaluated": [
+    "batch_corrected_probe",
     "calibrated_pool",
     "clam_tilemil",
     "flex_bottleneck",

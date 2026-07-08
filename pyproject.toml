@@ -50,6 +50,7 @@ dependencies = [
 
     # ML/Training
     "scikit-learn>=1.3.0",
+    "inmoose>=0.9.0",  # pycombat ComBat batch correction (A1 OAUTHC-recovery sweep)
     "torch>=2.0.0",
     "transformers>=4.30.0",
     "einops>=0.7.0",  # Required by gigapath and other vision models

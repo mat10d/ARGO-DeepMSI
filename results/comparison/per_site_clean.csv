@@ -1,4 +1,10 @@
 scorer,site,n,prevalence,auroc
+batch_corrected_probe,LASUTH,9,0.3333333333333333,0.7222222222222222
+batch_corrected_probe,LUTH,15,0.13333333333333333,0.423076923076923
+batch_corrected_probe,OAUTHC,64,0.203125,0.6153846153846154
+batch_corrected_probe,UITH,10,0.4,0.5
+batch_corrected_probe,retrospective_msk,60,0.23333333333333334,0.718944099378882
+batch_corrected_probe,retrospective_oau,23,0.21739130434782608,0.8
 calibrated_pool,LASUTH,9,0.3333333333333333,0.888888888888889
 calibrated_pool,LUTH,15,0.13333333333333333,1.0
 calibrated_pool,OAUTHC,64,0.203125,0.579185520361991

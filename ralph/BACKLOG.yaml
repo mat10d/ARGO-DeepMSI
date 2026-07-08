@@ -313,7 +313,7 @@ tasks:
       - "leaderboard regenerated; docs/experiments/A0-harmony-scorer.md (OAUTHC-first table)"
   - id: A1-batch-correction-sweep
     priority: 94
-    status: todo
+    status: done
     deps: [A0-harmony-scorer]
     gpu: false
     summary: >

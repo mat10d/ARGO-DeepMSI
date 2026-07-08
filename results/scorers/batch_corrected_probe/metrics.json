@@ -1,0 +1,150 @@
+{
+  "scorer": "batch_corrected_probe",
+  "best_method": "oauthc_target_retrooau",
+  "sweep": [
+    {
+      "method": "oauthc_target_retrooau",
+      "overall_auroc": 0.6536585365853659,
+      "oauthc_auroc": 0.6153846153846154,
+      "oauthc_n": 64,
+      "residual_batch_auroc": 0.0788423904862261
+    },
+    {
+      "method": "raw",
+      "overall_auroc": 0.6461672473867596,
+      "oauthc_auroc": 0.607843137254902,
+      "oauthc_n": 64,
+      "residual_batch_auroc": 0.9996989312057806
+    },
+    {
+      "method": "oauthc_target_pooled",
+      "overall_auroc": 0.6456445993031359,
+      "oauthc_auroc": 0.5927601809954751,
+      "oauthc_n": 64,
+      "residual_batch_auroc": 0.9606352551558032
+    },
+    {
+      "method": "combat_global",
+      "overall_auroc": 0.6069686411149826,
+      "oauthc_auroc": 0.5520361990950227,
+      "oauthc_n": 64,
+      "residual_batch_auroc": 0.15727081138040044
+    }
+  ],
+  "oauthc_auroc": 0.6153846153846154,
+  "oauthc_spec_at_sens95": 0.11764705882352941,
+  "oauthc_spec_at_sens96": 0.11764705882352941,
+  "oauthc_n_patients": 64,
+  "oauthc_prevalence": 0.203125,
+  "n_slides": 428,
+  "n_patients": 181,
+  "prevalence_patient": 0.2265193370165746,
+  "auroc": 0.6536585365853659,
+  "auprc": 0.318638459772462,
+  "sensitivity": 0.9512195121951219,
+  "spec_at_sens90": 0.2357142857142857,
+  "spec_at_sens95": 0.2,
+  "spec_at_sens96": 0.19285714285714287,
+  "npv_at_sens95": 0.9333333333333333,
+  "operating_threshold": 0.001029594496008562,
+  "by_site": {
+    "LASUTH": {
+      "n": 9,
+      "prevalence": 0.3333333333333333,
+      "auroc": 0.7222222222222222,
+      "spec_at_sens95": 0.5
+    },
+    "LUTH": {
+      "n": 15,
+      "prevalence": 0.13333333333333333,
+      "auroc": 0.423076923076923,
+      "spec_at_sens95": 0.23076923076923078
+    },
+    "OAUTHC": {
+      "n": 64,
+      "prevalence": 0.203125,
+      "auroc": 0.6153846153846154,
+      "spec_at_sens95": 0.11764705882352941
+    },
+    "UITH": {
+      "n": 10,
+      "prevalence": 0.4,
+      "auroc": 0.5,
+      "spec_at_sens95": 0.16666666666666666
+    },
+    "retrospective_msk": {
+      "n": 60,
+      "prevalence": 0.23333333333333334,
+      "auroc": 0.718944099378882,
+      "spec_at_sens95": 0.1956521739130435
+    },
+    "retrospective_oau": {
+      "n": 23,
+      "prevalence": 0.21739130434782608,
+      "auroc": 0.8,
+      "spec_at_sens95": 0.5555555555555556
+    }
+  },
+  "by_bagsize": {
+    "1": {
+      "n": 77,
+      "auroc": 0.6205882352941177
+    },
+    "2": {
+      "n": 35,
+      "auroc": 0.7264957264957265
+    },
+    "3-4": {
+      "n": 56,
+      "auroc": 0.7191413237924866
+    },
+    "5+": {
+      "n": 13,
+      "auroc": 0.36363636363636365
+    }
+  },
+  "screening_clean": {
+    "op_sens90": {
+      "target_sensitivity": 0.9,
+      "sensitivity": 0.926829268292683,
+      "specificity": 0.2357142857142857,
+      "npv": 0.9166666666666666,
+      "ruled_out_fraction": 0.19889502762430938,
+      "threshold": 0.0014667595
+    },
+    "spec_at_sens90": 0.2357142857142857,
+    "npv_at_sens90": 0.9166666666666666,
+    "op_sens95": {
+      "target_sensitivity": 0.95,
+      "sensitivity": 0.9512195121951219,
+      "specificity": 0.2,
+      "npv": 0.9333333333333333,
+      "ruled_out_fraction": 0.16574585635359115,
+      "threshold": 0.001029594496008562
+    },
+    "spec_at_sens95": 0.2,
+    "npv_at_sens95": 0.9333333333333333,
+    "op_sens96": {
+      "target_sensitivity": 0.96,
+      "sensitivity": 0.975609756097561,
+      "specificity": 0.19285714285714287,
+      "npv": 0.9642857142857143,
+      "ruled_out_fraction": 0.15469613259668508,
+      "threshold": 0.0009252366576066923
+    },
+    "spec_at_sens96": 0.19285714285714287,
+    "npv_at_sens96": 0.9642857142857143,
+    "op_sens98": {
+      "target_sensitivity": 0.98,
+      "sensitivity": 1.0,
+      "specificity": 0.17857142857142858,
+      "npv": 1.0,
+      "ruled_out_fraction": 0.13812154696132597,
+      "threshold": 0.0006380083
+    },
+    "spec_at_sens98": 0.17857142857142858,
+    "npv_at_sens98": 1.0
+  },
+  "screening_primary_variant": "p_msih",
+  "screening_n_patients_clean": 181
+}

@@ -5,6 +5,7 @@ from .base import Scorer, ScoreColumn
 from .registry import get_scorer, list_scorers, register
 
 # Import each module so its register() call runs on package import.
+from . import batch_corrected_probe  # noqa: F401
 from . import calibrated_pool  # noqa: F401
 from . import clam_tilemil  # noqa: F401
 from . import flex_bottleneck  # noqa: F401
