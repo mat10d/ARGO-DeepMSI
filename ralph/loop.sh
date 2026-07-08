@@ -45,16 +45,16 @@ for i in $(seq 1 "$MAX_ITERS"); do
   cat ralph/AGENT.md | claude -p --dangerously-skip-permissions --model "$MODEL" \
       > "$log" 2>&1 || echo "[loop] claude exited non-zero on iter $i (see $log)" | tee -a ralph/logs/driver.log
 
-  # Stop conditions written by the agent into the journal. Markers are REAL only
-  # when they start a line (anchored) — this avoids matching the header comment
-  # "# terminal markers: LOOP-COMPLETE ... | HALT-BLOCKED ...". Also require the
-  # marker to be in the last 3 lines (i.e. just written), not anywhere in history.
-  if tail -n 3 ralph/JOURNAL.md 2>/dev/null | grep -qE '^LOOP-COMPLETE '; then
-    echo "[loop] LOOP-COMPLETE detected — stopping at iter $i." | tee -a ralph/logs/driver.log
+  # Stop conditions. A terminal marker counts ONLY if it is the MOST RECENT
+  # journal entry (last non-blank line) — this ignores the header comment AND any
+  # historical marker that a later phase-reopen line has superseded.
+  last_entry="$(grep -vE '^[[:space:]]*$' ralph/JOURNAL.md 2>/dev/null | tail -n 1)"
+  if printf '%s' "$last_entry" | grep -qE '^LOOP-COMPLETE '; then
+    echo "[loop] LOOP-COMPLETE is the latest journal entry — stopping at iter $i." | tee -a ralph/logs/driver.log
     break
   fi
-  if tail -n 3 ralph/JOURNAL.md 2>/dev/null | grep -qE '^HALT-BLOCKED '; then
-    echo "[loop] HALT-BLOCKED detected — stopping for human review at iter $i." | tee -a ralph/logs/driver.log
+  if printf '%s' "$last_entry" | grep -qE '^HALT-BLOCKED '; then
+    echo "[loop] HALT-BLOCKED is the latest journal entry — stopping for human review at iter $i." | tee -a ralph/logs/driver.log
     break
   fi
 
