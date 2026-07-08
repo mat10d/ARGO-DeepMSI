@@ -1,0 +1,13 @@
+{
+  "name": "fmmap_probe",
+  "description": "fmMAP: per-fold site residualization + supervised UMAP (MSI-guided, target_metric='categorical') on TITAN slide features, then a class-balanced logistic-regression probe on the projected coordinates. A projection-based site-suppression alternative to R2's adversary. Patient-grouped CV; few-shot curve K\u2208{1,2,4,8,16,all}. Frozen features.",
+  "needs_training_on_our_data": true,
+  "score_columns": [
+    {
+      "name": "p_msih",
+      "description": "fmMAP UMAP-probe OOF p(MSI-H)",
+      "primary": true
+    }
+  ],
+  "primary_score": "p_msih"
+}

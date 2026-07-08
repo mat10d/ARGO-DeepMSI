@@ -1,0 +1,149 @@
+{
+  "scorer": "fmmap_probe",
+  "method": "site-residualize + supervised UMAP + LR probe",
+  "umap_components": 15,
+  "umap_neighbors": 15,
+  "n_slides": 428,
+  "n_patients": 181,
+  "prevalence_patient": 0.2265193370165746,
+  "auroc": 0.5501742160278745,
+  "auprc": 0.2732579322357793,
+  "sensitivity": 0.9512195121951219,
+  "spec_at_sens90": 0.07142857142857142,
+  "spec_at_sens95": 0.05714285714285714,
+  "spec_at_sens96": 0.05,
+  "npv_at_sens95": 0.8,
+  "operating_threshold": 0.000192755350213203,
+  "by_site": {
+    "LASUTH": {
+      "n": 9,
+      "prevalence": 0.3333333333333333,
+      "auroc": 0.7777777777777779,
+      "spec_at_sens95": 0.6666666666666666
+    },
+    "LUTH": {
+      "n": 15,
+      "prevalence": 0.13333333333333333,
+      "auroc": 0.7307692307692308,
+      "spec_at_sens95": 0.6153846153846154
+    },
+    "OAUTHC": {
+      "n": 64,
+      "prevalence": 0.203125,
+      "auroc": 0.49924585218702866,
+      "spec_at_sens95": 0.0392156862745098
+    },
+    "UITH": {
+      "n": 10,
+      "prevalence": 0.4,
+      "auroc": 0.33333333333333337,
+      "spec_at_sens95": 0.0
+    },
+    "retrospective_msk": {
+      "n": 60,
+      "prevalence": 0.23333333333333334,
+      "auroc": 0.5357142857142858,
+      "spec_at_sens95": 0.021739130434782608
+    },
+    "retrospective_oau": {
+      "n": 23,
+      "prevalence": 0.21739130434782608,
+      "auroc": 0.6666666666666667,
+      "spec_at_sens95": 0.2777777777777778
+    }
+  },
+  "by_bagsize": {
+    "1": {
+      "n": 77,
+      "auroc": 0.5980392156862745
+    },
+    "2": {
+      "n": 35,
+      "auroc": 0.5982905982905984
+    },
+    "3-4": {
+      "n": 56,
+      "auroc": 0.5813953488372093
+    },
+    "5+": {
+      "n": 13,
+      "auroc": 0.0
+    }
+  },
+  "few_shot_curve": [
+    {
+      "K": 1,
+      "n_train_per_class": 1,
+      "patient_auroc": 0.5344827586206897
+    },
+    {
+      "K": 2,
+      "n_train_per_class": 2,
+      "patient_auroc": NaN
+    },
+    {
+      "K": 4,
+      "n_train_per_class": 4,
+      "patient_auroc": 0.5313868462364703
+    },
+    {
+      "K": 8,
+      "n_train_per_class": 8,
+      "patient_auroc": 0.5213124274099884
+    },
+    {
+      "K": 16,
+      "n_train_per_class": 16,
+      "patient_auroc": 0.49570267131242735
+    },
+    {
+      "K": "all",
+      "n_train_per_class": 101,
+      "patient_auroc": 0.5501742160278745
+    }
+  ],
+  "screening_clean": {
+    "op_sens90": {
+      "target_sensitivity": 0.9,
+      "sensitivity": 0.926829268292683,
+      "specificity": 0.07142857142857142,
+      "npv": 0.7692307692307693,
+      "ruled_out_fraction": 0.0718232044198895,
+      "threshold": 0.00023577274993629138
+    },
+    "spec_at_sens90": 0.07142857142857142,
+    "npv_at_sens90": 0.7692307692307693,
+    "op_sens95": {
+      "target_sensitivity": 0.95,
+      "sensitivity": 0.9512195121951219,
+      "specificity": 0.05714285714285714,
+      "npv": 0.8,
+      "ruled_out_fraction": 0.055248618784530384,
+      "threshold": 0.000192755350213203
+    },
+    "spec_at_sens95": 0.05714285714285714,
+    "npv_at_sens95": 0.8,
+    "op_sens96": {
+      "target_sensitivity": 0.96,
+      "sensitivity": 0.975609756097561,
+      "specificity": 0.05,
+      "npv": 0.875,
+      "ruled_out_fraction": 0.04419889502762431,
+      "threshold": 0.00015284913632042645
+    },
+    "spec_at_sens96": 0.05,
+    "npv_at_sens96": 0.875,
+    "op_sens98": {
+      "target_sensitivity": 0.98,
+      "sensitivity": 1.0,
+      "specificity": 0.02857142857142857,
+      "npv": 1.0,
+      "ruled_out_fraction": 0.022099447513812154,
+      "threshold": 9.909489909300748e-05
+    },
+    "spec_at_sens98": 0.02857142857142857,
+    "npv_at_sens98": 1.0
+  },
+  "screening_primary_variant": "p_msih",
+  "screening_n_patients_clean": 181
+}

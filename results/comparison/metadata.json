@@ -3,6 +3,7 @@
     "calibrated_pool",
     "clam_tilemil",
     "flex_bottleneck",
+    "fmmap_probe",
     "nuclear_morphology",
     "protonet_cluster",
     "score_fusion",

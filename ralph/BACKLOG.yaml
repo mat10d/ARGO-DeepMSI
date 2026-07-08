@@ -208,7 +208,7 @@ tasks:
 
   - id: R3-fmmap
     priority: 68
-    status: todo
+    status: done
     deps: [Q4-rebuild-manifest]
     gpu: false
     summary: >
