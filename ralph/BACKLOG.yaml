@@ -142,7 +142,7 @@ tasks:
 
   - id: S3-tip-adapter
     priority: 78
-    status: todo
+    status: done
     deps: [Q4-rebuild-manifest]
     gpu: true
     summary: >
