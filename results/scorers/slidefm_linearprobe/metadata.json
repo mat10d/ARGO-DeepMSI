@@ -1,0 +1,13 @@
+{
+  "name": "slidefm_linearprobe",
+  "description": "Class-balanced logistic-regression linear probe on frozen slide-level FM embeddings (TITAN / PRISM), 5-fold patient-grouped. Exposes the full-shot OOF p(MSI-H) of the better embedding as the primary score, and reports a few-shot learning curve K\u2208{1,2,4,8,16,all} (K patients per class per fold, averaged over random draws).",
+  "needs_training_on_our_data": true,
+  "score_columns": [
+    {
+      "name": "p_msih",
+      "description": "full-shot OOF p(MSI-H), best slide-FM embedding",
+      "primary": true
+    }
+  ],
+  "primary_score": "p_msih"
+}

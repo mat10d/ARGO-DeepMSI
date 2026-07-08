@@ -114,7 +114,7 @@ tasks:
   # ---- Phase S: low-N scorers on the clean tumor-only view ----
   - id: S1-slidefm-linearprobe
     priority: 80
-    status: todo
+    status: done
     deps: [Q4-rebuild-manifest]
     gpu: false
     summary: >

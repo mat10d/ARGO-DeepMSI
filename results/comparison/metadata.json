@@ -5,6 +5,7 @@
     "score_fusion",
     "simple_grid",
     "slide_attention_mil",
+    "slidefm_linearprobe",
     "transductive_smoothing",
     "vl_text_cosine",
     "wagner_zeroshot"
