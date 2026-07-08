@@ -1,0 +1,10 @@
+{
+  "recipe": "global-kmeans cluster-agg on tumor-only CONCH tiles (concat per-group L2 means)",
+  "n_clusters": 8,
+  "tile_dim": 768,
+  "wsi_dim": 6144,
+  "seed": 42,
+  "n_slides": 428,
+  "fit_tiles_per_slide": 200,
+  "source_paper": "Computerized Medical Imaging and Graphics 2025, PII S0895611125001892"
+}

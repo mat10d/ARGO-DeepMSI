@@ -7,6 +7,7 @@ from .registry import get_scorer, list_scorers, register
 # Import each module so its register() call runs on package import.
 from . import calibrated_pool  # noqa: F401
 from . import nuclear_morphology  # noqa: F401
+from . import protonet_cluster  # noqa: F401
 from . import score_fusion  # noqa: F401
 from . import simple_grid  # noqa: F401
 from . import slide_attention_mil  # noqa: F401

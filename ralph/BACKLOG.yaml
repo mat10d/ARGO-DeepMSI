@@ -127,7 +127,7 @@ tasks:
 
   - id: S2-protonet-cluster
     priority: 79
-    status: doing
+    status: done
     deps: [Q4-rebuild-manifest]
     gpu: true
     summary: >

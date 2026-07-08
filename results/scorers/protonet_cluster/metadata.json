@@ -1,0 +1,13 @@
+{
+  "name": "protonet_cluster",
+  "description": "Few-shot ProtoNet on cluster-aggregated CONCH tumor-tile embeddings (FM-MSI benchmark recipe). WSI embeddings = concatenated per-group means of a global k-means over tumor-only CONCH tiles; ProtoNet prototypes are per-class training means, scored by softmax over negative squared distance. Reports a few-shot curve K\u2208{1,2,4,8,16,all}. Frozen features only.",
+  "needs_training_on_our_data": true,
+  "score_columns": [
+    {
+      "name": "p_msih",
+      "description": "ProtoNet full-shot OOF p(MSI-H) on cluster-agg CONCH",
+      "primary": true
+    }
+  ],
+  "primary_score": "p_msih"
+}

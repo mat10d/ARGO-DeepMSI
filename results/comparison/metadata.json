@@ -2,6 +2,7 @@
   "scorers_evaluated": [
     "calibrated_pool",
     "nuclear_morphology",
+    "protonet_cluster",
     "score_fusion",
     "simple_grid",
     "slide_attention_mil",
