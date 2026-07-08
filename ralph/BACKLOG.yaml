@@ -67,9 +67,24 @@ tasks:
 
   - id: Q3-tumor-filter
     priority: 88
-    status: todo
+    status: doing
     deps: [Q2-artifact-qc]
     gpu: true
+    checkpoint: >
+      GPU smoke-off submitted (scripts/tumor_filter_smokeoff.sh) → writes
+      results/data/tumor_smokeoff/smokeoff_metrics.json with a `winner` field.
+      Candidate (a) GrandQC = zs.seg.tissue(model='grandqc') — tissue-vs-background only,
+      has NO tumor class, so it cannot localize tumor tiles; candidate (b) CTransPath
+      NCT-CRC 9-class head (already trained + fully applied to all 509 clean slides in
+      results/analysis/c5_phase1c/) has a real TUM class (holdout recall 0.91). Expected
+      winner = ctranspath. HARVEST turn: (1) read smokeoff_metrics.json, confirm winner;
+      (2) run scripts/tumor_tiles_apply.py (CPU foreground) to write
+      results/data/tumor_tiles/<slide>.npy (TUM tile indices) + tumor_fraction.csv over all
+      in_clean_set slides; (3) `python -m argo_deepmsi.eval.cohort --tumor-tiles-dir
+      results/data/tumor_tiles --tumor-floor <f>` to add n_tumor_tiles/tumor_fraction and
+      DROP slides below floor — pick the largest floor that keeps best clean patient AUROC
+      >= 0.710 (no_regression); start at 0.0 (drop only tumor_fraction==0, 22 slides) and
+      only raise if it holds; (4) regen leaderboard; (5) verify; done.
     summary: >
       SMOKE-OFF two tumor-area filters on a fixed 20-slide probe set: (a) GrandQC tumor/tissue
       segmentation head, (b) existing scripts/tumor_tile_classifier. Keep whichever retains

@@ -209,6 +209,74 @@ def add_artifact_qc(
     return cohort, manifest
 
 
+def add_tumor_filter(
+    cohort_csv: Path,
+    tumor_tiles_dir: Path,
+    manifest_csv: Path,
+    method: str,
+    floor: float,
+    smokeoff_json: Path | None = None,
+) -> tuple[pd.DataFrame, dict]:
+    """Merge the Q3 tumor-tile filter into cohort_clean.csv and DROP by floor.
+
+    Reads ``tumor_fraction.csv`` (written by ``scripts/tumor_tiles_apply.py``),
+    attaches ``n_tumor_tiles`` and ``tumor_fraction`` per slide, and removes
+    slides from the clean set whose ``tumor_fraction < floor`` (a slide with no
+    tumor tiles carries no MSI signal). Unlike the artifact layer, this layer
+    DROPS: it flips ``in_clean_set`` to 0 for below-floor slides.
+
+    Rewrites ``cohort_clean.csv`` in place and returns ``(cohort_df, manifest)``
+    with a ``tumor_filter`` block (chosen method + floor + per-site drops + the
+    smoke-off metrics) appended.
+    """
+    cohort = pd.read_csv(cohort_csv)
+    tf = pd.read_csv(Path(tumor_tiles_dir) / "tumor_fraction.csv")
+    tf = tf.drop_duplicates("slide_id", keep="last")
+
+    cohort = cohort.drop(
+        columns=[c for c in ("n_tumor_tiles", "tumor_fraction") if c in cohort.columns]
+    )
+    cohort = cohort.merge(
+        tf[["slide_id", "n_tumor_tiles", "tumor_fraction"]], on="slide_id", how="left"
+    )
+
+    was_clean = cohort["in_clean_set"] == 1
+    below = was_clean & (cohort["tumor_fraction"].fillna(0.0) < floor)
+    cohort.loc[below, "in_clean_set"] = 0
+
+    per_site = {}
+    for site, sub in cohort[was_clean].groupby("site"):
+        s_below = sub["tumor_fraction"].fillna(0.0) < floor
+        per_site[str(site)] = {
+            "n_before": int(len(sub)),
+            "n_dropped_tumor": int(s_below.sum()),
+            "n_after": int((~s_below).sum()),
+        }
+    cohort.to_csv(cohort_csv, index=False)
+
+    manifest = json.loads(Path(manifest_csv).read_text())
+    manifest.setdefault("layers", [])
+    if "tumor_filter" not in manifest["layers"]:
+        manifest["layers"].append("tumor_filter")
+    clean = cohort[cohort["in_clean_set"] == 1]
+    block = {
+        "method": method,
+        "floor": floor,
+        "reduce": "per_tile_argmax_TUM_fraction",
+        "n_clean_before": int(was_clean.sum()),
+        "n_dropped": int(below.sum()),
+        "n_clean_after": int((cohort["in_clean_set"] == 1).sum()),
+        "n_patients_after": int(clean["patient_id"].nunique()),
+        "clean_prevalence_after": float(clean["y"].mean()) if len(clean) else float("nan"),
+        "by_site": per_site,
+    }
+    if smokeoff_json is not None and Path(smokeoff_json).exists():
+        block["smokeoff"] = json.loads(Path(smokeoff_json).read_text())
+    manifest["tumor_filter"] = block
+    Path(manifest_csv).write_text(json.dumps(manifest, indent=2))
+    return cohort, manifest
+
+
 def patient_folds(
     df: pd.DataFrame,
     n_splits: int = 5,
@@ -242,11 +310,28 @@ def main() -> None:
     p.add_argument("--artifact-qc-dir", default=None, type=Path,
                    help="if set, merge artifact-QC shards into the existing cohort (Q2)")
     p.add_argument("--artifact-floor", default=0.5, type=float)
+    p.add_argument("--tumor-tiles-dir", default=None, type=Path,
+                   help="if set, merge the Q3 tumor filter + drop by floor")
+    p.add_argument("--tumor-method", default="ctranspath")
+    p.add_argument("--tumor-floor", default=0.0, type=float)
+    p.add_argument("--smokeoff-json",
+                   default="results/data/tumor_smokeoff/smokeoff_metrics.json", type=Path)
     a = p.parse_args()
 
     a.outdir.mkdir(parents=True, exist_ok=True)
     cohort_csv = a.outdir / "cohort_clean.csv"
     manifest_csv = a.outdir / "cohort_manifest.json"
+
+    if a.tumor_tiles_dir is not None:
+        cohort, manifest = add_tumor_filter(
+            cohort_csv, a.tumor_tiles_dir, manifest_csv,
+            method=a.tumor_method, floor=a.tumor_floor, smokeoff_json=a.smokeoff_json)
+        blk = manifest["tumor_filter"]
+        print(f"tumor-filter merged ({blk['method']}, floor={blk['floor']}): "
+              f"{blk['n_clean_before']} → {blk['n_clean_after']} clean slides "
+              f"({blk['n_dropped']} dropped, {blk['n_patients_after']} patients).")
+        print(json.dumps(blk, indent=2))
+        return
 
     if a.artifact_qc_dir is not None:
         cohort, manifest = add_artifact_qc(cohort_csv, a.artifact_qc_dir, manifest_csv,
