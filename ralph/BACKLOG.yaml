@@ -195,7 +195,7 @@ tasks:
 
   - id: R2-flex-bottleneck
     priority: 69
-    status: todo
+    status: done
     deps: [S2-protonet-cluster]
     gpu: true
     summary: >
