@@ -11,7 +11,7 @@ meta:
   target:
     msintuit_sensitivity: [0.96, 0.98]
     msintuit_specificity: [0.46, 0.47]
-    fm_benchmark_conch: {status: "unread — transcribe spec@sens from full text (ScienceDirect PII S0895611125001892) before use"}
+    fm_benchmark_conch: {model: CONCH, cohorts: [TCGA, PAIP], spec_at_sens90: 0.65, spec_at_sens94: 0.45, source: "Computerized Medical Imaging and Graphics 2025, PII S0895611125001892", recipe: "cluster-agg (patch embeds K-means grouped, per-group mean, concatenated) + few-shot ProtoNet"}
     current_best_patient_auroc: 0.710
   stop_bar:
     specificity: 0.47
@@ -127,7 +127,7 @@ tasks:
 
   - id: S2-protonet-cluster
     priority: 79
-    status: todo
+    status: doing
     deps: [Q4-rebuild-manifest]
     gpu: true
     summary: >

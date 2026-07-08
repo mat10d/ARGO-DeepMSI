@@ -121,7 +121,15 @@ def screening_block(
 # Competitive reference points (for reporting / no-regression context).
 # MSIntuit numbers are verified from the paper's abstract (Nat Commun 2023).
 MSINTUIT_TARGET = {"sensitivity": (0.96, 0.98), "specificity": (0.46, 0.47)}
-# FM-MSI benchmark (ScienceDirect PII S0895611125001892): its reported CONCH spec@sens has NOT been
-# transcribed from the full text yet. Leave as None until read from source — do not hardcode a
-# figure that hasn't been verified against the paper.
-FM_BENCHMARK_CONCH = None  # TODO(S2): fill {spec_at_sens90, spec_at_sens94} from full text
+# FM-MSI benchmark: "Benchmarking Pathology Foundation Models for Predicting Microsatellite
+# Instability in Colorectal Cancer Histopathology" (Computerized Medical Imaging and Graphics,
+# 2025; PII S0895611125001892). CONCH prescreening operating points transcribed from the paper.
+# NOTE: these are the paper's numbers on TCGA/PAIP (external cohorts) — a reference point for
+# reporting, NOT a target we fit to. Our cohort is the Nigerian CRC set only.
+FM_BENCHMARK_CONCH = {
+    "model": "CONCH",
+    "cohorts": ["TCGA", "PAIP"],
+    "spec_at_sens90": 0.65,
+    "spec_at_sens94": 0.45,
+    "source": "Computerized Medical Imaging and Graphics 2025, PII S0895611125001892",
+}
