@@ -67,7 +67,7 @@ tasks:
 
   - id: Q3-tumor-filter
     priority: 88
-    status: doing
+    status: done
     deps: [Q2-artifact-qc]
     gpu: true
     checkpoint: >
