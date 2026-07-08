@@ -1,0 +1,132 @@
+{
+  "scorer": "clam_tilemil_stainaug",
+  "base": "clam_tilemil",
+  "method": "feature-space TTA (5 crop-subset views + per-dim stain gain/jitter)",
+  "note": "feature-space proxy; image-level stain-aug re-extraction (~55h GPU) infeasible",
+  "n_conditions": 6,
+  "conditions": [
+    "identity",
+    "cropstain0",
+    "cropstain1",
+    "cropstain2",
+    "cropstain3",
+    "cropstain4"
+  ],
+  "inter_condition_kappa": 0.9266969992298023,
+  "per_condition_auroc": {
+    "identity": 0.5881533101045296,
+    "cropstain0": 0.5843205574912892,
+    "cropstain1": 0.5871080139372823,
+    "cropstain2": 0.5928571428571429,
+    "cropstain3": 0.5909407665505226,
+    "cropstain4": 0.5973867595818817
+  },
+  "n_patients": 181,
+  "prevalence_patient": 0.2265193370165746,
+  "auroc": 0.5881533101045296,
+  "auprc": 0.27494886500806276,
+  "sensitivity": 0.9512195121951219,
+  "spec_at_sens90": 0.08571428571428572,
+  "spec_at_sens95": 0.08571428571428572,
+  "spec_at_sens96": 0.07857142857142857,
+  "npv_at_sens95": 0.8571428571428571,
+  "operating_threshold": 0.030542148370281068,
+  "by_site": {
+    "LASUTH": {
+      "n": 9,
+      "prevalence": 0.3333333333333333,
+      "auroc": 0.5,
+      "spec_at_sens95": 0.5
+    },
+    "LUTH": {
+      "n": 15,
+      "prevalence": 0.13333333333333333,
+      "auroc": 0.3846153846153846,
+      "spec_at_sens95": 0.07692307692307693
+    },
+    "OAUTHC": {
+      "n": 64,
+      "prevalence": 0.203125,
+      "auroc": 0.6274509803921569,
+      "spec_at_sens95": 0.0392156862745098
+    },
+    "UITH": {
+      "n": 10,
+      "prevalence": 0.4,
+      "auroc": 0.41666666666666663,
+      "spec_at_sens95": 0.0
+    },
+    "retrospective_msk": {
+      "n": 60,
+      "prevalence": 0.23333333333333334,
+      "auroc": 0.6630434782608696,
+      "spec_at_sens95": 0.043478260869565216
+    },
+    "retrospective_oau": {
+      "n": 23,
+      "prevalence": 0.21739130434782608,
+      "auroc": 0.5333333333333333,
+      "spec_at_sens95": 0.2222222222222222
+    }
+  },
+  "by_bagsize": {
+    "1": {
+      "n": 77,
+      "auroc": 0.5441176470588236
+    },
+    "2": {
+      "n": 35,
+      "auroc": 0.5897435897435898
+    },
+    "3-4": {
+      "n": 56,
+      "auroc": 0.7370304114490162
+    },
+    "5+": {
+      "n": 13,
+      "auroc": 0.13636363636363635
+    }
+  },
+  "screening_clean": {
+    "op_sens90": {
+      "target_sensitivity": 0.9,
+      "sensitivity": 0.926829268292683,
+      "specificity": 0.08571428571428572,
+      "npv": 0.8,
+      "ruled_out_fraction": 0.08287292817679558,
+      "threshold": 0.04105999320745468
+    },
+    "spec_at_sens90": 0.08571428571428572,
+    "npv_at_sens90": 0.8,
+    "op_sens95": {
+      "target_sensitivity": 0.95,
+      "sensitivity": 0.9512195121951219,
+      "specificity": 0.08571428571428572,
+      "npv": 0.8571428571428571,
+      "ruled_out_fraction": 0.07734806629834254,
+      "threshold": 0.030542148370281068
+    },
+    "spec_at_sens95": 0.08571428571428572,
+    "npv_at_sens95": 0.8571428571428571,
+    "op_sens96": {
+      "target_sensitivity": 0.96,
+      "sensitivity": 0.975609756097561,
+      "specificity": 0.07857142857142857,
+      "npv": 0.9166666666666666,
+      "ruled_out_fraction": 0.06629834254143646,
+      "threshold": 0.024416349828243256
+    },
+    "spec_at_sens96": 0.07857142857142857,
+    "npv_at_sens96": 0.9166666666666666,
+    "op_sens98": {
+      "target_sensitivity": 0.98,
+      "sensitivity": 1.0,
+      "specificity": 0.02142857142857143,
+      "npv": 1.0,
+      "ruled_out_fraction": 0.016574585635359115,
+      "threshold": 0.0012829673885000241
+    },
+    "spec_at_sens98": 0.02142857142857143,
+    "npv_at_sens98": 1.0
+  }
+}

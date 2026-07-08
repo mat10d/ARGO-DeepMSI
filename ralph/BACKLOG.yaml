@@ -183,7 +183,7 @@ tasks:
   # ---- Phase R: site-robustness / the OAUTHC problem ----
   - id: R1-stain-aug-tta
     priority: 70
-    status: todo
+    status: done
     deps: [Q4-rebuild-manifest]
     gpu: true
     summary: >
