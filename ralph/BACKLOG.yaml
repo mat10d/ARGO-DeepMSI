@@ -11,7 +11,7 @@ meta:
   target:
     msintuit_sensitivity: [0.96, 0.98]
     msintuit_specificity: [0.46, 0.47]
-    fm_benchmark_conch: {model: CONCH, cohorts: [TCGA, PAIP], spec_at_sens90: 0.65, spec_at_sens94: 0.45, source: "Computerized Medical Imaging and Graphics 2025, PII S0895611125001892", recipe: "cluster-agg (patch embeds K-means grouped, per-group mean, concatenated) + few-shot ProtoNet"}
+    fm_benchmark_conch: {status: "unread -- closed-access (ScienceDirect PII S0895611125001892); operating points NOT transcribed; do not cite figures"}
     current_best_patient_auroc: 0.710
   stop_bar:
     specificity: 0.47
@@ -286,3 +286,119 @@ tasks:
       - "results/comparison/head_to_head_msintuit.csv"
       - "results/comparison/figure_*.png regenerated"
       - "docs/experiments/F2-paper-tables.md written"
+
+
+  # ==== A-PHASE: recover OAUTHC (48% of cohort, 44% of positives) — no new data ====
+  # Root cause (D0-oauthc-batch-rootcause.md): OAUTHC-prospective vs retro-OAU is a PROCESSING-
+  # PIPELINE batch effect (cut at OAUTHC vs MSKCC), not biology. Raw CONCH-TITAN separates the
+  # two pipelines at site-pred AUROC 1.00; Harmony drops it to 0.82 and lifts OAUTHC MSI-AUROC
+  # 0.61->0.69. Same-institution ceiling to target = retro-OAU 0.80. EVERY A-task reports
+  # OAUTHC-held-out patient AUROC + spec@sens95/96 FIRST, then overall + per-site. Champion
+  # floor 0.713 must hold (no_regression). Base model unless a task says otherwise:
+  # conch_v1.5_titan + Harmony.
+  - id: A0-harmony-scorer
+    priority: 95
+    status: todo
+    deps: []
+    gpu: false
+    summary: >
+      Promote the D0 finding into a registered scorer: LR probe on conch_v1.5_titan_harmony
+      slide embeddings, max/sqrt(n) patient aggregation. This is the new evaluated baseline for
+      the OAUTHC-recovery phase (raw-vs-harmony sweep was diagnostic only, never a scorer). Add
+      harmony variants of all 6 FMs to the simple_grid sweep so the board reflects them.
+    done_when:
+      - "argo_deepmsi/scorers/harmony_probe.py registered + contract test"
+      - "results/scorers/harmony_probe/metrics.json full screening block incl by_site"
+      - "simple_grid grid.csv includes *_harmony rows"
+      - "leaderboard regenerated; docs/experiments/A0-harmony-scorer.md (OAUTHC-first table)"
+  - id: A1-batch-correction-sweep
+    priority: 94
+    status: todo
+    deps: [A0-harmony-scorer]
+    gpu: false
+    summary: >
+      Harmony removes only part of the batch axis (residual site-pred AUROC 0.82). Sweep
+      stronger/targeted feature-space batch correction on frozen CONCH-TITAN: ComBat, and
+      OAUTHC-targeted correction (align OAUTHC-prospective feature distribution to the pooled
+      good-site / retro-OAU reference — one-site target, NOT global equalization which regressed
+      to the mean in R2/R3). Metric = OAUTHC held-out AUROC + residual batch separability.
+    done_when:
+      - "argo_deepmsi/scorers/batch_corrected_probe.py (method chosen by OAUTHC AUROC) + contract test"
+      - "results/scorers/batch_corrected_probe/metrics.json full block"
+      - "docs/experiments/A1-batch-correction-sweep.md: batch-sep vs MSI-AUROC trade table per method"
+  - id: A2-stain-norm-oauthc
+    priority: 90
+    status: todo
+    deps: [A0-harmony-scorer]
+    gpu: true
+    summary: >
+      IMAGE-level fix for the batch effect the metadata pins to local histology: stain-normalize
+      the 64 OAUTHC-prospective slides to a retro-OAU reference (Macenko/Reinhard), RE-EXTRACT
+      CONCH-TITAN features for just those slides (tractable: 64 slides on <=3 GPUs), re-score.
+      This tests whether correcting at the pixel level beats feature-space correction (A1).
+    done_when:
+      - "scripts/stain_norm_oauthc.py + SLURM array via ralph/gpu_gate.sh (<=3 GPU)"
+      - "re-extracted OAUTHC features under results/embeddings/conch_v1.5_titan_stainnorm/"
+      - "results/scorers/stainnorm_probe/metrics.json; docs/experiments/A2-stain-norm-oauthc.md"
+  - id: A3-tilemil-oauthc-fewshot
+    priority: 89
+    status: todo
+    deps: [A0-harmony-scorer]
+    gpu: true
+    summary: >
+      S4 attention-MIL was the ONLY recipe that beat the champion on OAUTHC (0.629 vs 0.579) but
+      was set aside for losing the GLOBAL race. Re-evaluate S4 as the OAUTHC-recovery base, and
+      give few-shot a FAIR test it never got: OAUTHC-SPECIFIC adaptation (support set = held-out
+      OAUTHC patients adapting a good-site-trained MIL head), not the global random-support curve
+      that (correctly) failed in S1-S5. Report OAUTHC K-shot adaptation curve.
+    done_when:
+      - "argo_deepmsi/scorers/tilemil_oauthc_adapt.py registered + contract test"
+      - "results/scorers/tilemil_oauthc_adapt/metrics.json full block + OAUTHC k-shot curve"
+      - "docs/experiments/A3-tilemil-oauthc-fewshot.md"
+  - id: A4-titan-descriptions
+    priority: 85
+    status: todo
+    deps: [A0-harmony-scorer]
+    gpu: true
+    summary: >
+      EXPLORATORY (user-flagged idea). TITAN is a vision-LANGUAGE slide model; we have only used
+      its embedding. Hypothesis: a morphological DESCRIPTION (TILs, differentiation, mucinous/
+      signet-ring, Crohn's-like reaction = MSI-H signature) is abstracted above stain, so a
+      described-morphology -> MSI readout should be more site-invariant than the raw embedding on
+      OAUTHC. GATE FIRST: verify the TITAN checkpoint on fry actually exposes a text-generation/
+      caption head (not just the contrastive text encoder); if it does NOT, mark blocked with
+      reason and STOP (do not fake generation). If it does: generate per-slide descriptions,
+      validate against ProtoNet/nuclear-morphology features + eCRF spot-check (hallucination
+      guard), learn a readout, report OAUTHC-first. Confirm & cite TITAN's real author/year from
+      source in the doc (do NOT assert from memory).
+    done_when:
+      - "docs/experiments/A4-titan-descriptions.md — checkpoint-capability check result FIRST"
+      - "if head exists: results/scorers/titan_desc_probe/metrics.json + hallucination-check section"
+      - "if not: task blocked with reason; no fabricated descriptions committed"
+  - id: A5-per-site-calibration
+    priority: 80
+    status: todo
+    deps: [A0-harmony-scorer, A1-batch-correction-sweep]
+    gpu: false
+    summary: >
+      Given the best A-phase scorer, fit OAUTHC-specific score calibration / operating threshold
+      (isotonic or Platt on held-out OAUTHC patients, patient-grouped) so the rule-out operating
+      point (sens 0.95/0.96) is honest ON OAUTHC, not just pooled. Report OAUTHC spec@sens95/96
+      + NPV at the calibrated threshold vs the global-threshold baseline.
+    done_when:
+      - "argo_deepmsi/eval/per_site_calibration.py + test"
+      - "docs/experiments/A5-per-site-calibration.md: OAUTHC operating-point table calibrated vs global"
+  - id: A6-oauthc-synthesis
+    priority: 70
+    status: todo
+    deps: [A1-batch-correction-sweep, A2-stain-norm-oauthc, A3-tilemil-oauthc-fewshot, A4-titan-descriptions, A5-per-site-calibration]
+    gpu: false
+    summary: >
+      Synthesis: OAUTHC-recovery leaderboard (every A-scorer, OAUTHC AUROC + spec@sens + gap to
+      retro-OAU 0.80 ceiling), best combined pipeline, updated head-to-head-vs-MSIntuit table on
+      the FULL cohort WITH OAUTHC (no abstention), manuscript figures. State honestly how far
+      OAUTHC recovered and whether the rule-out bar is reachable with OAUTHC included.
+    done_when:
+      - "results/comparison/oauthc_recovery_leaderboard.csv + figure"
+      - "results/comparison/head_to_head_msintuit.csv updated (full cohort, OAUTHC included)"
+      - "docs/experiments/A6-oauthc-synthesis.md"

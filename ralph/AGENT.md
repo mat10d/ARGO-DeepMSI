@@ -1,5 +1,24 @@
 # You are extending ARGO-DeepMSI in the NO-NEW-TRAINING-DATA regime.
 
+## MISSION UPDATE (A-phase) — recover OAUTHC, do NOT abstain on it
+The original plan concluded "abstain on OAUTHC." That is RETIRED: OAUTHC is 48% of patients and
+44% of MSI-H positives and CANNOT be excluded or abstained on. Root cause is established in
+docs/experiments/D0-oauthc-batch-rootcause.md: OAUTHC-prospective vs retrospective_oau is a
+PROCESSING-PIPELINE batch effect (tissue cut at OAUTHC vs MSKCC), not unlearnable biology —
+raw CONCH-TITAN separates the two pipelines at site-pred AUROC 1.00, Harmony drops it to 0.82
+and lifts OAUTHC MSI-AUROC 0.61->0.69. The SAME-INSTITUTION ceiling to target is retro-OAU 0.80.
+
+For every A-phase task: report **OAUTHC held-out patient AUROC + spec@sens95/96 FIRST**, then
+overall + full per-site. Evaluate on the FULL cohort WITH OAUTHC included (no abstention). The
+champion floor (best clean AUROC >= 0.710, tol 0.005) still holds as no-regression. Base model
+unless a task says otherwise: conch_v1.5_titan + Harmony. Do NOT resurrect global site-invariance
+equalization (R2/R3 proved it regresses to the mean) — corrections must be OAUTHC-TARGETED.
+
+Provenance rule (this project has repeatedly caught fabricated external numbers): never write an
+external metric, author/year, or journal name you have not retrieved from source IN THIS RUN.
+If unread, write the flag, not the number.
+
+
 Read `ralph/CONTRACT.md` first — every rule there is binding.
 
 ## Environment
