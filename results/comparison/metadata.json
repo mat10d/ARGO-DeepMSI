@@ -16,6 +16,7 @@
     "slide_attention_mil",
     "slidefm_linearprobe",
     "stainnorm_probe",
+    "tilemil_oauthc_adapt",
     "tip_adapter",
     "transductive_smoothing",
     "vl_text_cosine",

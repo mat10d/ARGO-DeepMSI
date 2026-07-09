@@ -342,7 +342,7 @@ tasks:
       - "results/scorers/stainnorm_probe/metrics.json; docs/experiments/A2-stain-norm-oauthc.md"
   - id: A3-tilemil-oauthc-fewshot
     priority: 89
-    status: todo
+    status: done
     deps: [A0-harmony-scorer]
     gpu: true
     summary: >
