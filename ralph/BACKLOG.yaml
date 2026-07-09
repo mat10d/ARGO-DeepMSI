@@ -451,7 +451,7 @@ tasks:
   - "docs/experiments/D2-qc-exclusion-ablation.md \u2014 VERDICT: does excluding bad-QC slides help, per site"
 - id: D3-tumor-agg-ablation
   priority: 82
-  status: todo
+  status: done
   deps:
   - D2-qc-exclusion-ablation
   gpu: false
