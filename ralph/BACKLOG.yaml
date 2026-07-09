@@ -462,3 +462,38 @@ tasks:
   done_when:
   - results/analysis/tumor_agg_ablation/grid_by_site.csv
   - "docs/experiments/D3-tumor-agg-ablation.md \u2014 VERDICT per choice, per site"
+- id: C1-cohort-rebuild-reace
+  priority: 75
+  status: todo
+  deps:
+  - D2-qc-exclusion-ablation
+  - D3-tumor-agg-ablation
+  gpu: false
+  summary: 'D2 proved the inherited hard QC exclusion (514 problem_slides) is a net loss (champion overall 0.713->0.732, OAUTHC 0.579->0.617 when kept). Rebuild the canonical cohort under the D2/D3 verdicts:
+    DROP the hard problem_slides exclusion (keep all slides with embeddings), tumor floor light per D3 (~0.01, not the heavy filter). Embeddings already exist for all slides so this is re-aggregation, not
+    re-extraction (CPU). Re-race the FULL board on the rebuilt cohort with per-scorer aggregation from D3 (champion max/sqrtn, Harmony MEAN). Regenerate leaderboard + head_to_head. This is the HONEST final
+    cohort; the no-regression floor must be re-baselined to the new champion ceiling (~0.732) after landing.
+
+    '
+  done_when:
+  - results/data/cohort_clean.csv rebuilt (no hard QC gate); cohort_manifest.json updated with n_slides/n_patients per site + provenance note
+  - results/comparison/leaderboard.csv re-raced on rebuilt cohort (per-scorer agg)
+  - ralph/no_regression.py floor re-baselined to new champion clean AUROC
+  - "docs/experiments/C1-cohort-rebuild.md \u2014 before/after per-site table, what moved"
+- id: B1-learned-patient-gate
+  priority: 74
+  status: todo
+  deps:
+  - D1-error-structure
+  - D3-tumor-agg-ablation
+  gpu: false
+  summary: "D1 proved scorer errors are DISJOINT (both-err 0.13-0.18 vs either 0.6) and PATIENT-conditional (not site \u2014 a fixed site-router fails, OAUTHC harmony-beats-champ only 51%). Build a LEARNED\
+    \ case-conditioned gate: given a patient's per-scorer score vector (champion, harmony, batch_corrected, clam_tilemil) + agreement features (variance/spread across scorers) + patient meta (site, n_slides,\
+    \ tumor_fraction, artifact_fraction), learn a router/mixture that predicts which scorer to trust (or a weighted blend). Model: start with LR/gradient-boosted gate over the score+meta features; compare\
+    \ to (a) best single scorer, (b) fixed-weight fusion (F1 lost), (c) site-router baseline. HONEST held-out CV (StratifiedGroupKFold by patient, seed 42); report the achievable gain vs the +0.27 oracle\
+    \ UPPER BOUND (do NOT report oracle as result). Per-site + OAUTHC-first + spec@sens95/96. NO external data; gate fits on OUR cohort only. NOTE: develop+report on current cohort now; RE-RUN final numbers\
+    \ on the C1 rebuilt cohort when it lands (add a one-line refresh in B1 doc). This is the novel low-N readout / headline method.\n"
+  done_when:
+  - argo_deepmsi/scorers/learned_gate.py registered + contract test + test_no_external_data pass
+  - results/scorers/learned_gate/metrics.json full screening block incl by_site
+  - "docs/experiments/B1-learned-patient-gate.md \u2014 held-out gain vs best-single/fusion/site-router, oracle gap stated as ceiling not result, per-site OAUTHC-first"
