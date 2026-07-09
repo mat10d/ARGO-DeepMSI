@@ -21,9 +21,10 @@ P_0076 (MSI-H) champion 0.03 WRONG, harmony 0.61 + clam 0.68 RIGHT; P_0170 (MSS)
 WRONG, harmony 0.12 + batch_corr 0.05 RIGHT.
 
 ## Result 2 — per-site specialization (different scorers win different sites)
-wagner_zeroshot best overall 0.731 & on good sites, but OAUTHC only 0.614. harmony/simple_grid
-best on OAUTHC 0.683. transductive 1.000 on LASUTH, protonet 0.923 on LUTH, batch_corrected 0.800
-on retro-OAU. No single scorer dominates all sites.
+wagner_zeroshot best overall 0.731 & on good sites (incl retro-OAU 0.822), but OAUTHC only 0.614.
+harmony/simple_grid best on OAUTHC 0.683. transductive 1.000 on LASUTH, protonet 0.923 on LUTH 
+(where wagner is 0.923 too) — i.e. small-site winners differ from the overall champion. No single 
+scorer dominates all sites; OAUTHC's best (harmony 0.683) is not the overall champion.
 
 ## Result 3 — oracle ceiling is an UPPER BOUND, not achievable (stated honestly)
 Label-aware oracle (per patient pick the scorer that happened to be right): all-15 -> AUROC 1.000
