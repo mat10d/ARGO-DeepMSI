@@ -1,0 +1,7 @@
+site,n,mean_champ_err
+LASUTH,9,0.373
+LUTH,15,0.326
+OAUTHC,63,0.475
+UITH,10,0.394
+retrospective_msk,60,0.404
+retrospective_oau,23,0.406

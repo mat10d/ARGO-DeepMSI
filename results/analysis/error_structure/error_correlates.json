@@ -1,0 +1,16 @@
+{
+  "error_feature_corr": {
+    "n_slides": -0.032,
+    "n_tiles": -0.032,
+    "tumor_fraction": 0.159,
+    "artifact_fraction": -0.009
+  },
+  "site_mean_err": {
+    "LASUTH": 0.373,
+    "LUTH": 0.326,
+    "OAUTHC": 0.475,
+    "UITH": 0.394,
+    "retrospective_msk": 0.404,
+    "retrospective_oau": 0.406
+  }
+}
