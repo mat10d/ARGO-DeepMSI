@@ -22,13 +22,25 @@ vs 0.14). But in FM embedding space, a linear probe separates FP from true-negat
 Replicates across CONCH/UNI2/Virchow2/CtransPath => a GENERAL property of the H&E representation,
 not one model's artifact. (PRISM slide-aggregator compresses it away.)
 
-## Finding 2 — the FP-axis is partially DISTINCT from the MSI-axis (a specificity fix exists)
-FP-axis (learned FP-vs-TN on MSS) score by group (conch_titan): true-neg -1.09, false-pos +0.98,
-TRUE MSI-H +0.13. MSI-H sit between TN and FP, not on top of FP. Within champion-positive patients,
-FP-axis separates true MSI-H from false alarms at AUROC 0.615 (conch_titan) up to 0.744 (uni2).
-=> false alarms are partly separable from real MSI-H => a second-stage rejector can gain specificity.
-NON-CIRCULAR: this number is measured within already-positive patients (champion score ~matched),
-so it is not just re-recovering "who scored high."
+## Finding 2 — CORRECTED: the FP-axis is NOT distinct from the MSI-axis out-of-sample
+Initial (LEAKY) analysis fit the FP-axis on all MSS then evaluated on the overlapping predicted-
+positive set, giving true-MSI-vs-false-alarm AUROC 0.615 (conch_titan) - 0.744 (uni2). This was
+train/test overlap on the FP side. Recomputed with OUT-OF-FOLD FP prediction (5-fold on MSS) and
+apply-to-disjoint-MSI-H, the separation COLLAPSES TO CHANCE across all FMs:
+| FM | true-MSI-vs-false-alarm (out-of-fold, corrected) |
+|---|---|
+| conch_v1.5_mean_harmony | 0.600 |
+| ctranspath_mean_harmony | 0.575 |
+| conch_v1.5_mean | 0.562 |
+| uni2_mean | 0.543 |
+| conch_v1.5_titan | 0.495 |
+| virchow2_prism | 0.368 |
+=> The FP-axis carries NO orthogonal information separating true MSI-H from false alarms. It is
+largely the champion-score direction re-expressed (recovers "which MSS scored high", nothing more).
+A second-stage rejector trained on it would suppress true MSI-H at the same rate as false alarms
+=> kills sensitivity. THE NAIVE TWO-STAGE CASCADE PREMISE FAILS.
+NB: the FP-vs-TN separability (Finding 1, 0.70-0.80) WAS properly cross-validated and stands — the
+FPs are structured, but that structure is not a usable specificity lever.
 
 ## Finding 3 — RULED OUT: borderline biology
 Are FPs sub-threshold-instability patients? No. Within MSS: FP cmo_msi_score median 2.43 vs TN 2.29
@@ -43,8 +55,12 @@ OR=1.19, p=0.45). Dropping all Indeterminate (definite-only, n=66): champion AUR
 0.159 — NOT recovered. The specificity wall is real, not a label artifact.
 
 ## Consequence
-The one non-dead-end: a TWO-STAGE CASCADE — high-sensitivity stage1 + a learned UNI2-embedding
-false-alarm rejector (stage2) optimizing spec@sens>=0.95/0.96. Must be validated LEAVE-ONE-SITE-OUT
-(the specificity gain has to generalize to an unseen site — the clinical claim). If the LOSO gain
-evaporates, the honest paper is the exhaustive dead-end map + this FP-structure characterization.
-Task: B1-cascade-rejector.
+The specificity wall is NOT fixable by any lever tested: top-heads (S5/attn/fusion), prefiltering
+(D2, hurts), batch correction (A1/A2, falsified), per-site adaptation (uncalibratable, 2-4 pos/site),
+OR a second-stage embedding rejector (Finding 2 corrected, collapses out-of-fold). It is also NOT an
+artifact of borderline biology (Finding 3) or label noise (Finding 4). This exhaustive, rigorously-
+falsified map of what does NOT work — plus the honest characterization that FPs are structured yet
+the structure is champion-collinear — is the core negative-result contribution. Any remaining upside
+must come from a fundamentally different representation or training objective (end-to-end task-trained
+tiles, or operating-point / distributionally-robust training), evaluated leave-one-site-out — with a
+power analysis for the N such a method would actually need.
