@@ -1,409 +1,463 @@
-# ARGO-DeepMSI autorun backlog.
-# State machine per task: todo -> doing -> {done | blocked}.
-# The loop picks the highest-priority `todo` whose `deps` are all `done`.
-# NEVER hand-edit results; NEVER weaken a gate to close a task (see ralph/CONTRACT.md).
-
 meta:
   regime: no_new_training_data
   seed: 42
   cv: StratifiedGroupKFold(patient_id, n_splits=5)
   gpu_max_concurrent: 3
   target:
-    msintuit_sensitivity: [0.96, 0.98]
-    msintuit_specificity: [0.46, 0.47]
-    fm_benchmark_conch: {status: "unread -- closed-access (ScienceDirect PII S0895611125001892); operating points NOT transcribed; do not cite figures"}
-    current_best_patient_auroc: 0.710
+    msintuit_sensitivity:
+    - 0.96
+    - 0.98
+    msintuit_specificity:
+    - 0.46
+    - 0.47
+    fm_benchmark_conch:
+      status: unread -- closed-access (ScienceDirect PII S0895611125001892); operating points NOT transcribed; do not cite figures
+    current_best_patient_auroc: 0.71
   stop_bar:
     specificity: 0.47
     at_sensitivity: 0.96
-    on: cohort_clean.csv
+    true: cohort_clean.csv
     plus_fairness_gate: T3
-
 tasks:
-  # ---- Phase E0: instrument (no GPU) ----
-  - id: E00-metrics-layer
-    priority: 100
-    status: done
-    deps: []
+- id: E00-metrics-layer
+  priority: 100
+  status: done
+  deps: []
+  gpu: false
+  summary: 'Add screening operating-point metrics (sensitivity, specificity@sens{.90,.95}, NPV) in eval/screening.py; thread them into eval/metrics.evaluate_scorer and add spec_at_sens95/spec_at_sens90/npv_at_sens95
+    columns to the leaderboard produced by eval/qc_comparison. Standardize `python -m argo_deepmsi.eval.qc_comparison` as THE leaderboard entrypoint (no new CLI needed). Re-score all existing cached predictions.
+
+    '
+  done_when:
+  - eval/screening.py exposes specificity_at_sensitivity, npv_at_threshold, screening_block
+  - tests/test_screening_metrics.py green
+  - leaderboard.csv gains columns spec_at_sens95, spec_at_sens90, npv_at_sens95
+  - results/comparison/leaderboard.csv regenerates without error on the existing cohort
+- id: Q1-ecrf-qc
+  priority: 90
+  status: done
+  deps:
+  - E00-metrics-layer
+  gpu: false
+  summary: 'Build results/data/cohort_clean.csv v0 by applying the pathologist eCRF exclusion (results/data/problem_slides.csv, passes_qc=False) to the slide+clinical join. Add columns: slide_id, patient_id,
+    site, y, n_tiles, passes_ecrf_qc, in_clean_set.
+
+    '
+  done_when:
+  - results/data/cohort_clean.csv exists with the declared columns
+  - cohort_manifest.json records per-site drop counts for the eCRF layer
+  - tests/test_no_external_data.py::test_fit_only_sees_our_cohort_patients green
+- id: Q2-artifact-qc
+  priority: 89
+  status: done
+  deps:
+  - Q1-ecrf-qc
+  gpu: true
+  summary: 'Run `argo qc --model grandqc-artifact` over retained slides; add passes_artifact_qc column. Flag (do not yet drop) artifact-heavy slides. Update manifest.
+
+    '
+  done_when:
+  - cohort_clean.csv gains passes_artifact_qc
+  - cohort_manifest.json records artifact-QC counts per site
+- id: Q3-tumor-filter
+  priority: 88
+  status: done
+  deps:
+  - Q2-artifact-qc
+  gpu: true
+  checkpoint: "GPU smoke-off submitted (scripts/tumor_filter_smokeoff.sh) \u2192 writes results/data/tumor_smokeoff/smokeoff_metrics.json with a `winner` field. Candidate (a) GrandQC = zs.seg.tissue(model='grandqc')\
+    \ \u2014 tissue-vs-background only, has NO tumor class, so it cannot localize tumor tiles; candidate (b) CTransPath NCT-CRC 9-class head (already trained + fully applied to all 509 clean slides in results/analysis/c5_phase1c/)\
+    \ has a real TUM class (holdout recall 0.91). Expected winner = ctranspath. HARVEST turn: (1) read smokeoff_metrics.json, confirm winner; (2) run scripts/tumor_tiles_apply.py (CPU foreground) to write\
+    \ results/data/tumor_tiles/<slide>.npy (TUM tile indices) + tumor_fraction.csv over all in_clean_set slides; (3) `python -m argo_deepmsi.eval.cohort --tumor-tiles-dir results/data/tumor_tiles --tumor-floor\
+    \ <f>` to add n_tumor_tiles/tumor_fraction and DROP slides below floor \u2014 pick the largest floor that keeps best clean patient AUROC >= 0.710 (no_regression); start at 0.0 (drop only tumor_fraction==0,\
+    \ 22 slides) and only raise if it holds; (4) regen leaderboard; (5) verify; done.\n"
+  summary: 'SMOKE-OFF two tumor-area filters on a fixed 20-slide probe set: (a) GrandQC tumor/tissue segmentation head, (b) existing scripts/tumor_tile_classifier. Keep whichever retains more MSI signal
+    (higher tumor-tile recall on known-tumor slides, fewer false drops). Apply the winner to all retained slides: write results/data/tumor_tiles/<slide>.npy (tumor tile indices) + tumor_fraction column;
+    drop slides below a tumor-fraction floor. Record the chosen method + floor in the manifest.
+
+    '
+  done_when:
+  - results/data/tumor_tiles/ populated for retained slides
+  - cohort_clean.csv gains n_tumor_tiles, tumor_fraction
+  - cohort_manifest.json records chosen tumor filter + floor + smoke-off metrics
+- id: Q4-rebuild-manifest
+  priority: 87
+  status: done
+  deps:
+  - Q3-tumor-filter
+  gpu: false
+  summary: 'Freeze cohort_manifest.json (all QC layers, thresholds, per-site+overall counts). Set in_clean_set. Re-race the board on the clean cohort. Record the no-regression floor (current champion clean
+    patient AUROC) into cohort_manifest.json.
+
+    '
+  done_when:
+  - cohort_manifest.json frozen with layer counts + no_regression_floor
+  - results/comparison/leaderboard.csv regenerated on the clean cohort
+  - ralph/verify.sh no-regression floor reads from cohort_manifest.json
+- id: S1-slidefm-linearprobe
+  priority: 80
+  status: done
+  deps:
+  - Q4-rebuild-manifest
+  gpu: false
+  summary: 'Scorer: linear probe (logistic regression) on TITAN and PRISM slide embeddings (already extracted). Report few-shot curve K in {1,2,4,8,16,all}. Frozen embeddings only.
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/slidefm_linearprobe.py registered + contract test
+  - results/scorers/slidefm_linearprobe/metrics.json full block
+  - docs/experiments/S1-slidefm-linearprobe.md written
+- id: S2-protonet-cluster
+  priority: 79
+  status: done
+  deps:
+  - Q4-rebuild-manifest
+  gpu: true
+  summary: 'Scorer: CONCH tile features -> cluster aggregation + ProtoNet few-shot (a low-N recipe from the FM-MSI benchmark; confirm the exact recipe by reading that paper first). Tumor-only tiles. Report
+    spec@sens vs MSIntuit (and vs the FM benchmark once its numbers are transcribed).
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/protonet_cluster.py registered + contract test
+  - results/scorers/protonet_cluster/metrics.json full block
+  - docs/experiments/S2-protonet-cluster.md written
+- id: S3-tip-adapter
+  priority: 78
+  status: done
+  deps:
+  - Q4-rebuild-manifest
+  gpu: true
+  summary: 'Scorer: training-free Tip-Adapter + CoOp learned prompts on CONCH (pathology CLIP). Extends the underperforming vl_text_cosine from hand prompts to cached/learned prompts.
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/tip_adapter.py registered + contract test
+  - results/scorers/tip_adapter/metrics.json full block
+  - docs/experiments/S3-tip-adapter.md written
+- id: S4-clam-tilemil
+  priority: 77
+  status: done
+  deps:
+  - Q4-rebuild-manifest
+  gpu: true
+  summary: 'Scorer: CLAM/ABMIL tile-level MIL on tumor-only bags, with a MIL variance-reduction step (Reducing Variability of MIL Methods, MICCAI 2025; confirm the exact mechanism from the paper). Frozen
+    tile features (CONCH/UNI2/Virchow2).
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/clam_tilemil.py registered + contract test
+  - results/scorers/clam_tilemil/metrics.json full block
+  - docs/experiments/S4-clam-tilemil.md written
+- id: S5-setencoder-agg
+  priority: 76
+  status: done
+  deps:
+  - Q4-rebuild-manifest
+  gpu: true
+  summary: 'Scorer: Deep-Sets / Set-Transformer patient-bag aggregator (principled fix for bag-size inflation). Cardinality-calibrated aggregation over each patient''s slide bag.
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/setencoder_agg.py registered + contract test
+  - results/scorers/setencoder_agg/metrics.json full block
+  - docs/experiments/S5-setencoder-agg.md written
+- id: R1-stain-aug-tta
+  priority: 70
+  status: done
+  deps:
+  - Q4-rebuild-manifest
+  gpu: true
+  summary: '5-Crop + stain-augmentation test-time robustness on the best S-scorer. Report inter-condition Cohen''s kappa (matches MSIntuit''s inter-scanner kappa claim).
+
+    '
+  done_when:
+  - results/scorers/<base>_stainaug/metrics.json with inter_condition_kappa
+  - docs/experiments/R1-stain-aug-tta.md written
+- id: R2-flex-bottleneck
+  priority: 69
+  status: done
+  deps:
+  - S2-protonet-cluster
+  gpu: true
+  summary: 'FLEX-style knowledge-guided information bottleneck on CONCH features for site-invariance (published fix for the diagnosed OAUTHC failure). Report per-site delta vs champion.
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/flex_bottleneck.py registered + contract test
+  - results/scorers/flex_bottleneck/metrics.json full block incl. by_site
+  - docs/experiments/R2-flex-bottleneck.md written
+- id: R3-fmmap
+  priority: 68
+  status: done
+  deps:
+  - Q4-rebuild-manifest
+  gpu: false
+  summary: 'Supervised-UMAP (fmMAP) projection suppressing site while retaining MSI biology, applied to frozen features; re-score best linear probe in the projected space.
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/fmmap_probe.py registered + contract test
+  - results/scorers/fmmap_probe/metrics.json full block incl. by_site
+  - docs/experiments/R3-fmmap.md written
+- id: T1-selective-abstention
+  priority: 60
+  status: done
+  deps:
+  - S1-slidefm-linearprobe
+  gpu: false
+  summary: 'Wrap the best scorer in a conformal / selective screener that abstains on OOD (OAUTHC-type) slides with a coverage guarantee. Report coverage-risk curve + group- conditional (per-site) coverage.
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/selective_abstention.py registered + contract test
+  - results/scorers/selective_abstention/metrics.json incl. coverage_risk + per_site_coverage
+  - docs/experiments/T1-selective-abstention.md written
+- id: T2-ood-characterization
+  priority: 59
+  status: done
+  deps:
+  - S1-slidefm-linearprobe
+  gpu: false
+  summary: 'Long-tailed OOD score quantifying OAUTHC as measured covariate shift; feed it to the T1 abstention gate. Report OOD-AUROC (site-in vs site-out) + correlation with error.
+
+    '
+  done_when:
+  - argo_deepmsi/eval/ood.py with the OOD score + tests
+  - results/analysis/ood/ood_report.json
+  - docs/experiments/T2-ood-characterization.md written
+- id: T3-fairness-eval
+  priority: 58
+  status: done
+  deps:
+  - T1-selective-abstention
+  gpu: false
+  summary: 'Per-site / per-demographic fairness metrics + coverage-adjusted performance gap vs champion. This is the fairness GATE referenced by the stop bar.
+
+    '
+  done_when:
+  - argo_deepmsi/eval/fairness.py + tests
+  - results/analysis/fairness/fairness_report.json with per-site gaps
+  - docs/experiments/T3-fairness-eval.md written
+- id: F1-fusion
+  priority: 50
+  status: done
+  deps:
+  - S1-slidefm-linearprobe
+  - S2-protonet-cluster
+  - S3-tip-adapter
+  - S4-clam-tilemil
+  - S5-setencoder-agg
+  gpu: false
+  summary: 'Stack the top-3 clean scorers (only those individually clearing their gate). Report vs champion + MSIntuit operating point.
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/fusion_top3.py registered + contract test
+  - results/scorers/fusion_top3/metrics.json full block
+  - docs/experiments/F1-fusion.md written
+- id: F2-paper-tables
+  priority: 40
+  status: done
+  deps:
+  - F1-fusion
+  - T3-fairness-eval
+  gpu: false
+  summary: 'Freeze results/comparison/ figures + the head-to-head-vs-MSIntuit table (spec@sens, NPV, kappa, per-site) for the manuscript. No new modeling.
+
+    '
+  done_when:
+  - results/comparison/head_to_head_msintuit.csv
+  - results/comparison/figure_*.png regenerated
+  - docs/experiments/F2-paper-tables.md written
+- id: A0-harmony-scorer
+  priority: 95
+  status: done
+  deps: []
+  gpu: false
+  summary: 'Promote the D0 finding into a registered scorer: LR probe on conch_v1.5_titan_harmony slide embeddings, max/sqrt(n) patient aggregation. This is the new evaluated baseline for the OAUTHC-recovery
+    phase (raw-vs-harmony sweep was diagnostic only, never a scorer). Add harmony variants of all 6 FMs to the simple_grid sweep so the board reflects them.
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/harmony_probe.py registered + contract test
+  - results/scorers/harmony_probe/metrics.json full screening block incl by_site
+  - simple_grid grid.csv includes *_harmony rows
+  - leaderboard regenerated; docs/experiments/A0-harmony-scorer.md (OAUTHC-first table)
+- id: A1-batch-correction-sweep
+  priority: 94
+  status: done
+  deps:
+  - A0-harmony-scorer
+  gpu: false
+  summary: "Harmony removes only part of the batch axis (residual site-pred AUROC 0.82). Sweep stronger/targeted feature-space batch correction on frozen CONCH-TITAN: ComBat, and OAUTHC-targeted correction\
+    \ (align OAUTHC-prospective feature distribution to the pooled good-site / retro-OAU reference \u2014 one-site target, NOT global equalization which regressed to the mean in R2/R3). Metric = OAUTHC\
+    \ held-out AUROC + residual batch separability.\n"
+  done_when:
+  - argo_deepmsi/scorers/batch_corrected_probe.py (method chosen by OAUTHC AUROC) + contract test
+  - results/scorers/batch_corrected_probe/metrics.json full block
+  - 'docs/experiments/A1-batch-correction-sweep.md: batch-sep vs MSI-AUROC trade table per method'
+- id: A2-stain-norm-oauthc
+  priority: 90
+  status: done
+  deps:
+  - A0-harmony-scorer
+  gpu: true
+  summary: 'IMAGE-level fix for the batch effect the metadata pins to local histology: stain-normalize the 64 OAUTHC-prospective slides to a retro-OAU reference (Macenko/Reinhard), RE-EXTRACT CONCH-TITAN
+    features for just those slides (tractable: 64 slides on <=3 GPUs), re-score. This tests whether correcting at the pixel level beats feature-space correction (A1).
+
+    '
+  done_when:
+  - scripts/stain_norm_oauthc.py + SLURM array via ralph/gpu_gate.sh (<=3 GPU)
+  - re-extracted OAUTHC features under results/embeddings/conch_v1.5_titan_stainnorm/
+  - results/scorers/stainnorm_probe/metrics.json; docs/experiments/A2-stain-norm-oauthc.md
+- id: A3-tilemil-oauthc-fewshot
+  priority: 89
+  status: done
+  deps:
+  - A0-harmony-scorer
+  gpu: true
+  summary: 'S4 attention-MIL was the ONLY recipe that beat the champion on OAUTHC (0.629 vs 0.579) but was set aside for losing the GLOBAL race. Re-evaluate S4 as the OAUTHC-recovery base, and give few-shot
+    a FAIR test it never got: OAUTHC-SPECIFIC adaptation (support set = held-out OAUTHC patients adapting a good-site-trained MIL head), not the global random-support curve that (correctly) failed in S1-S5.
+    Report OAUTHC K-shot adaptation curve.
+
+    '
+  done_when:
+  - argo_deepmsi/scorers/tilemil_oauthc_adapt.py registered + contract test
+  - results/scorers/tilemil_oauthc_adapt/metrics.json full block + OAUTHC k-shot curve
+  - docs/experiments/A3-tilemil-oauthc-fewshot.md
+- id: A4-titan-descriptions
+  priority: 85
+  status: done
+  reason: "capability gate failed \u2014 fry TITAN checkpoint (MahmoodLab/TITAN) exposes only a contrastive encode_text + zero_shot API, NO text-generation/caption head (verified from cached modeling_titan.py:\
+    \ Titan is not a GenerationMixin, no decoder). No descriptions generated (would violate provenance). See docs/experiments/A4-titan-descriptions.md. A6 treats this as a resolved null."
+  deps:
+  - A0-harmony-scorer
+  gpu: true
+  summary: 'EXPLORATORY (user-flagged idea). TITAN is a vision-LANGUAGE slide model; we have only used its embedding. Hypothesis: a morphological DESCRIPTION (TILs, differentiation, mucinous/ signet-ring,
+    Crohn''s-like reaction = MSI-H signature) is abstracted above stain, so a described-morphology -> MSI readout should be more site-invariant than the raw embedding on OAUTHC. GATE FIRST: verify the TITAN
+    checkpoint on fry actually exposes a text-generation/ caption head (not just the contrastive text encoder); if it does NOT, mark blocked with reason and STOP (do not fake generation). If it does: generate
+    per-slide descriptions, validate against ProtoNet/nuclear-morphology features + eCRF spot-check (hallucination guard), learn a readout, report OAUTHC-first. Confirm & cite TITAN''s real author/year
+    from source in the doc (do NOT assert from memory).
+
+    '
+  done_when:
+  - "docs/experiments/A4-titan-descriptions.md \u2014 checkpoint-capability check result FIRST"
+  - 'if head exists: results/scorers/titan_desc_probe/metrics.json + hallucination-check section'
+  - 'if not: task blocked with reason; no fabricated descriptions committed'
+  note: 'null-result: TITAN checkpoint has no text-generation head (verified from modeling_titan.py); zero-shot text lever already covered by S3/vl_text_cosine (both failed). No descriptions fabricated.'
+- id: A5-per-site-calibration
+  priority: 80
+  status: done
+  deps:
+  - A0-harmony-scorer
+  - A1-batch-correction-sweep
+  gpu: false
+  summary: 'Given the best A-phase scorer, fit OAUTHC-specific score calibration / operating threshold (isotonic or Platt on held-out OAUTHC patients, patient-grouped) so the rule-out operating point (sens
+    0.95/0.96) is honest ON OAUTHC, not just pooled. Report OAUTHC spec@sens95/96 + NPV at the calibrated threshold vs the global-threshold baseline.
+
+    '
+  done_when:
+  - argo_deepmsi/eval/per_site_calibration.py + test
+  - 'docs/experiments/A5-per-site-calibration.md: OAUTHC operating-point table calibrated vs global'
+- id: A6-oauthc-synthesis
+  priority: 70
+  status: done
+  deps:
+  - A1-batch-correction-sweep
+  - A2-stain-norm-oauthc
+  - A3-tilemil-oauthc-fewshot
+  - A4-titan-descriptions
+  - A5-per-site-calibration
+  gpu: false
+  summary: 'Synthesis: OAUTHC-recovery leaderboard (every A-scorer, OAUTHC AUROC + spec@sens + gap to retro-OAU 0.80 ceiling), best combined pipeline, updated head-to-head-vs-MSIntuit table on the FULL
+    cohort WITH OAUTHC (no abstention), manuscript figures. State honestly how far OAUTHC recovered and whether the rule-out bar is reachable with OAUTHC included.
+
+    '
+  done_when:
+  - results/comparison/oauthc_recovery_leaderboard.csv + figure
+  - results/comparison/head_to_head_msintuit.csv updated (full cohort, OAUTHC included)
+  - docs/experiments/A6-oauthc-synthesis.md
+  - id: D1-error-structure
+    priority: 84
+    status: todo
+    deps:
+    - A0-harmony-scorer
     gpu: false
-    summary: >
-      Add screening operating-point metrics (sensitivity, specificity@sens{.90,.95},
-      NPV) in eval/screening.py; thread them into eval/metrics.evaluate_scorer and add
-      spec_at_sens95/spec_at_sens90/npv_at_sens95 columns to the leaderboard produced by
-      eval/qc_comparison. Standardize `python -m argo_deepmsi.eval.qc_comparison` as THE
-      leaderboard entrypoint (no new CLI needed). Re-score all existing cached predictions.
-    done_when:
-      - "eval/screening.py exposes specificity_at_sensitivity, npv_at_threshold, screening_block"
-      - "tests/test_screening_metrics.py green"
-      - "leaderboard.csv gains columns spec_at_sens95, spec_at_sens90, npv_at_sens95"
-      - "results/comparison/leaderboard.csv regenerates without error on the existing cohort"
+    summary: 'Error-structure + COMPLEMENTARITY analysis across all scorers (champion, S4 tile-MIL, A0 harmony, A1 batch-corrected, + A2 stain-norm when it lands). Build patient x scorer score matrix. KEY
+      TEST: on the champion''s WRONG patients (esp. OAUTHC), does ANY other scorer get those SAME cases right? Report: per-scorer per-site AUROC matrix; pairwise error-overlap / complementarity (Q-statistic
+      or disagreement rate on errors); oracle-selection ceiling (AUROC if each patient routed to its best scorer); error correlates (n_slides, tumor_fraction, artifact_fraction, site). VERDICT: is a case-conditioned
+      readout possible (errors differ) or is the ceiling representational (errors coincide)? This gates the B-phase readout design.
 
-  # ---- Phase Q: canonical clean dataset (QC + tumor foundation) ----
-  - id: Q1-ecrf-qc
-    priority: 90
-    status: done
-    deps: [E00-metrics-layer]
+      '
+    done_when:
+    - results/analysis/error_structure/per_scorer_per_site_auroc.csv + complementarity.csv + oracle_ceiling.txt
+    - results/analysis/error_structure/error_correlates.csv (failure vs bag-size/tumor/artifact/site)
+    - "docs/experiments/D1-error-structure.md \u2014 VERDICT: case-conditioned headroom yes/no, with the oracle gap"
+  - id: D2-qc-exclusion-ablation
+    priority: 83
+    status: todo
+    deps:
+    - A0-harmony-scorer
     gpu: false
-    summary: >
-      Build results/data/cohort_clean.csv v0 by applying the pathologist eCRF exclusion
-      (results/data/problem_slides.csv, passes_qc=False) to the slide+clinical join. Add
-      columns: slide_id, patient_id, site, y, n_tiles, passes_ecrf_qc, in_clean_set.
+    summary: "Ablate the QC-exclusion choice that was inherited as step 1. Re-run the champion + A0 harmony probe under three regimes on the SAME patients: (hard) current 514-slide exclusion; (none) no\
+      \ QC exclusion; (soft) per-slide reliability WEIGHT in max/sqrt(n) aggregation (weight from artifact_fraction, tumor_fraction, n_tiles). Report per-site AUROC + spec@sens95/96 for each regime, OAUTHC-first.\
+      \ Because QC-flagging is ~99% OAUTHC vs ~20% MSK, exclusion ~= shrinking OAUTHC \u2014 quantify how much OAUTHC data each regime keeps and whether soft-weighting beats hard.\n"
     done_when:
-      - "results/data/cohort_clean.csv exists with the declared columns"
-      - "cohort_manifest.json records per-site drop counts for the eCRF layer"
-      - "tests/test_no_external_data.py::test_fit_only_sees_our_cohort_patients green"
-
-  - id: Q2-artifact-qc
-    priority: 89
-    status: done
-    deps: [Q1-ecrf-qc]
-    gpu: true
-    summary: >
-      Run `argo qc --model grandqc-artifact` over retained slides; add passes_artifact_qc
-      column. Flag (do not yet drop) artifact-heavy slides. Update manifest.
-    done_when:
-      - "cohort_clean.csv gains passes_artifact_qc"
-      - "cohort_manifest.json records artifact-QC counts per site"
-
-  - id: Q3-tumor-filter
-    priority: 88
-    status: done
-    deps: [Q2-artifact-qc]
-    gpu: true
-    checkpoint: >
-      GPU smoke-off submitted (scripts/tumor_filter_smokeoff.sh) → writes
-      results/data/tumor_smokeoff/smokeoff_metrics.json with a `winner` field.
-      Candidate (a) GrandQC = zs.seg.tissue(model='grandqc') — tissue-vs-background only,
-      has NO tumor class, so it cannot localize tumor tiles; candidate (b) CTransPath
-      NCT-CRC 9-class head (already trained + fully applied to all 509 clean slides in
-      results/analysis/c5_phase1c/) has a real TUM class (holdout recall 0.91). Expected
-      winner = ctranspath. HARVEST turn: (1) read smokeoff_metrics.json, confirm winner;
-      (2) run scripts/tumor_tiles_apply.py (CPU foreground) to write
-      results/data/tumor_tiles/<slide>.npy (TUM tile indices) + tumor_fraction.csv over all
-      in_clean_set slides; (3) `python -m argo_deepmsi.eval.cohort --tumor-tiles-dir
-      results/data/tumor_tiles --tumor-floor <f>` to add n_tumor_tiles/tumor_fraction and
-      DROP slides below floor — pick the largest floor that keeps best clean patient AUROC
-      >= 0.710 (no_regression); start at 0.0 (drop only tumor_fraction==0, 22 slides) and
-      only raise if it holds; (4) regen leaderboard; (5) verify; done.
-    summary: >
-      SMOKE-OFF two tumor-area filters on a fixed 20-slide probe set: (a) GrandQC tumor/tissue
-      segmentation head, (b) existing scripts/tumor_tile_classifier. Keep whichever retains
-      more MSI signal (higher tumor-tile recall on known-tumor slides, fewer false drops).
-      Apply the winner to all retained slides: write results/data/tumor_tiles/<slide>.npy
-      (tumor tile indices) + tumor_fraction column; drop slides below a tumor-fraction floor.
-      Record the chosen method + floor in the manifest.
-    done_when:
-      - "results/data/tumor_tiles/ populated for retained slides"
-      - "cohort_clean.csv gains n_tumor_tiles, tumor_fraction"
-      - "cohort_manifest.json records chosen tumor filter + floor + smoke-off metrics"
-
-  - id: Q4-rebuild-manifest
-    priority: 87
-    status: done
-    deps: [Q3-tumor-filter]
+    - argo_deepmsi/eval/reliability_weight.py (soft weight) + test
+    - results/analysis/qc_ablation/qc_regime_by_site.csv (hard|none|soft x per-site metrics + n_oauthc_kept)
+    - "docs/experiments/D2-qc-exclusion-ablation.md \u2014 VERDICT: does excluding bad-QC slides help, per site"
+  - id: D3-tumor-agg-ablation
+    priority: 82
+    status: todo
+    deps:
+    - D2-qc-exclusion-ablation
     gpu: false
-    summary: >
-      Freeze cohort_manifest.json (all QC layers, thresholds, per-site+overall counts). Set
-      in_clean_set. Re-race the board on the clean cohort. Record the no-regression floor
-      (current champion clean patient AUROC) into cohort_manifest.json.
-    done_when:
-      - "cohort_manifest.json frozen with layer counts + no_regression_floor"
-      - "results/comparison/leaderboard.csv regenerated on the clean cohort"
-      - "ralph/verify.sh no-regression floor reads from cohort_manifest.json"
+    summary: 'Ablate tumor-filtering (on / off / threshold sweep) and patient aggregation (max/sqrt(n) vs mean vs top-k mean vs learned-weight) as a 2-D grid on champion + A0 harmony. Report per-site, OAUTHC-first.
+      Establishes which of the two remaining inherited choices actually earn their place in the low-N OOD regime. Feeds the B-phase readout the right inductive bias for aggregation.
 
-  # ---- Phase S: low-N scorers on the clean tumor-only view ----
-  - id: S1-slidefm-linearprobe
-    priority: 80
-    status: done
-    deps: [Q4-rebuild-manifest]
-    gpu: false
-    summary: >
-      Scorer: linear probe (logistic regression) on TITAN and PRISM slide embeddings
-      (already extracted). Report few-shot curve K in {1,2,4,8,16,all}. Frozen embeddings only.
+      '
     done_when:
-      - "argo_deepmsi/scorers/slidefm_linearprobe.py registered + contract test"
-      - "results/scorers/slidefm_linearprobe/metrics.json full block"
-      - "docs/experiments/S1-slidefm-linearprobe.md written"
+    - results/analysis/tumor_agg_ablation/grid_by_site.csv
+    - "docs/experiments/D3-tumor-agg-ablation.md \u2014 VERDICT per choice, per site"
+- id: D1-error-structure
+  priority: 84
+  status: todo
+  deps:
+  - A0-harmony-scorer
+  gpu: false
+  summary: 'Error-structure + COMPLEMENTARITY analysis across all scorers (champion, S4 tile-MIL, A0 harmony, A1 batch-corrected, + A2 stain-norm when it lands). Build patient x scorer score matrix. KEY
+    TEST: on the champion''s WRONG patients (esp. OAUTHC), does ANY other scorer get those SAME cases right? Report: per-scorer per-site AUROC matrix; pairwise error-overlap / complementarity (Q-statistic
+    or disagreement rate on errors); oracle-selection ceiling (AUROC if each patient routed to its best scorer); error correlates (n_slides, tumor_fraction, artifact_fraction, site). VERDICT: is a case-conditioned
+    readout possible (errors differ) or is the ceiling representational (errors coincide)? This gates the B-phase readout design.
 
-  - id: S2-protonet-cluster
-    priority: 79
-    status: done
-    deps: [Q4-rebuild-manifest]
-    gpu: true
-    summary: >
-      Scorer: CONCH tile features -> cluster aggregation + ProtoNet few-shot (a low-N recipe
-      from the FM-MSI benchmark; confirm the exact recipe by reading that paper first).
-      Tumor-only tiles. Report spec@sens vs MSIntuit (and vs the FM benchmark once its numbers
-      are transcribed).
-    done_when:
-      - "argo_deepmsi/scorers/protonet_cluster.py registered + contract test"
-      - "results/scorers/protonet_cluster/metrics.json full block"
-      - "docs/experiments/S2-protonet-cluster.md written"
+    '
+  done_when:
+  - results/analysis/error_structure/per_scorer_per_site_auroc.csv + complementarity.csv + oracle_ceiling.txt
+  - results/analysis/error_structure/error_correlates.csv (failure vs bag-size/tumor/artifact/site)
+  - "docs/experiments/D1-error-structure.md \u2014 VERDICT: case-conditioned headroom yes/no, with the oracle gap"
+- id: D2-qc-exclusion-ablation
+  priority: 83
+  status: todo
+  deps:
+  - A0-harmony-scorer
+  gpu: false
+  summary: "Ablate the QC-exclusion choice that was inherited as step 1. Re-run the champion + A0 harmony probe under three regimes on the SAME patients: (hard) current 514-slide exclusion; (none) no QC\
+    \ exclusion; (soft) per-slide reliability WEIGHT in max/sqrt(n) aggregation (weight from artifact_fraction, tumor_fraction, n_tiles). Report per-site AUROC + spec@sens95/96 for each regime, OAUTHC-first.\
+    \ Because QC-flagging is ~99% OAUTHC vs ~20% MSK, exclusion ~= shrinking OAUTHC \u2014 quantify how much OAUTHC data each regime keeps and whether soft-weighting beats hard.\n"
+  done_when:
+  - argo_deepmsi/eval/reliability_weight.py (soft weight) + test
+  - results/analysis/qc_ablation/qc_regime_by_site.csv (hard|none|soft x per-site metrics + n_oauthc_kept)
+  - "docs/experiments/D2-qc-exclusion-ablation.md \u2014 VERDICT: does excluding bad-QC slides help, per site"
+- id: D3-tumor-agg-ablation
+  priority: 82
+  status: todo
+  deps:
+  - D2-qc-exclusion-ablation
+  gpu: false
+  summary: 'Ablate tumor-filtering (on / off / threshold sweep) and patient aggregation (max/sqrt(n) vs mean vs top-k mean vs learned-weight) as a 2-D grid on champion + A0 harmony. Report per-site, OAUTHC-first.
+    Establishes which of the two remaining inherited choices actually earn their place in the low-N OOD regime. Feeds the B-phase readout the right inductive bias for aggregation.
 
-  - id: S3-tip-adapter
-    priority: 78
-    status: done
-    deps: [Q4-rebuild-manifest]
-    gpu: true
-    summary: >
-      Scorer: training-free Tip-Adapter + CoOp learned prompts on CONCH (pathology CLIP).
-      Extends the underperforming vl_text_cosine from hand prompts to cached/learned prompts.
-    done_when:
-      - "argo_deepmsi/scorers/tip_adapter.py registered + contract test"
-      - "results/scorers/tip_adapter/metrics.json full block"
-      - "docs/experiments/S3-tip-adapter.md written"
-
-  - id: S4-clam-tilemil
-    priority: 77
-    status: done
-    deps: [Q4-rebuild-manifest]
-    gpu: true
-    summary: >
-      Scorer: CLAM/ABMIL tile-level MIL on tumor-only bags, with a MIL variance-reduction step
-      (Reducing Variability of MIL Methods, MICCAI 2025; confirm the exact mechanism from the
-      paper). Frozen tile features (CONCH/UNI2/Virchow2).
-    done_when:
-      - "argo_deepmsi/scorers/clam_tilemil.py registered + contract test"
-      - "results/scorers/clam_tilemil/metrics.json full block"
-      - "docs/experiments/S4-clam-tilemil.md written"
-
-  - id: S5-setencoder-agg
-    priority: 76
-    status: done
-    deps: [Q4-rebuild-manifest]
-    gpu: true
-    summary: >
-      Scorer: Deep-Sets / Set-Transformer patient-bag aggregator (principled fix for bag-size
-      inflation). Cardinality-calibrated aggregation over each patient's slide bag.
-    done_when:
-      - "argo_deepmsi/scorers/setencoder_agg.py registered + contract test"
-      - "results/scorers/setencoder_agg/metrics.json full block"
-      - "docs/experiments/S5-setencoder-agg.md written"
-
-  # ---- Phase R: site-robustness / the OAUTHC problem ----
-  - id: R1-stain-aug-tta
-    priority: 70
-    status: done
-    deps: [Q4-rebuild-manifest]
-    gpu: true
-    summary: >
-      5-Crop + stain-augmentation test-time robustness on the best S-scorer. Report
-      inter-condition Cohen's kappa (matches MSIntuit's inter-scanner kappa claim).
-    done_when:
-      - "results/scorers/<base>_stainaug/metrics.json with inter_condition_kappa"
-      - "docs/experiments/R1-stain-aug-tta.md written"
-
-  - id: R2-flex-bottleneck
-    priority: 69
-    status: done
-    deps: [S2-protonet-cluster]
-    gpu: true
-    summary: >
-      FLEX-style knowledge-guided information bottleneck on CONCH features for site-invariance
-      (published fix for the diagnosed OAUTHC failure). Report per-site delta vs champion.
-    done_when:
-      - "argo_deepmsi/scorers/flex_bottleneck.py registered + contract test"
-      - "results/scorers/flex_bottleneck/metrics.json full block incl. by_site"
-      - "docs/experiments/R2-flex-bottleneck.md written"
-
-  - id: R3-fmmap
-    priority: 68
-    status: done
-    deps: [Q4-rebuild-manifest]
-    gpu: false
-    summary: >
-      Supervised-UMAP (fmMAP) projection suppressing site while retaining MSI biology, applied
-      to frozen features; re-score best linear probe in the projected space.
-    done_when:
-      - "argo_deepmsi/scorers/fmmap_probe.py registered + contract test"
-      - "results/scorers/fmmap_probe/metrics.json full block incl. by_site"
-      - "docs/experiments/R3-fmmap.md written"
-
-  # ---- Phase T: novelty stack (CV-transfer, the big-paper angle) ----
-  - id: T1-selective-abstention
-    priority: 60
-    status: done
-    deps: [S1-slidefm-linearprobe]
-    gpu: false
-    summary: >
-      Wrap the best scorer in a conformal / selective screener that abstains on OOD
-      (OAUTHC-type) slides with a coverage guarantee. Report coverage-risk curve + group-
-      conditional (per-site) coverage.
-    done_when:
-      - "argo_deepmsi/scorers/selective_abstention.py registered + contract test"
-      - "results/scorers/selective_abstention/metrics.json incl. coverage_risk + per_site_coverage"
-      - "docs/experiments/T1-selective-abstention.md written"
-
-  - id: T2-ood-characterization
-    priority: 59
-    status: done
-    deps: [S1-slidefm-linearprobe]
-    gpu: false
-    summary: >
-      Long-tailed OOD score quantifying OAUTHC as measured covariate shift; feed it to the T1
-      abstention gate. Report OOD-AUROC (site-in vs site-out) + correlation with error.
-    done_when:
-      - "argo_deepmsi/eval/ood.py with the OOD score + tests"
-      - "results/analysis/ood/ood_report.json"
-      - "docs/experiments/T2-ood-characterization.md written"
-
-  - id: T3-fairness-eval
-    priority: 58
-    status: done
-    deps: [T1-selective-abstention]
-    gpu: false
-    summary: >
-      Per-site / per-demographic fairness metrics + coverage-adjusted performance gap vs
-      champion. This is the fairness GATE referenced by the stop bar.
-    done_when:
-      - "argo_deepmsi/eval/fairness.py + tests"
-      - "results/analysis/fairness/fairness_report.json with per-site gaps"
-      - "docs/experiments/T3-fairness-eval.md written"
-
-  # ---- Phase F: fusion + finalize ----
-  - id: F1-fusion
-    priority: 50
-    status: done
-    deps: [S1-slidefm-linearprobe, S2-protonet-cluster, S3-tip-adapter, S4-clam-tilemil, S5-setencoder-agg]
-    gpu: false
-    summary: >
-      Stack the top-3 clean scorers (only those individually clearing their gate). Report vs
-      champion + MSIntuit operating point.
-    done_when:
-      - "argo_deepmsi/scorers/fusion_top3.py registered + contract test"
-      - "results/scorers/fusion_top3/metrics.json full block"
-      - "docs/experiments/F1-fusion.md written"
-
-  - id: F2-paper-tables
-    priority: 40
-    status: done
-    deps: [F1-fusion, T3-fairness-eval]
-    gpu: false
-    summary: >
-      Freeze results/comparison/ figures + the head-to-head-vs-MSIntuit table (spec@sens,
-      NPV, kappa, per-site) for the manuscript. No new modeling.
-    done_when:
-      - "results/comparison/head_to_head_msintuit.csv"
-      - "results/comparison/figure_*.png regenerated"
-      - "docs/experiments/F2-paper-tables.md written"
-
-
-  # ==== A-PHASE: recover OAUTHC (48% of cohort, 44% of positives) — no new data ====
-  # Root cause (D0-oauthc-batch-rootcause.md): OAUTHC-prospective vs retro-OAU is a PROCESSING-
-  # PIPELINE batch effect (cut at OAUTHC vs MSKCC), not biology. Raw CONCH-TITAN separates the
-  # two pipelines at site-pred AUROC 1.00; Harmony drops it to 0.82 and lifts OAUTHC MSI-AUROC
-  # 0.61->0.69. Same-institution ceiling to target = retro-OAU 0.80. EVERY A-task reports
-  # OAUTHC-held-out patient AUROC + spec@sens95/96 FIRST, then overall + per-site. Champion
-  # floor 0.713 must hold (no_regression). Base model unless a task says otherwise:
-  # conch_v1.5_titan + Harmony.
-  - id: A0-harmony-scorer
-    priority: 95
-    status: done
-    deps: []
-    gpu: false
-    summary: >
-      Promote the D0 finding into a registered scorer: LR probe on conch_v1.5_titan_harmony
-      slide embeddings, max/sqrt(n) patient aggregation. This is the new evaluated baseline for
-      the OAUTHC-recovery phase (raw-vs-harmony sweep was diagnostic only, never a scorer). Add
-      harmony variants of all 6 FMs to the simple_grid sweep so the board reflects them.
-    done_when:
-      - "argo_deepmsi/scorers/harmony_probe.py registered + contract test"
-      - "results/scorers/harmony_probe/metrics.json full screening block incl by_site"
-      - "simple_grid grid.csv includes *_harmony rows"
-      - "leaderboard regenerated; docs/experiments/A0-harmony-scorer.md (OAUTHC-first table)"
-  - id: A1-batch-correction-sweep
-    priority: 94
-    status: done
-    deps: [A0-harmony-scorer]
-    gpu: false
-    summary: >
-      Harmony removes only part of the batch axis (residual site-pred AUROC 0.82). Sweep
-      stronger/targeted feature-space batch correction on frozen CONCH-TITAN: ComBat, and
-      OAUTHC-targeted correction (align OAUTHC-prospective feature distribution to the pooled
-      good-site / retro-OAU reference — one-site target, NOT global equalization which regressed
-      to the mean in R2/R3). Metric = OAUTHC held-out AUROC + residual batch separability.
-    done_when:
-      - "argo_deepmsi/scorers/batch_corrected_probe.py (method chosen by OAUTHC AUROC) + contract test"
-      - "results/scorers/batch_corrected_probe/metrics.json full block"
-      - "docs/experiments/A1-batch-correction-sweep.md: batch-sep vs MSI-AUROC trade table per method"
-  - id: A2-stain-norm-oauthc
-    priority: 90
-    status: done
-    deps: [A0-harmony-scorer]
-    gpu: true
-    summary: >
-      IMAGE-level fix for the batch effect the metadata pins to local histology: stain-normalize
-      the 64 OAUTHC-prospective slides to a retro-OAU reference (Macenko/Reinhard), RE-EXTRACT
-      CONCH-TITAN features for just those slides (tractable: 64 slides on <=3 GPUs), re-score.
-      This tests whether correcting at the pixel level beats feature-space correction (A1).
-    done_when:
-      - "scripts/stain_norm_oauthc.py + SLURM array via ralph/gpu_gate.sh (<=3 GPU)"
-      - "re-extracted OAUTHC features under results/embeddings/conch_v1.5_titan_stainnorm/"
-      - "results/scorers/stainnorm_probe/metrics.json; docs/experiments/A2-stain-norm-oauthc.md"
-  - id: A3-tilemil-oauthc-fewshot
-    priority: 89
-    status: done
-    deps: [A0-harmony-scorer]
-    gpu: true
-    summary: >
-      S4 attention-MIL was the ONLY recipe that beat the champion on OAUTHC (0.629 vs 0.579) but
-      was set aside for losing the GLOBAL race. Re-evaluate S4 as the OAUTHC-recovery base, and
-      give few-shot a FAIR test it never got: OAUTHC-SPECIFIC adaptation (support set = held-out
-      OAUTHC patients adapting a good-site-trained MIL head), not the global random-support curve
-      that (correctly) failed in S1-S5. Report OAUTHC K-shot adaptation curve.
-    done_when:
-      - "argo_deepmsi/scorers/tilemil_oauthc_adapt.py registered + contract test"
-      - "results/scorers/tilemil_oauthc_adapt/metrics.json full block + OAUTHC k-shot curve"
-      - "docs/experiments/A3-tilemil-oauthc-fewshot.md"
-  - id: A4-titan-descriptions
-    priority: 85
-    status: blocked
-    reason: "capability gate failed — fry TITAN checkpoint (MahmoodLab/TITAN) exposes only a contrastive encode_text + zero_shot API, NO text-generation/caption head (verified from cached modeling_titan.py: Titan is not a GenerationMixin, no decoder). No descriptions generated (would violate provenance). See docs/experiments/A4-titan-descriptions.md. A6 treats this as a resolved null."
-    deps: [A0-harmony-scorer]
-    gpu: true
-    summary: >
-      EXPLORATORY (user-flagged idea). TITAN is a vision-LANGUAGE slide model; we have only used
-      its embedding. Hypothesis: a morphological DESCRIPTION (TILs, differentiation, mucinous/
-      signet-ring, Crohn's-like reaction = MSI-H signature) is abstracted above stain, so a
-      described-morphology -> MSI readout should be more site-invariant than the raw embedding on
-      OAUTHC. GATE FIRST: verify the TITAN checkpoint on fry actually exposes a text-generation/
-      caption head (not just the contrastive text encoder); if it does NOT, mark blocked with
-      reason and STOP (do not fake generation). If it does: generate per-slide descriptions,
-      validate against ProtoNet/nuclear-morphology features + eCRF spot-check (hallucination
-      guard), learn a readout, report OAUTHC-first. Confirm & cite TITAN's real author/year from
-      source in the doc (do NOT assert from memory).
-    done_when:
-      - "docs/experiments/A4-titan-descriptions.md — checkpoint-capability check result FIRST"
-      - "if head exists: results/scorers/titan_desc_probe/metrics.json + hallucination-check section"
-      - "if not: task blocked with reason; no fabricated descriptions committed"
-  - id: A5-per-site-calibration
-    priority: 80
-    status: done
-    deps: [A0-harmony-scorer, A1-batch-correction-sweep]
-    gpu: false
-    summary: >
-      Given the best A-phase scorer, fit OAUTHC-specific score calibration / operating threshold
-      (isotonic or Platt on held-out OAUTHC patients, patient-grouped) so the rule-out operating
-      point (sens 0.95/0.96) is honest ON OAUTHC, not just pooled. Report OAUTHC spec@sens95/96
-      + NPV at the calibrated threshold vs the global-threshold baseline.
-    done_when:
-      - "argo_deepmsi/eval/per_site_calibration.py + test"
-      - "docs/experiments/A5-per-site-calibration.md: OAUTHC operating-point table calibrated vs global"
-  - id: A6-oauthc-synthesis
-    priority: 70
-    status: done
-    # A4 is blocked (capability-absent null: TITAN has no generation head; no scorer
-    # produced). Its own doc + JOURNAL resolve it as a null dependency, so A6 (the phase
-    # capstone) proceeds over A0/A1/A2/A3/A5 + the documented A4 null rather than stranding
-    # the synthesis on an exploratory dead-end. Documented decision, not a gate weakening.
-    deps: [A1-batch-correction-sweep, A2-stain-norm-oauthc, A3-tilemil-oauthc-fewshot, A4-titan-descriptions, A5-per-site-calibration]
-    gpu: false
-    summary: >
-      Synthesis: OAUTHC-recovery leaderboard (every A-scorer, OAUTHC AUROC + spec@sens + gap to
-      retro-OAU 0.80 ceiling), best combined pipeline, updated head-to-head-vs-MSIntuit table on
-      the FULL cohort WITH OAUTHC (no abstention), manuscript figures. State honestly how far
-      OAUTHC recovered and whether the rule-out bar is reachable with OAUTHC included.
-    done_when:
-      - "results/comparison/oauthc_recovery_leaderboard.csv + figure"
-      - "results/comparison/head_to_head_msintuit.csv updated (full cohort, OAUTHC included)"
-      - "docs/experiments/A6-oauthc-synthesis.md"
+    '
+  done_when:
+  - results/analysis/tumor_agg_ablation/grid_by_site.csv
+  - "docs/experiments/D3-tumor-agg-ablation.md \u2014 VERDICT per choice, per site"

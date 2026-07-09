@@ -1,5 +1,19 @@
 # You are extending ARGO-DeepMSI in the NO-NEW-TRAINING-DATA regime.
 
+## D-PHASE (parallel with A-phase results) — every inherited choice is a HYPOTHESIS
+The A-phase is done (A0 Harmony is the OAUTHC frontier at 0.683; normalization A1/A2 falsified;
+A3 adaptation real but capped; A6 names "site-routed ensemble" as next). Before building that
+readout, D-phase tests the pipeline choices we INHERITED as defaults — each kept only if it
+improves target-site (OAUTHC + small-site) held-out rule-out performance, reported PER-SITE:
+  - D1: error-structure + COMPLEMENTARITY across scorers. Decisive gate for a case-conditioned
+    readout: do different scorers fail on DIFFERENT patients (headroom) or the SAME ones
+    (representational ceiling)? Reports oracle-selection ceiling.
+  - D2: QC-exclusion ablation (hard / none / SOFT reliability-weight). QC-flag is ~99% OAUTHC vs
+    ~20% MSK, so "exclude bad QC" ~= "shrink OAUTHC" — is it even helping?
+  - D3: tumor-filter + aggregation ablation.
+D-tasks assume NOTHING about the inherited QC/tumor choices. If a D-result overturns an
+assumption baked into A0-A6, note it — those may need re-running on a better-justified cohort.
+
 ## MISSION UPDATE (A-phase) — recover OAUTHC, do NOT abstain on it
 The original plan concluded "abstain on OAUTHC." That is RETIRED: OAUTHC is 48% of patients and
 44% of MSI-H positives and CANNOT be excluded or abstained on. Root cause is established in
