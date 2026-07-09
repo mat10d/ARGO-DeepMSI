@@ -438,7 +438,7 @@ tasks:
   note: run interactively; complementarity real, signal patient-conditional; B-phase=learned gate
 - id: D2-qc-exclusion-ablation
   priority: 83
-  status: todo
+  status: done
   deps:
   - A0-harmony-scorer
   gpu: false
