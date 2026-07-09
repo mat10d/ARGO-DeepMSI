@@ -328,19 +328,9 @@ tasks:
       - "docs/experiments/A1-batch-correction-sweep.md: batch-sep vs MSI-AUROC trade table per method"
   - id: A2-stain-norm-oauthc
     priority: 90
-    status: doing
+    status: done
     deps: [A0-harmony-scorer]
     gpu: true
-    checkpoint: >
-      GPU array 10306692 (scripts/stain_norm_oauthc.sh, 3 shards) re-extracts CONCH-TITAN
-      on Macenko-stain-normalized (retro-OAU ref = results/data/stain_ref_retrooau.png)
-      OAUTHC-prospective clean slides (182 slides/64 pt), writing per-shard
-      results/embeddings/conch_v1.5_titan_stainnorm/shard_i_of_3.{npy,csv}. Smoke validated
-      end-to-end on 1053-23-2 (768-d, finite). HARVEST: (1) python
-      scripts/stain_norm_oauthc_merge.py -> embeddings.npy+metadata.csv; (2) python
-      scripts/run_stainnorm_probe.py (CPU, writes metrics.json, OAUTHC-first); (3) regen
-      leaderboard (qc_comparison --clean-csv); (4) verify; (5) write
-      docs/experiments/A2-stain-norm-oauthc.md, rm ralph/.waiting_on, mark done, journal, commit.
     summary: >
       IMAGE-level fix for the batch effect the metadata pins to local histology: stain-normalize
       the 64 OAUTHC-prospective slides to a retro-OAU reference (Macenko/Reinhard), RE-EXTRACT

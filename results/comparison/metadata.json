@@ -15,6 +15,7 @@
     "simple_grid",
     "slide_attention_mil",
     "slidefm_linearprobe",
+    "stainnorm_probe",
     "tip_adapter",
     "transductive_smoothing",
     "vl_text_cosine",
