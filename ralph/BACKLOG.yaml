@@ -480,20 +480,23 @@ tasks:
   - results/comparison/leaderboard.csv re-raced on rebuilt cohort (per-scorer agg)
   - ralph/no_regression.py floor re-baselined to new champion clean AUROC
   - "docs/experiments/C1-cohort-rebuild.md \u2014 before/after per-site table, what moved"
-- id: B1-learned-patient-gate
+- id: B1-cascade-rejector
   priority: 74
   status: todo
   deps:
   - D1-error-structure
   - D3-tumor-agg-ablation
   gpu: false
-  summary: "D1 proved scorer errors are DISJOINT (both-err 0.13-0.18 vs either 0.6) and PATIENT-conditional (not site \u2014 a fixed site-router fails, OAUTHC harmony-beats-champ only 51%). Build a LEARNED\
-    \ case-conditioned gate: given a patient's per-scorer score vector (champion, harmony, batch_corrected, clam_tilemil) + agreement features (variance/spread across scorers) + patient meta (site, n_slides,\
-    \ tumor_fraction, artifact_fraction), learn a router/mixture that predicts which scorer to trust (or a weighted blend). Model: start with LR/gradient-boosted gate over the score+meta features; compare\
-    \ to (a) best single scorer, (b) fixed-weight fusion (F1 lost), (c) site-router baseline. HONEST held-out CV (StratifiedGroupKFold by patient, seed 42); report the achievable gain vs the +0.27 oracle\
-    \ UPPER BOUND (do NOT report oracle as result). Per-site + OAUTHC-first + spec@sens95/96. NO external data; gate fits on OUR cohort only. NOTE: develop+report on current cohort now; RE-RUN final numbers\
-    \ on the C1 rebuilt cohort when it lands (add a one-line refresh in B1 doc). This is the novel low-N readout / headline method.\n"
+  summary: "D1+embedding-diagnostics grounded finding: the champion's failure is SPECIFICITY (55 FP vs 6 FN), and the false positives are STRUCTURED in FM embedding space \u2014 separable from true negatives\
+    \ at CV AUROC 0.70-0.80 across 4 independent FMs (CONCH/UNI2/Virchow2/CtransPath), NOT a CONCH artifact. The non-circular signal (separating TRUE MSI-H from false-alarms among champion-positive patients)\
+    \ is real and BEST on uni2_mean (0.744) > ctranspath_harmony 0.713 > conch_mean_harmony 0.709 > conch_titan 0.615. RULED OUT: FPs are not borderline-instability (FP msi_score 2.4 ~ TN 2.3, p=0.13) and\
+    \ not Indeterminate-label contamination (FP 44% indet ~ TN 40%, p=0.45; dropping Indeterminate does NOT recover spec: definite-only spec@sens95=0.159). So the FP signal is real morphology, not label\
+    \ noise. BUILD: two-stage cascade \u2014 stage1 high-sensitivity first pass (champion or Harmony), stage2 a LEARNED false-alarm rejector on uni2_mean patient embeddings that vetoes confident false positives\
+    \ among stage1 positives. Optimize the RULE-OUT operating point (spec@sens>=0.95/0.96), not AUROC. CRITICAL VALIDATION: LEAVE-ONE-SITE-OUT CV (not just patient-grouped k-fold) to prove the specificity\
+    \ gain generalizes to an unseen site \u2014 this is the whole clinical claim. Also report patient-grouped StratifiedGroupKFold. Compare vs stage1-alone and vs F1 fusion. Per-site + OAUTHC-first. No\
+    \ external data; rejector fits on OUR cohort only. If LOSO gain evaporates, that is the honest negative \u2014 report it as such, do not hide it."
   done_when:
-  - argo_deepmsi/scorers/learned_gate.py registered + contract test + test_no_external_data pass
-  - results/scorers/learned_gate/metrics.json full screening block incl by_site
-  - "docs/experiments/B1-learned-patient-gate.md \u2014 held-out gain vs best-single/fusion/site-router, oracle gap stated as ceiling not result, per-site OAUTHC-first"
+  - argo_deepmsi/scorers/cascade_rejector.py registered + contract test + test_no_external_data pass
+  - results/scorers/cascade_rejector/metrics.json full screening block incl by_site AND leave-one-site-out
+  - "docs/experiments/B1-cascade-rejector.md \u2014 spec@sens gain vs stage1-alone, BOTH LOSO and grouped-kfold, per-site OAUTHC-first, honest verdict if LOSO fails"
+  note: reframed from generic gate to grounded UNI2 false-alarm rejector (spec-focused, LOSO-validated)
