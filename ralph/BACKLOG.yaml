@@ -378,7 +378,7 @@ tasks:
       - "if not: task blocked with reason; no fabricated descriptions committed"
   - id: A5-per-site-calibration
     priority: 80
-    status: todo
+    status: done
     deps: [A0-harmony-scorer, A1-batch-correction-sweep]
     gpu: false
     summary: >
