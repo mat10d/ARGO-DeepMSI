@@ -357,7 +357,8 @@ tasks:
       - "docs/experiments/A3-tilemil-oauthc-fewshot.md"
   - id: A4-titan-descriptions
     priority: 85
-    status: todo
+    status: blocked
+    reason: "capability gate failed — fry TITAN checkpoint (MahmoodLab/TITAN) exposes only a contrastive encode_text + zero_shot API, NO text-generation/caption head (verified from cached modeling_titan.py: Titan is not a GenerationMixin, no decoder). No descriptions generated (would violate provenance). See docs/experiments/A4-titan-descriptions.md. A6 treats this as a resolved null."
     deps: [A0-harmony-scorer]
     gpu: true
     summary: >
