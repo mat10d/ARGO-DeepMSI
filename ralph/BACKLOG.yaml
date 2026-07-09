@@ -421,7 +421,7 @@ tasks:
     - "docs/experiments/D3-tumor-agg-ablation.md \u2014 VERDICT per choice, per site"
 - id: D1-error-structure
   priority: 84
-  status: todo
+  status: done
   deps:
   - A0-harmony-scorer
   gpu: false
@@ -435,6 +435,7 @@ tasks:
   - results/analysis/error_structure/per_scorer_per_site_auroc.csv + complementarity.csv + oracle_ceiling.txt
   - results/analysis/error_structure/error_correlates.csv (failure vs bag-size/tumor/artifact/site)
   - "docs/experiments/D1-error-structure.md \u2014 VERDICT: case-conditioned headroom yes/no, with the oracle gap"
+  note: run interactively; complementarity real, signal patient-conditional; B-phase=learned gate
 - id: D2-qc-exclusion-ablation
   priority: 83
   status: todo
