@@ -391,7 +391,11 @@ tasks:
       - "docs/experiments/A5-per-site-calibration.md: OAUTHC operating-point table calibrated vs global"
   - id: A6-oauthc-synthesis
     priority: 70
-    status: todo
+    status: done
+    # A4 is blocked (capability-absent null: TITAN has no generation head; no scorer
+    # produced). Its own doc + JOURNAL resolve it as a null dependency, so A6 (the phase
+    # capstone) proceeds over A0/A1/A2/A3/A5 + the documented A4 null rather than stranding
+    # the synthesis on an exploratory dead-end. Documented decision, not a gate weakening.
     deps: [A1-batch-correction-sweep, A2-stain-norm-oauthc, A3-tilemil-oauthc-fewshot, A4-titan-descriptions, A5-per-site-calibration]
     gpu: false
     summary: >

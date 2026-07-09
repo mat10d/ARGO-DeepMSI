@@ -1,5 +1,6 @@
 method,cohort,sensitivity,spec_at_sens90,spec_at_sens95,spec_at_sens96,npv_at_sens95,kappa,auroc,notes
-ARGO champion (calibrated_pool),"Nigerian CRC (ours, n=181 pt)",0.95,0.193,0.179,0.079,0.926,0.927,0.713,zero-param max/√n
-ARGO fusion (top-3 stack),"Nigerian CRC (ours, n=181 pt)",0.95,0.329,0.107,0.043,0.882,,0.703,LR stack of 3 signals
+ARGO champion (calibrated_pool),"Nigerian CRC full (ours, n=181 pt, OAUTHC incl.)",0.95,0.193,0.179,0.079,0.926,0.927,0.713,zero-param max/sqrt(n); OAUTHC AUROC 0.579
+ARGO A0 Harmony (OAUTHC-recovery base),"Nigerian CRC full (ours, n=181 pt, OAUTHC incl.)",0.95,0.2857142857142857,0.2642857142857143,0.2357142857142857,0.9487179487179487,,0.6559233449477352,batch-corrected CONCH-TITAN; OAUTHC AUROC 0.683 (best on board)
+ARGO A0 Harmony @ OAUTHC operating point (A5),"OAUTHC only (ours, n=64 pt)",1.0,,,0.2745098039215686,1.0,,0.683,"global threshold safe on OAUTHC: sens/NPV 1.0, spec 0.275 (A5)"
 "MSIntuit CRC (Owkin, Nat Commun 2023)","external (PRECISE, ~600 slides)",0.96-0.98,,,0.46-0.47,high (rule-out),0.82,,reference target (spec @ sens 0.96-0.98)
-"FM-MSI benchmark (CONCH; PII S0895611125001892)",external (TCGA/PAIP),,,,,,,,"closed-access; full text not obtained; operating points NOT transcribed -- named comparator only"
+FM-MSI benchmark (CONCH; PII S0895611125001892),external (TCGA/PAIP),,,,,,,,closed-access; full text not obtained; operating points NOT transcribed -- named comparator only
