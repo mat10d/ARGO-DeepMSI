@@ -20,8 +20,6 @@ Resolution: slide.
 from __future__ import annotations
 
 import json
-from pathlib import Path
-
 import numpy as np
 import pandas as pd
 
@@ -57,6 +55,9 @@ class HarmonyProbe(Scorer):
     )
     needs_training_on_our_data = True
     resolution = "slide"
+    # D3 found that smooth OOF probe scores benefit from averaging, unlike the
+    # Wagner max/√n score. Keep this pre-specified in the scorer contract.
+    patient_aggregation = "mean"
     score_columns = [
         ScoreColumn("p_msih", "full-shot OOF p(MSI-H), Harmony CONCH-TITAN", primary=True),
     ]

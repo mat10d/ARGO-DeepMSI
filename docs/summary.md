@@ -1,4 +1,22 @@
-# ARGO-DeepMSI — No-Training Scorer Leaderboard
+# ARGO-DeepMSI — Full-cohort validation summary
+
+> **C1/V1 reset (2026-08-03):** The primary estimand is now all 217 patients / 803
+> feature-complete slides. Wagner max/√n is AUROC **0.717** (patient-bootstrap 95% CI
+> 0.631–0.799), specificity 0.141 at sensitivity 0.95. The old 428-slide / 181-patient
+> hard-QC cohort is retained only as a sensitivity analysis (AUROC 0.713). A properly
+> nested four-encoder linear probe is AUROC **0.530** (0.429–0.636), demonstrating that
+> prior OOF-selected learned baselines were optimistic. See
+> `docs/experiments/C1-cohort-rebuild.md` and `docs/experiments/V1-nested-validation.md`.
+
+> **Data freshness:** A read-only live REDCap audit on 2026-08-03 found 17 newly labelled
+> clinical patients, but none has a slide in the current corpus. All 217 benchmark patients and
+> every audited label/assay field are unchanged. The benchmark is current; the broader clinical
+> snapshot should be refreshed before those patients acquire slides.
+
+The material below documents the historical 181-patient experiment phase and should not be
+read as the current primary leaderboard.
+
+# Historical no-training scorer leaderboard
 
 **Cohort:** Nigerian colorectal cancer, 803 slides → **198 patients** after
 pathologist QC exclusion (`results/data/problem_slides.csv`, 514 slides
@@ -119,14 +137,19 @@ Add a new scorer:
 fit on our 198 patients). External pretraining is permitted only for
 frozen foundation-model embedders; no external slide-level training.
 
-## Roadmap (what's not yet attempted in this no-training space)
+## Current path forward
 
-- **Multi-scorer fusion** — `calibrated_pool` + `slide_attention_mil`
-  weighted by site-specific reliability (Wagner ρ ≈ 0 on OAUTHC,
-  ρ ≈ 0.3 on retrospective sites)
-- **Exemplar memory** — kNN to held-out MSI-H tile exemplars (the
-  no-training analog of FLEX feature alignment)
-- **Better VL prompts** — search-tuned prompt sets on a val fold;
-  the initial `vl_text_cosine` prompt set was hand-curated, not search-tuned
-- **TCGA tile features** — *would* require external training; explicitly
-  out of scope until the user lifts that constraint
+1. **Treat this as a data/label problem, not another head search.** Reconcile the 40 prospective
+   `Indeterminate` cases now encoded as MSS and audit the OAUTHC-vs-retrospective assay pathway.
+   The full-cohort label-certainty sensitivity is already frozen; adjudicated labels are the next
+   information-bearing input.
+2. **Run the one remaining representation-level falsification test.** Once Waiv approves gated
+   access, extract Phaet and Mascaret on the existing 803 slides, mean-pool as pre-specified, and
+   evaluate with nested patient-grouped validation. This directly tests acquisition-robust
+   encoders without reopening a broad model search.
+3. **Prioritize validation over optimization.** Freeze Wagner max/√n and evaluate it prospectively
+   or on a genuinely external Nigerian cohort. This requires an explicit scope change to the
+   current no-new-data contract, but is more valuable than another internal CV point estimate.
+4. **Do not continue the exhausted branches:** feature-level batch correction, stain
+   normalization, learned aggregation, late fusion, prompt tuning, and non-nested encoder grids
+   have already produced negative or selection-biased results.

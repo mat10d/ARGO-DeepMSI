@@ -30,6 +30,15 @@ logs/
 !results/scorers/**
 !results/comparison/
 !results/comparison/**
+!results/experiments/
+!results/experiments/**
+# W1: retain small contracts/metrics, not rebuildable feature reservoirs or weights.
+results/experiments/**/bags.npy
+results/experiments/**/tile_indices.npy
+results/experiments/**/images.npy
+results/experiments/**/images.partial.npy
+results/experiments/**/checkpoints/
+results/experiments/**/one_step_state.pt
 # Exclude bulk thumbnail dumps — keep the manifest, drop the PNGs
 results/analysis/**/thumbnails/**/*.png
 results/analysis/**/thumbnails/**/*.jpg

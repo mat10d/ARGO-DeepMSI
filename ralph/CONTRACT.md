@@ -2,7 +2,8 @@
 
 ## Regime
 1. **NO NEW TRAINING DATA.** Only slides in `results/data/cohort_clean.csv` (rows with
-   `in_clean_set=1`). Fitting a small head on our ~200 patients is allowed. Loading TCGA /
+   `in_primary_set=1`; `in_clean_set` is its legacy alias). Fitting a small head on our
+   217 patients is allowed. Loading TCGA /
    PAIP / any external labelled slide set is forbidden. Frozen pretrained FM weights
    (UNI/CONCH/Virchow/TITAN/PRISM) are feature extractors, not external training — allowed.
    Enforced by `tests/test_no_external_data.py`.
@@ -19,7 +20,9 @@
 ## Per-task rules
 2. One scorer = one file + one `register()` + one contract test + one `metrics.json`
    carrying the FULL metric block (see §Metric block). No partial landings.
-3. Every result scored on `cohort_clean.csv`. Report **sensitivity, specificity@sens{0.90,0.95},
+3. Every primary result is scored on the feature-complete `in_primary_set` cohort. The
+   historical pathologist/tumor-filtered `in_qc_sensitivity_set` is a sensitivity analysis,
+   never the primary race. Report **sensitivity, specificity@sens{0.90,0.95},
    NPV, AUROC, AUPRC** — overall, `by_site`, `by_bagsize`. AUROC alone is NOT a result.
 4. Never edit another scorer's file to make yours win. Scorers are append-only siblings.
 5. Leaderboard regenerated via `python -m argo_deepmsi.eval.qc_comparison`, never hand-edited.
@@ -27,6 +30,11 @@
    message references the BACKLOG id.
 7. No new dependency without adding it to `pyproject.toml` + a JOURNAL note.
 8. Determinism: `seed=42`, `StratifiedGroupKFold(patient_id)`, 5 folds.
+9. Configuration/model selection for cohort-trained scorers is nested inside an outer
+   patient-grouped CV. PCA, scaling, batch correction, aggregation selection, and operating
+   thresholds may not inspect outer-test outcomes. Report patient-bootstrap uncertainty.
+   Pre-reset cohort-trained rows without an untouched outer loop remain visible as exploratory
+   history (`confirmatory_valid=false`) and cannot set the champion/no-regression floor.
 
 ## Metric block (every results/scorers/<name>/metrics.json)
 ```

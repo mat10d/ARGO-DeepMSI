@@ -50,15 +50,15 @@ def _t3() -> dict:
 def head_to_head():
     lb = _lb()
     champ = _row(lb, "calibrated_pool")
-    fusion = _row(lb, "fusion_top3")
+    nested = _row(lb, "nested_linear_probe")
     kappa = _r1_kappa()
     rows = []
     for name, r, ck in [("ARGO champion (calibrated_pool)", champ, kappa),
-                        ("ARGO fusion (top-3 stack)", fusion, None)]:
+                        ("ARGO nested linear probe", nested, None)]:
         if r is None:
             continue
         rows.append({
-            "method": name, "cohort": "Nigerian CRC (ours, n=181 pt)",
+            "method": name, "cohort": f"Nigerian CRC primary (ours, n={int(r['n_patients_clean'])} pt)",
             "sensitivity": 0.95,
             "spec_at_sens90": round(float(r["spec_at_sens90"]), 3),
             "spec_at_sens95": round(float(r["spec_at_sens95"]), 3),
@@ -66,7 +66,11 @@ def head_to_head():
             "npv_at_sens95": round(float(r["npv_at_sens95"]), 3),
             "kappa": round(ck, 3) if ck is not None else "",
             "auroc": round(float(r["patient_auroc_clean"]), 3),
-            "notes": "zero-param max/√n" if "champion" in name else "LR stack of 3 signals",
+            "notes": (
+                "zero-param max/√n"
+                if "champion" in name
+                else "encoder selected in inner CV; untouched outer predictions"
+            ),
         })
     # MSIntuit (verified from paper abstract)
     rows.append({
@@ -91,10 +95,10 @@ def head_to_head():
 def fig_msintuit_gap():
     lb = _lb()
     champ = _row(lb, "calibrated_pool")
-    fusion = _row(lb, "fusion_top3")
-    labels = ["ARGO\nchampion", "ARGO\nfusion", "MSIntuit\ntarget"]
-    spec95 = [float(champ["spec_at_sens95"]), float(fusion["spec_at_sens95"]) if fusion is not None else np.nan, np.nan]
-    spec96 = [float(champ["spec_at_sens96"]), float(fusion["spec_at_sens96"]) if fusion is not None else np.nan,
+    nested = _row(lb, "nested_linear_probe")
+    labels = ["ARGO\nchampion", "Nested\nprobe", "MSIntuit\ntarget"]
+    spec95 = [float(champ["spec_at_sens95"]), float(nested["spec_at_sens95"]) if nested is not None else np.nan, np.nan]
+    spec96 = [float(champ["spec_at_sens96"]), float(nested["spec_at_sens96"]) if nested is not None else np.nan,
               np.mean(MSINTUIT_TARGET["specificity"])]
     x = np.arange(len(labels))
     w = 0.38
@@ -104,11 +108,14 @@ def fig_msintuit_gap():
     ax.axhline(np.mean(MSINTUIT_TARGET["specificity"]), ls="--", c="gray", lw=1)
     ax.annotate("MSIntuit 0.46-0.47 @ sens 0.96", (0, np.mean(MSINTUIT_TARGET["specificity"]) + 0.01),
                 fontsize=7, color="gray")
-    ax.set_xticks(x); ax.set_xticklabels(labels)
-    ax.set_ylabel("specificity"); ax.set_ylim(0, 0.55)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels)
+    ax.set_ylabel("specificity")
+    ax.set_ylim(0, 0.55)
     ax.set_title("Rule-out operating point vs MSIntuit", fontsize=9)
     ax.legend(fontsize=7, frameon=False)
-    fig.savefig(COMP / "figure_msintuit_gap.png"); plt.close(fig)
+    fig.savefig(COMP / "figure_msintuit_gap.png")
+    plt.close(fig)
 
 
 def fig_leaderboard():
@@ -116,33 +123,54 @@ def fig_leaderboard():
     fig, ax = plt.subplots(figsize=(5, 4))
     colors = ["#C44E52" if s in ("calibrated_pool", "wagner_zeroshot") else "#4C72B0"
               for s in lb["scorer"]]
-    ax.barh(lb["scorer"], lb["patient_auroc_clean"], color=colors)
+    comparable = (
+        lb["comparable_primary"].astype(bool)
+        if "comparable_primary" in lb
+        else pd.Series(True, index=lb.index)
+    )
+    confirmatory = (
+        lb["confirmatory_valid"].astype(bool)
+        if "confirmatory_valid" in lb
+        else pd.Series(True, index=lb.index)
+    )
+    alpha = [
+        1.0 if has_coverage and is_valid else 0.3
+        for has_coverage, is_valid in zip(comparable, confirmatory)
+    ]
+    bars = ax.barh(lb["scorer"], lb["patient_auroc_clean"], color=colors)
+    for bar, value in zip(bars, alpha):
+        bar.set_alpha(value)
     ax.axvline(0.5, ls=":", c="gray", lw=1)
-    ax.set_xlabel("patient AUROC (clean cohort)"); ax.set_xlim(0.4, 0.75)
-    ax.set_title("MSI scorers on the clean cohort (champion in red)", fontsize=9)
-    fig.savefig(COMP / "figure_leaderboard.png"); plt.close(fig)
+    ax.set_xlabel("patient AUROC (primary cohort)")
+    ax.set_xlim(0.4, 0.75)
+    ax.set_title("Full cohort (faded = low coverage or non-nested training)", fontsize=9)
+    fig.savefig(COMP / "figure_leaderboard.png")
+    plt.close(fig)
 
 
 def fig_per_site():
     ps = pd.read_csv(COMP / "per_site_clean.csv")
     champ = ps[ps["scorer"] == "calibrated_pool"].set_index("site")["auroc"]
-    fus = ps[ps["scorer"] == "fusion_top3"].set_index("site")["auroc"] if \
-        (ps["scorer"] == "fusion_top3").any() else None
+    fus = ps[ps["scorer"] == "nested_linear_probe"].set_index("site")["auroc"] if \
+        (ps["scorer"] == "nested_linear_probe").any() else None
     sites = list(champ.index)
     x = np.arange(len(sites))
     fig, ax = plt.subplots(figsize=(5.2, 3.2))
     if fus is not None:
         w = 0.38
         ax.bar(x - w / 2, champ.values, w, label="champion", color="#C44E52")
-        ax.bar(x + w / 2, [fus.get(s, np.nan) for s in sites], w, label="fusion", color="#4C72B0")
+        ax.bar(x + w / 2, [fus.get(s, np.nan) for s in sites], w, label="nested probe", color="#4C72B0")
     else:
         ax.bar(x, champ.values, 0.6, label="champion", color="#C44E52")
     ax.axhline(0.5, ls=":", c="gray", lw=1)
-    ax.set_xticks(x); ax.set_xticklabels(sites, rotation=40, ha="right", fontsize=7)
-    ax.set_ylabel("patient AUROC"); ax.set_ylim(0, 1.05)
+    ax.set_xticks(x)
+    ax.set_xticklabels(sites, rotation=40, ha="right", fontsize=7)
+    ax.set_ylabel("patient AUROC")
+    ax.set_ylim(0, 1.05)
     ax.set_title("Per-site AUROC (OAUTHC is the floor)", fontsize=9)
     ax.legend(fontsize=7, frameon=False)
-    fig.savefig(COMP / "figure_per_site.png"); plt.close(fig)
+    fig.savefig(COMP / "figure_per_site.png")
+    plt.close(fig)
 
 
 def main():

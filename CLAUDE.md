@@ -99,6 +99,8 @@ features = wsi["uni2_tiles"]
 
 **Patch-level, gated (HF auth):** uni, uni2, virchow, virchow2, conch, conch_v1.5, gigapath, h-optimus-0, h-optimus-1, hibou-b, hibou-l, chief, musk, medsiglip, omiclip
 
+**Waiv robust encoders (gated, non-commercial academic; `argo_deepmsi/models/waiv.py`):** phaet (fine-tuned Phikon-v2, 1024-d), mascaret (fine-tuned Midnight-12k, 1536-d). Custom remote-code HF repos registered into LazySlide's `MODEL_REGISTRY` on import of `argo_deepmsi.models`. Requires accepting the license at huggingface.co/wearewaiv. See `docs/competitive/waiv-robustify-2607.md`.
+
 **Quality control (integrated, see `argo qc`):** grandqc-artifact, grandqc-tissue, pathprofilerqc, focus, focuslitenn
 
 **Aggregation:**

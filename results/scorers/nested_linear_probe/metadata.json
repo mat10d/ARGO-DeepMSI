@@ -1,0 +1,30 @@
+{
+  "name": "nested_linear_probe",
+  "description": "Repeated nested patient-grouped CV selects among four frozen mean-pooled encoders inside each outer training fold. Scaling and the class-balanced logistic head are fold-local; outer predictions are untouched by model selection. Patient aggregation is pre-specified as mean.",
+  "needs_training_on_our_data": true,
+  "resolution": "slide",
+  "score_columns": [
+    {
+      "name": "p_msih",
+      "description": "repeated nested-CV p(MSI-H)",
+      "primary": true
+    }
+  ],
+  "primary_score": "p_msih",
+  "patient_aggregation": "mean",
+  "validation": {
+    "design": "repeated nested StratifiedGroupKFold(patient_id)",
+    "outer_splits": 5,
+    "inner_splits": 4,
+    "repeats": 3,
+    "seed": 42,
+    "candidates": [
+      "conch_v1.5_mean",
+      "ctranspath_mean",
+      "uni2_mean",
+      "virchow2_mean"
+    ],
+    "selection_metric": "inner patient AUROC",
+    "preprocessing": "fold-local StandardScaler"
+  }
+}

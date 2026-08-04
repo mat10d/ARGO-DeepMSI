@@ -39,17 +39,11 @@
       "auroc": 0.5,
       "spec_at_sens95": 0.0
     },
-    "retrospective_msk": {
-      "n": 60,
-      "prevalence": 0.23333333333333334,
-      "auroc": 0.5093167701863354,
-      "spec_at_sens95": 0.17391304347826086
-    },
-    "retrospective_oau": {
-      "n": 23,
-      "prevalence": 0.21739130434782608,
-      "auroc": 0.37777777777777777,
-      "spec_at_sens95": 0.0
+    "retrospective": {
+      "n": 83,
+      "prevalence": 0.2289156626506024,
+      "auroc": 0.4703947368421052,
+      "spec_at_sens95": 0.125
     }
   },
   "by_bagsize": {
@@ -109,7 +103,7 @@
       "specificity": 0.15714285714285714,
       "npv": 0.88,
       "ruled_out_fraction": 0.13812154696132597,
-      "threshold": 0.2748569833630984
+      "threshold": 0.2748569660425903
     },
     "spec_at_sens90": 0.15714285714285714,
     "npv_at_sens90": 0.88,

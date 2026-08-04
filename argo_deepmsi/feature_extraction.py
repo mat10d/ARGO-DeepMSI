@@ -29,6 +29,8 @@ try:
     import lazyslide as zs
     from wsidata import open_wsi
 
+    from . import models as _argo_models  # noqa: F401  (registers phaet/mascaret)
+
     LAZYSLIDE_AVAILABLE = True
 except ImportError:
     LAZYSLIDE_AVAILABLE = False
@@ -116,6 +118,13 @@ PATCH_MODELS = {
         "histoplus", "patch", True, 256, 0.5, "HistoPlus pathology foundation model"
     ),
     "rosie": ModelConfig("rosie", "patch", True, 256, 0.5, "Rosie pathology foundation model"),
+    # ---- Waiv robust encoders (argo_deepmsi.models.waiv) ----
+    "phaet": ModelConfig(
+        "phaet", "patch", True, 256, 0.5, "Phaet: robust fine-tuned Phikon-v2 (Waiv)"
+    ),
+    "mascaret": ModelConfig(
+        "mascaret", "patch", True, 256, 0.5, "Mascaret: robust fine-tuned Midnight-12k (Waiv)"
+    ),
     # ---- Quality-control models (LazySlide) ----
     "grandqc-artifact": ModelConfig(
         "grandqc-artifact", "qc", False, 256, 0.5, "GrandQC artifact detection (bubbles/folds/pen)"

@@ -2,6 +2,7 @@
   "name": "wagner_zeroshot",
   "description": "Wagner et al. (HistoBistro, Cancer Cell 2023) transformer MSI head, trained on ~13K Western CRC slides with CTransPath features. Applied zero-shot to the Nigerian cohort: per-slide p_msih via mean-attention pool over all ctranspath tiles.",
   "needs_training_on_our_data": false,
+  "resolution": "slide",
   "score_columns": [
     {
       "name": "p_msih",
@@ -9,5 +10,6 @@
       "primary": true
     }
   ],
-  "primary_score": "p_msih"
+  "primary_score": "p_msih",
+  "patient_aggregation": "max_sqrtn"
 }

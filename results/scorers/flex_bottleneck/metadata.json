@@ -2,6 +2,7 @@
   "name": "flex_bottleneck",
   "description": "FLEX-style knowledge-guided information bottleneck (Nat Commun 2025): a 768\u2192128 bottleneck on TITAN slide features with an MSI head, a gradient-reversal site adversary (removes site signal), and cosine alignment to site-free MSI/MSS text concepts. Targets cross-site (OAUTHC) generalization. Patient-grouped CV; few-shot curve K\u2208{1,2,4,8,16,all}. Frozen features.",
   "needs_training_on_our_data": true,
+  "resolution": "slide",
   "score_columns": [
     {
       "name": "p_msih",
@@ -9,5 +10,6 @@
       "primary": true
     }
   ],
-  "primary_score": "p_msih"
+  "primary_score": "p_msih",
+  "patient_aggregation": "max_sqrtn"
 }

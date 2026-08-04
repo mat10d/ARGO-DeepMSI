@@ -1,0 +1,12 @@
+{
+  "n_slides": 803,
+  "n_images": 6424,
+  "raw_tiles_per_slide": 8,
+  "height": 256,
+  "width": 256,
+  "channels": 3,
+  "dtype": "uint8",
+  "seed": 42,
+  "workers": 8,
+  "slide_index_sha256": "36c52668d819219c385137bb3f38fe5163e25d979e539d4bdcea29ef82cb8219"
+}

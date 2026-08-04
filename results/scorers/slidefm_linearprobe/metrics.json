@@ -41,17 +41,11 @@
       "auroc": 0.45833333333333337,
       "spec_at_sens95": 0.16666666666666666
     },
-    "retrospective_msk": {
-      "n": 60,
-      "prevalence": 0.23333333333333334,
-      "auroc": 0.6956521739130435,
-      "spec_at_sens95": 0.21739130434782608
-    },
-    "retrospective_oau": {
-      "n": 23,
-      "prevalence": 0.21739130434782608,
-      "auroc": 0.7888888888888889,
-      "spec_at_sens95": 0.5555555555555556
+    "retrospective": {
+      "n": 83,
+      "prevalence": 0.2289156626506024,
+      "auroc": 0.725328947368421,
+      "spec_at_sens95": 0.25
     }
   },
   "by_bagsize": {

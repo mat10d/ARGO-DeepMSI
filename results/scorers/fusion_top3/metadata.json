@@ -2,6 +2,7 @@
   "name": "fusion_top3",
   "description": "Stacked logistic-regression fusion of the top-3 distinct-signal scorers (calibrated_pool + slidefm_linearprobe + flex_bottleneck) at patient level, patient-grouped CV over their OOF scores. Reported vs champion + MSIntuit.",
   "needs_training_on_our_data": true,
+  "resolution": "patient",
   "score_columns": [
     {
       "name": "p_msih",
@@ -9,5 +10,6 @@
       "primary": true
     }
   ],
-  "primary_score": "p_msih"
+  "primary_score": "p_msih",
+  "patient_aggregation": "max_sqrtn"
 }

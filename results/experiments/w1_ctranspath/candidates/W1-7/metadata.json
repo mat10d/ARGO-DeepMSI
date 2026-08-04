@@ -1,0 +1,62 @@
+{
+  "candidate": {
+    "candidate_id": "W1-7",
+    "ctranspath_mode": "bitfit_norm",
+    "description": "CTransPath BitFit/normalization plus full warm-started Wagner",
+    "encoder_learning_rate": 1e-05,
+    "head_learning_rate": 5e-05,
+    "weight_decay": 0.0001,
+    "max_epochs": 6,
+    "patience": 2,
+    "train_bag_tiles": 256,
+    "eval_bag_tiles": 1024,
+    "raw_tiles_per_slide": 8
+  },
+  "parameter_count": {
+    "total": 31069735,
+    "trainable": 3614341
+  },
+  "seed": 42,
+  "device": "cuda",
+  "fold_contract": {
+    "cohort_sha256": "1b4c517dc9b2bfa31fa4e59808d04cea73fd3f6574dd072931d82f3b936dbdbd",
+    "seed": 42,
+    "n_splits": 5,
+    "n_patients": 217,
+    "n_slides": 803,
+    "n_positive_patients": 47,
+    "fold_counts": {
+      "0": {
+        "patients": 43,
+        "positive_patients": 9,
+        "slides": 160
+      },
+      "1": {
+        "patients": 43,
+        "positive_patients": 9,
+        "slides": 141
+      },
+      "2": {
+        "patients": 44,
+        "positive_patients": 10,
+        "slides": 154
+      },
+      "3": {
+        "patients": 43,
+        "positive_patients": 9,
+        "slides": 142
+      },
+      "4": {
+        "patients": 44,
+        "positive_patients": 10,
+        "slides": 206
+      }
+    }
+  },
+  "runtime_dependencies": {
+    "wagner": "argo_deepmsi.models.wagner",
+    "ctranspath": "argo_deepmsi.models.ctranspath",
+    "archived_old_tree": false,
+    "fixed_raw_tile_cache": true
+  }
+}

@@ -112,6 +112,32 @@ class TestRegistryConsistency:
         )
 
 
+class TestWaivModels:
+    """The Waiv robust encoders (Phaet, Mascaret) are project-local additions
+    to the registry — not upstream LazySlide. Lock their contract statically
+    (no network / no weight download)."""
+
+    EXPECTED = {"phaet": 1024, "mascaret": 1536}
+
+    def test_registered_in_lazyslide_registry(self):
+        missing = sorted(n for n in self.EXPECTED if n not in REGISTRY)
+        assert not missing, (
+            f"Waiv encoders not registered: {missing}. Importing "
+            "argo_deepmsi.models must run the @register decorators."
+        )
+
+    def test_encode_dim_and_task(self):
+        for name, dim in self.EXPECTED.items():
+            cls = REGISTRY[name]
+            assert getattr(cls, "encode_dim", None) == dim, f"{name} encode_dim"
+            assert str(getattr(cls, "task", "")) == "ModelTask.vision", f"{name} task"
+
+    def test_exposed_as_gated_patch_models(self):
+        for name in self.EXPECTED:
+            assert name in PATCH_MODELS, f"{name} missing from PATCH_MODELS"
+            assert PATCH_MODELS[name].requires_auth is True, f"{name} must be gated"
+
+
 # --------------------------------------------------------------------------
 # Layer 2 / 3 — instantiate weights (no inference)
 # --------------------------------------------------------------------------

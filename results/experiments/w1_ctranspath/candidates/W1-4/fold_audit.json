@@ -1,0 +1,217 @@
+[
+  {
+    "outer_fold": 0,
+    "n_train_patients": 174,
+    "n_validation_patients": 44,
+    "n_test_patients": 43,
+    "n_train_slides": 643,
+    "n_validation_slides": 166,
+    "n_test_slides": 160,
+    "patient_overlap": 0,
+    "selected_epochs": 1,
+    "best_inner_patient_auroc": 0.5852941176470589,
+    "elapsed_seconds": 12.00978478230536,
+    "validation_history": [
+      {
+        "epoch": 1.0,
+        "train_loss": 3.6352588977910973,
+        "validation_patient_auroc": 0.5852941176470589
+      },
+      {
+        "epoch": 2.0,
+        "train_loss": 3.5361088459917274,
+        "validation_patient_auroc": 0.5485294117647059
+      },
+      {
+        "epoch": 3.0,
+        "train_loss": 3.471960774175442,
+        "validation_patient_auroc": 0.5058823529411764
+      },
+      {
+        "epoch": 4.0,
+        "train_loss": 3.3875811185141522,
+        "validation_patient_auroc": 0.5264705882352941
+      },
+      {
+        "epoch": 5.0,
+        "train_loss": 3.349938095554535,
+        "validation_patient_auroc": 0.5176470588235295
+      }
+    ]
+  },
+  {
+    "outer_fold": 1,
+    "n_train_patients": 174,
+    "n_validation_patients": 44,
+    "n_test_patients": 43,
+    "n_train_slides": 662,
+    "n_validation_slides": 149,
+    "n_test_slides": 141,
+    "patient_overlap": 0,
+    "selected_epochs": 1,
+    "best_inner_patient_auroc": 0.5132352941176471,
+    "elapsed_seconds": 11.60066119208932,
+    "validation_history": [
+      {
+        "epoch": 1.0,
+        "train_loss": 4.101815457054797,
+        "validation_patient_auroc": 0.5132352941176471
+      },
+      {
+        "epoch": 2.0,
+        "train_loss": 3.450754624165599,
+        "validation_patient_auroc": 0.4088235294117647
+      },
+      {
+        "epoch": 3.0,
+        "train_loss": 3.384251093275648,
+        "validation_patient_auroc": 0.3588235294117647
+      },
+      {
+        "epoch": 4.0,
+        "train_loss": 3.3272289510078665,
+        "validation_patient_auroc": 0.36764705882352944
+      },
+      {
+        "epoch": 5.0,
+        "train_loss": 3.2719113299799996,
+        "validation_patient_auroc": 0.35735294117647054
+      }
+    ]
+  },
+  {
+    "outer_fold": 2,
+    "n_train_patients": 173,
+    "n_validation_patients": 44,
+    "n_test_patients": 44,
+    "n_train_slides": 649,
+    "n_validation_slides": 140,
+    "n_test_slides": 154,
+    "patient_overlap": 0,
+    "selected_epochs": 4,
+    "best_inner_patient_auroc": 0.4808823529411764,
+    "elapsed_seconds": 23.458579658530653,
+    "validation_history": [
+      {
+        "epoch": 1.0,
+        "train_loss": 4.048907908788499,
+        "validation_patient_auroc": 0.40588235294117647
+      },
+      {
+        "epoch": 2.0,
+        "train_loss": 3.4930451213294873,
+        "validation_patient_auroc": 0.45
+      },
+      {
+        "epoch": 3.0,
+        "train_loss": 3.492797802452155,
+        "validation_patient_auroc": 0.43823529411764706
+      },
+      {
+        "epoch": 4.0,
+        "train_loss": 3.2578274948554484,
+        "validation_patient_auroc": 0.4808823529411764
+      },
+      {
+        "epoch": 5.0,
+        "train_loss": 3.433352712875751,
+        "validation_patient_auroc": 0.46176470588235297
+      },
+      {
+        "epoch": 6.0,
+        "train_loss": 3.0643333989938237,
+        "validation_patient_auroc": 0.4764705882352941
+      },
+      {
+        "epoch": 7.0,
+        "train_loss": 3.3165029801147208,
+        "validation_patient_auroc": 0.44705882352941173
+      },
+      {
+        "epoch": 8.0,
+        "train_loss": 3.30375729294864,
+        "validation_patient_auroc": 0.47058823529411764
+      }
+    ]
+  },
+  {
+    "outer_fold": 3,
+    "n_train_patients": 174,
+    "n_validation_patients": 43,
+    "n_test_patients": 43,
+    "n_train_slides": 661,
+    "n_validation_slides": 190,
+    "n_test_slides": 142,
+    "patient_overlap": 0,
+    "selected_epochs": 1,
+    "best_inner_patient_auroc": 0.6666666666666666,
+    "elapsed_seconds": 11.445084592327476,
+    "validation_history": [
+      {
+        "epoch": 1.0,
+        "train_loss": 3.978596889053428,
+        "validation_patient_auroc": 0.6666666666666666
+      },
+      {
+        "epoch": 2.0,
+        "train_loss": 3.447704440477426,
+        "validation_patient_auroc": 0.6209150326797386
+      },
+      {
+        "epoch": 3.0,
+        "train_loss": 3.3792187092680916,
+        "validation_patient_auroc": 0.6470588235294118
+      },
+      {
+        "epoch": 4.0,
+        "train_loss": 3.201193191572861,
+        "validation_patient_auroc": 0.5751633986928104
+      },
+      {
+        "epoch": 5.0,
+        "train_loss": 3.0578349314727564,
+        "validation_patient_auroc": 0.5392156862745098
+      }
+    ]
+  },
+  {
+    "outer_fold": 4,
+    "n_train_patients": 173,
+    "n_validation_patients": 44,
+    "n_test_patients": 44,
+    "n_train_slides": 597,
+    "n_validation_slides": 174,
+    "n_test_slides": 206,
+    "patient_overlap": 0,
+    "selected_epochs": 1,
+    "best_inner_patient_auroc": 0.573529411764706,
+    "elapsed_seconds": 10.06271704658866,
+    "validation_history": [
+      {
+        "epoch": 1.0,
+        "train_loss": 4.231559481242697,
+        "validation_patient_auroc": 0.573529411764706
+      },
+      {
+        "epoch": 2.0,
+        "train_loss": 3.6783968140126357,
+        "validation_patient_auroc": 0.5088235294117647
+      },
+      {
+        "epoch": 3.0,
+        "train_loss": 3.472832687860382,
+        "validation_patient_auroc": 0.5058823529411764
+      },
+      {
+        "epoch": 4.0,
+        "train_loss": 3.3048517718850143,
+        "validation_patient_auroc": 0.5176470588235295
+      },
+      {
+        "epoch": 5.0,
+        "train_loss": 3.390137096453533,
+        "validation_patient_auroc": 0.4852941176470589
+      }
+    ]
+  }
+]

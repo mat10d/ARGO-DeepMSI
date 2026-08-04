@@ -1,0 +1,30 @@
+{
+  "name": "vl_text_cosine",
+  "description": "Zero-shot MSI scoring via TITAN (CONCH v1.5) text encoder. Per-tile cosine to curated MSI-H / MSS prompt prototypes, aggregated by mean / top-k / max. Slide-level variant uses the TITAN slide embedding directly. No training.",
+  "needs_training_on_our_data": false,
+  "resolution": "slide",
+  "score_columns": [
+    {
+      "name": "tile_max",
+      "description": "max over per-tile (MSI\u2212MSS) cos",
+      "primary": true
+    },
+    {
+      "name": "tile_topk",
+      "description": "mean of top-k tiles (k=64)",
+      "primary": false
+    },
+    {
+      "name": "tile_mean",
+      "description": "mean over all tiles",
+      "primary": false
+    },
+    {
+      "name": "slide_score",
+      "description": "(MSI\u2212MSS) cos on TITAN slide emb",
+      "primary": false
+    }
+  ],
+  "primary_score": "tile_max",
+  "patient_aggregation": "max_sqrtn"
+}

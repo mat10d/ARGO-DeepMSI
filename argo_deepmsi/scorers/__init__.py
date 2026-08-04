@@ -13,6 +13,7 @@ from . import fmmap_probe  # noqa: F401
 from . import fusion_top3  # noqa: F401
 from . import harmony_probe  # noqa: F401
 from . import nuclear_morphology  # noqa: F401
+from . import nested_linear_probe  # noqa: F401
 from . import protonet_cluster  # noqa: F401
 from . import score_fusion  # noqa: F401
 from . import selective_abstention  # noqa: F401

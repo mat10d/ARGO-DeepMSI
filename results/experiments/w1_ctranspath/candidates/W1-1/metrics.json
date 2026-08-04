@@ -1,0 +1,138 @@
+{
+  "n_slides": 803,
+  "n_patients": 217,
+  "prevalence_slide": 0.1917808219178082,
+  "prevalence_patient": 0.21658986175115208,
+  "patient_agg": "max_sqrtn",
+  "slide_auroc": 0.5089248194024774,
+  "slide_auprc": 0.20597290793829143,
+  "patient_auroc": 0.6057571964956195,
+  "patient_auprc": 0.30702514284148485,
+  "per_site_slide": {
+    "LASUTH": {
+      "n": 15,
+      "prevalence": 0.2,
+      "auroc": 0.5277777777777778,
+      "auprc": 0.2777777777777778
+    },
+    "LUTH": {
+      "n": 31,
+      "prevalence": 0.12903225806451613,
+      "auroc": 0.7222222222222222,
+      "auprc": 0.41346153846153844
+    },
+    "OAUTHC": {
+      "n": 476,
+      "prevalence": 0.17436974789915966,
+      "auroc": 0.4217327324565437,
+      "auprc": 0.16362605217894874
+    },
+    "UITH": {
+      "n": 12,
+      "prevalence": 0.5,
+      "auroc": 0.6666666666666667,
+      "auprc": 0.7064814814814814
+    },
+    "retrospective_msk": {
+      "n": 97,
+      "prevalence": 0.20618556701030927,
+      "auroc": 0.6840909090909091,
+      "auprc": 0.4570997855693093
+    },
+    "retrospective_oau": {
+      "n": 172,
+      "prevalence": 0.22093023255813954,
+      "auroc": 0.6482717989002357,
+      "auprc": 0.3565528078586311
+    }
+  },
+  "per_site_patient": {
+    "LASUTH": {
+      "n": 13,
+      "prevalence": 0.23076923076923078,
+      "auroc": 0.6,
+      "auprc": 0.37777777777777777
+    },
+    "LUTH": {
+      "n": 19,
+      "prevalence": 0.15789473684210525,
+      "auroc": 0.7083333333333333,
+      "auprc": 0.4555555555555555
+    },
+    "OAUTHC": {
+      "n": 81,
+      "prevalence": 0.20987654320987653,
+      "auroc": 0.5284926470588235,
+      "auprc": 0.2895391195952259
+    },
+    "UITH": {
+      "n": 10,
+      "prevalence": 0.4,
+      "auroc": 0.625,
+      "auprc": 0.6361111111111111
+    },
+    "retrospective": {
+      "n": 94,
+      "prevalence": 0.2127659574468085,
+      "auroc": 0.6858108108108107,
+      "auprc": 0.413776231248365
+    }
+  },
+  "patient_bootstrap": {
+    "estimate": 0.6057571964956195,
+    "ci_low": 0.511761576971214,
+    "ci_high": 0.6996307884856071
+  },
+  "screening": {
+    "op_sens90": {
+      "target_sensitivity": 0.9,
+      "sensitivity": 0.9148936170212766,
+      "specificity": 0.2,
+      "npv": 0.8947368421052632,
+      "ruled_out_fraction": 0.17511520737327188,
+      "threshold": 0.0037593841552734375
+    },
+    "spec_at_sens90": 0.2,
+    "npv_at_sens90": 0.8947368421052632,
+    "op_sens95": {
+      "target_sensitivity": 0.95,
+      "sensitivity": 0.9574468085106383,
+      "specificity": 0.08235294117647059,
+      "npv": 0.875,
+      "ruled_out_fraction": 0.07373271889400922,
+      "threshold": 0.0028997031775495094
+    },
+    "spec_at_sens95": 0.08235294117647059,
+    "npv_at_sens95": 0.875,
+    "op_sens96": {
+      "target_sensitivity": 0.96,
+      "sensitivity": 0.9787234042553191,
+      "specificity": 0.06470588235294118,
+      "npv": 0.9166666666666666,
+      "ruled_out_fraction": 0.055299539170506916,
+      "threshold": 0.002609863544424845
+    },
+    "spec_at_sens96": 0.06470588235294118,
+    "npv_at_sens96": 0.9166666666666666,
+    "op_sens98": {
+      "target_sensitivity": 0.98,
+      "sensitivity": 1.0,
+      "specificity": 0.01764705882352941,
+      "npv": 1.0,
+      "ruled_out_fraction": 0.013824884792626729,
+      "threshold": 0.0015978203752050287
+    },
+    "spec_at_sens98": 0.01764705882352941,
+    "npv_at_sens98": 1.0
+  },
+  "candidate_id": "W1-1",
+  "validation_design": "fixed candidate; 5-fold patient-grouped outer OOF; fold-local inner early-stopping epoch; refit on complete outer training fold",
+  "confirmatory_valid": false,
+  "confirmatory_note": "Each candidate has untouched outer predictions, but choosing the best W1 candidate on this development cohort makes the selected maximum exploratory.",
+  "paired_delta_vs_frozen_wagner": {
+    "estimate": -0.11088861076345435,
+    "ci_low": -0.18411764705882358,
+    "ci_high": -0.033538798498122635,
+    "probability_le_zero": 0.998
+  }
+}

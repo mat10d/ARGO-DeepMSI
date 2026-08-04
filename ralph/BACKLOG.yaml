@@ -377,48 +377,6 @@ tasks:
   - results/comparison/oauthc_recovery_leaderboard.csv + figure
   - results/comparison/head_to_head_msintuit.csv updated (full cohort, OAUTHC included)
   - docs/experiments/A6-oauthc-synthesis.md
-  - id: D1-error-structure
-    priority: 84
-    status: todo
-    deps:
-    - A0-harmony-scorer
-    gpu: false
-    summary: 'Error-structure + COMPLEMENTARITY analysis across all scorers (champion, S4 tile-MIL, A0 harmony, A1 batch-corrected, + A2 stain-norm when it lands). Build patient x scorer score matrix. KEY
-      TEST: on the champion''s WRONG patients (esp. OAUTHC), does ANY other scorer get those SAME cases right? Report: per-scorer per-site AUROC matrix; pairwise error-overlap / complementarity (Q-statistic
-      or disagreement rate on errors); oracle-selection ceiling (AUROC if each patient routed to its best scorer); error correlates (n_slides, tumor_fraction, artifact_fraction, site). VERDICT: is a case-conditioned
-      readout possible (errors differ) or is the ceiling representational (errors coincide)? This gates the B-phase readout design.
-
-      '
-    done_when:
-    - results/analysis/error_structure/per_scorer_per_site_auroc.csv + complementarity.csv + oracle_ceiling.txt
-    - results/analysis/error_structure/error_correlates.csv (failure vs bag-size/tumor/artifact/site)
-    - "docs/experiments/D1-error-structure.md \u2014 VERDICT: case-conditioned headroom yes/no, with the oracle gap"
-  - id: D2-qc-exclusion-ablation
-    priority: 83
-    status: todo
-    deps:
-    - A0-harmony-scorer
-    gpu: false
-    summary: "Ablate the QC-exclusion choice that was inherited as step 1. Re-run the champion + A0 harmony probe under three regimes on the SAME patients: (hard) current 514-slide exclusion; (none) no\
-      \ QC exclusion; (soft) per-slide reliability WEIGHT in max/sqrt(n) aggregation (weight from artifact_fraction, tumor_fraction, n_tiles). Report per-site AUROC + spec@sens95/96 for each regime, OAUTHC-first.\
-      \ Because QC-flagging is ~99% OAUTHC vs ~20% MSK, exclusion ~= shrinking OAUTHC \u2014 quantify how much OAUTHC data each regime keeps and whether soft-weighting beats hard.\n"
-    done_when:
-    - argo_deepmsi/eval/reliability_weight.py (soft weight) + test
-    - results/analysis/qc_ablation/qc_regime_by_site.csv (hard|none|soft x per-site metrics + n_oauthc_kept)
-    - "docs/experiments/D2-qc-exclusion-ablation.md \u2014 VERDICT: does excluding bad-QC slides help, per site"
-  - id: D3-tumor-agg-ablation
-    priority: 82
-    status: todo
-    deps:
-    - D2-qc-exclusion-ablation
-    gpu: false
-    summary: 'Ablate tumor-filtering (on / off / threshold sweep) and patient aggregation (max/sqrt(n) vs mean vs top-k mean vs learned-weight) as a 2-D grid on champion + A0 harmony. Report per-site, OAUTHC-first.
-      Establishes which of the two remaining inherited choices actually earn their place in the low-N OOD regime. Feeds the B-phase readout the right inductive bias for aggregation.
-
-      '
-    done_when:
-    - results/analysis/tumor_agg_ablation/grid_by_site.csv
-    - "docs/experiments/D3-tumor-agg-ablation.md \u2014 VERDICT per choice, per site"
 - id: D1-error-structure
   priority: 84
   status: done
@@ -462,24 +420,40 @@ tasks:
   done_when:
   - results/analysis/tumor_agg_ablation/grid_by_site.csv
   - "docs/experiments/D3-tumor-agg-ablation.md \u2014 VERDICT per choice, per site"
-- id: C1-cohort-rebuild-reace
+- id: C1-cohort-rebuild-rerace
   priority: 75
-  status: todo
+  status: done
   deps:
   - D2-qc-exclusion-ablation
   - D3-tumor-agg-ablation
   gpu: false
-  summary: 'D2 proved the inherited hard QC exclusion (514 problem_slides) is a net loss (champion overall 0.713->0.732, OAUTHC 0.579->0.617 when kept). Rebuild the canonical cohort under the D2/D3 verdicts:
-    DROP the hard problem_slides exclusion (keep all slides with embeddings), tumor floor light per D3 (~0.01, not the heavy filter). Embeddings already exist for all slides so this is re-aggregation, not
-    re-extraction (CPU). Re-race the FULL board on the rebuilt cohort with per-scorer aggregation from D3 (champion max/sqrtn, Harmony MEAN). Regenerate leaderboard + head_to_head. This is the HONEST final
-    cohort; the no-regression floor must be re-baselined to the new champion ceiling (~0.732) after landing.
-
-    '
+  summary: 'Landed v2 feature-complete primary cohort: 803 slides / 217 patients / 47 MSI-H;
+    historical hard-QC selection retained as a 428-slide / 181-patient sensitivity set. Wagner
+    max/sqrtn is 0.717 (95% CI 0.631-0.799), not the selected-patient ~0.732 projected by D2.
+    The paired shared-patient delta from restoring slides is +0.019 with CI crossing zero. Board
+    rows now carry patient coverage and confirmatory-validity flags; old non-nested/partial rows
+    remain visible but cannot set the champion. Manifest floor frozen at 0.7166.'
   done_when:
   - results/data/cohort_clean.csv rebuilt (no hard QC gate); cohort_manifest.json updated with n_slides/n_patients per site + provenance note
-  - results/comparison/leaderboard.csv re-raced on rebuilt cohort (per-scorer agg)
+  - results/comparison/leaderboard.csv assembled with per-scorer aggregation, coverage, and validation-design flags
   - ralph/no_regression.py floor re-baselined to new champion clean AUROC
   - "docs/experiments/C1-cohort-rebuild.md \u2014 before/after per-site table, what moved"
+  - live REDCap freshness audit confirms benchmark patient labels/assay fields are current
+- id: V1-nested-validation-reset
+  priority: 74
+  status: done
+  deps:
+  - C1-cohort-rebuild-rerace
+  gpu: false
+  summary: 'Replace select-and-report OOF model races with repeated outer/inner patient-grouped
+    validation. Encoder choice and preprocessing are confined to inner folds; only untouched
+    outer predictions set the cohort-trained estimate. Historical non-nested rows remain visible
+    but cannot set the confirmatory champion or no-regression floor.'
+  done_when:
+  - argo_deepmsi/eval/validation.py with zero patient overlap audit + tests
+  - argo_deepmsi/scorers/nested_linear_probe.py registered + full-cohort scores
+  - results/scorers/nested_linear_probe/nested_fold_audit.json
+  - docs/experiments/V1-nested-validation.md
 - id: B1-cascade-rejector
   priority: 74
   status: wontfix
@@ -494,3 +468,27 @@ tasks:
   done_when:
   - "n/a \u2014 retired; no code to build"
   note: retired after D4 out-of-fold correction (commit 69bbb8a); grounding numbers retracted
+- id: B2-waiv-robust-encoders
+  priority: 73
+  status: blocked
+  deps:
+  - D3-tumor-agg-ablation
+  gpu: true
+  summary: 'Test Waiv''s acquisition-robust encoders as an OAUTHC-recovery lever at the ENCODER level (vs the feature-level corrections A0-A2 that plateaued). Waiv (arXiv:2607.22861, Owkin spin-off) argues
+    feature-level batch correction cannot fully remove acquisition shift and releases two fine-tuned encoders: Phaet (fine-tuned Phikon-v2, 1024-d) and Mascaret (fine-tuned Midnight-12k, 1536-d). Integration
+    landed 2026-07-31: argo_deepmsi/models/waiv.py registers both into LazySlide''s MODEL_REGISTRY (thin ImageModel wrappers, .encode() via trust_remote_code); wired into CLI + dask worker; tests green
+    (test_model_registry.py::TestWaivModels). Frozen pretrained weights -> allowed under no_new_training_data. Extract on the FULL 808 cohort (so the D2 drop-hard-QC verdict applies, OAUTHC keeps ~413 slides);
+    mean-aggregate per D3; race OAUTHC held-out AUROC + spec@sens95 vs the Harmony 0.713 ceiling. Tempered prior: A1 batch-erasure did NOT lift OAUTHC, so an encoder-level fix may not reach OAUTHC''s deficit
+    either -- a clean test of nuisance-shift vs entangled-biology.
+
+    '
+  blocked_reason: 'Authenticated as mat10d on 2026-08-03. Repository metadata is visible, but an
+    actual snapshot download returns HTTP 403 GatedRepoError: the access request is awaiting
+    review from the repo authors. Registration and static tests are green; extraction cannot
+    begin until Waiv approves the pending request.'
+  done_when:
+  - phaet_tiles + mascaret_tiles extracted into the per-slide zarrs on the full cohort (incremental; existing models skipped)
+  - results/embeddings/{phaet,mascaret}_mean/ built; OAUTHC + overall AUROC + spec@sens95 on the qc_comparison leaderboard
+  - "docs/experiments/B2-waiv-robust-encoders.md \u2014 OAUTHC-first verdict vs Harmony 0.713 (does an encoder-level fix beat feature-level correction?)"
+  - verify green
+  note: 'integration + competitive assessment: docs/competitive/waiv-robustify-2607.md. Launch once unblocked: sbatch scripts/extract_dask.sh results/data/slide_table_pyramidal.csv --models phaet mascaret --max-workers 3 --memory "256 GB"'

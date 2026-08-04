@@ -22,7 +22,10 @@ Patient aggregation is **max / √n_slides** (the C5 best baseline).
 
 - Per-slide `tables/ctranspath_tiles` in each slide zarr
 - `clinical_table.csv` for ground-truth `isMSIH`
-- Pretrained weights at `old/HistoBistro/CancerCellCRCTransformer/trained_models/MSI_high_CRC_model.pth`
+- Canonical implementation: `argo_deepmsi.models.wagner`
+- Checksum-verified external weights staged at
+  `artifacts/checkpoints/wagner/MSI_high_CRC_model.pth`
+- The archived `old/HistoBistro` checkout is provenance only and is not a runtime dependency.
 
 ## Outputs
 

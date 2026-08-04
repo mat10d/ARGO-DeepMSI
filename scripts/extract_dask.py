@@ -73,6 +73,8 @@ def _process_slide(slide_path: str, models: list[str], tile_px: int, mpp: float)
     from wsidata import open_wsi
     import lazyslide as zs
 
+    import argo_deepmsi.models  # noqa: F401  (registers phaet/mascaret in this worker)
+
     p = _Path(slide_path)
     zarr_path = p.with_suffix(".zarr")
 
@@ -259,7 +261,7 @@ def main() -> None:
             # Default is 8×nCPU (~128 arenas × many MB each); 2 arenas caps
             # the RSS overhead from freed-but-not-returned allocations.
             "export MALLOC_ARENA_MAX=2",
-            f"source $(conda info --base)/etc/profile.d/conda.sh",
+            "source $(conda info --base)/etc/profile.d/conda.sh",
             f"conda activate {args.conda_env}",
             f"export HF_HOME={project}/.huggingface_cache",
             f"cd {project}",

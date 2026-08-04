@@ -2,6 +2,7 @@
   "name": "harmony_probe",
   "description": "Class-balanced logistic-regression linear probe on the Harmony batch-corrected CONCH-TITAN slide embedding (conch_v1.5_titan_harmony), 5-fold patient-grouped, max/\u221an patient aggregation. The D0-promoted OAUTHC-recovery baseline: Harmony deflates the OAUTHC-prospective vs retro-OAU processing-batch axis (site-pred AUROC 1.00 -> 0.82) that the raw embedding latches onto instead of MSI morphology. Frozen features; Harmony fit on our own cohort (no external data).",
   "needs_training_on_our_data": true,
+  "resolution": "slide",
   "score_columns": [
     {
       "name": "p_msih",
@@ -9,5 +10,6 @@
       "primary": true
     }
   ],
-  "primary_score": "p_msih"
+  "primary_score": "p_msih",
+  "patient_aggregation": "mean"
 }

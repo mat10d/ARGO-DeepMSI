@@ -1,0 +1,35 @@
+{
+  "name": "transductive_smoothing",
+  "description": "kNN-graph label propagation over per-tile (MSI\u2212MSS) VL scores. Smooths the raw vl_text_cosine output through a within-slide tile affinity graph. No training.",
+  "needs_training_on_our_data": false,
+  "resolution": "slide",
+  "score_columns": [
+    {
+      "name": "smooth_max",
+      "description": "max over graph-smoothed tile scores",
+      "primary": true
+    },
+    {
+      "name": "smooth_topk",
+      "description": "mean of top-k smoothed tiles",
+      "primary": false
+    },
+    {
+      "name": "smooth_mean",
+      "description": "mean over all smoothed tiles",
+      "primary": false
+    },
+    {
+      "name": "raw_topk",
+      "description": "mean top-k of unsmoothed tiles (control)",
+      "primary": false
+    },
+    {
+      "name": "raw_max",
+      "description": "max of unsmoothed tiles (control)",
+      "primary": false
+    }
+  ],
+  "primary_score": "smooth_max",
+  "patient_aggregation": "max_sqrtn"
+}

@@ -2,6 +2,7 @@
   "name": "stainnorm_probe",
   "description": "LR probe on CONCH-TITAN with OAUTHC-prospective slides replaced by their Macenko-stain-normalized (retro-OAU reference) re-extraction; all other sites keep the original conch_v1.5_titan vector. Tests pixel-level batch correction against feature-space correction (A0/A1). 5-fold patient-grouped, max/\u221an. Frozen features, no external data.",
   "needs_training_on_our_data": true,
+  "resolution": "slide",
   "score_columns": [
     {
       "name": "p_msih",
@@ -9,5 +10,6 @@
       "primary": true
     }
   ],
-  "primary_score": "p_msih"
+  "primary_score": "p_msih",
+  "patient_aggregation": "max_sqrtn"
 }

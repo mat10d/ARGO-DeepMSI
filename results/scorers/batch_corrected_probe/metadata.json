@@ -2,6 +2,7 @@
   "name": "batch_corrected_probe",
   "description": "LR probe on frozen CONCH-TITAN after an OAUTHC-targeted feature-space batch correction, chosen by OAUTHC held-out AUROC. Sweeps ComBat (global) vs one-site OAUTHC->reference location/scale alignment (retro-OAU / pooled) against the raw baseline; keeps the winner. Corrections are unsupervised w.r.t. MSI and fit transductively on the scored cohort. Frozen features, no external data.",
   "needs_training_on_our_data": true,
+  "resolution": "slide",
   "score_columns": [
     {
       "name": "p_msih",
@@ -9,5 +10,6 @@
       "primary": true
     }
   ],
-  "primary_score": "p_msih"
+  "primary_score": "p_msih",
+  "patient_aggregation": "max_sqrtn"
 }

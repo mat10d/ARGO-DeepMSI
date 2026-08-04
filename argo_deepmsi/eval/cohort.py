@@ -39,7 +39,7 @@ def load_qc_exclusion(qc_csv: Path | None) -> set[str]:
     if qc_csv is None or not Path(qc_csv).exists():
         return set()
     df = pd.read_csv(qc_csv)
-    bad = df[df["passes_qc"] == False]["Name"].astype(str)
+    bad = df[~df["passes_qc"].astype(bool)]["Name"].astype(str)
     return {Path(n).stem for n in bad}
 
 
@@ -54,7 +54,145 @@ def load_clean_exclusion(clean_csv: Path | None) -> set[str]:
     if clean_csv is None or not Path(clean_csv).exists():
         return set()
     df = pd.read_csv(clean_csv)
-    return {str(s) for s in df.loc[df["in_clean_set"] != 1, "slide_id"]}
+    inclusion_col = "in_primary_set" if "in_primary_set" in df.columns else "in_clean_set"
+    return {str(s) for s in df.loc[df[inclusion_col] != 1, "slide_id"]}
+
+
+def _patient_cohort(site_values: pd.Series) -> str:
+    """Return a patient-level acquisition cohort, not an arbitrary slide site.
+
+    The 83 retrospective patients have slides in both ``retrospective_msk`` and
+    ``retrospective_oau``. Those values describe processing variants for the same
+    retrospective cohort and must not split a patient into two evaluation groups.
+    Prospective sites are already patient-disjoint.
+    """
+    sites = {str(s) for s in site_values.dropna()}
+    retrospective = {"retrospective_msk", "retrospective_oau"}
+    if sites and sites <= retrospective:
+        return "retrospective"
+    if len(sites) == 1:
+        return next(iter(sites))
+    return "mixed:" + "+".join(sorted(sites))
+
+
+def rebuild_full_feature_cohort(
+    cohort_csv: Path,
+    clinical_csv: Path,
+    manifest_csv: Path,
+) -> tuple[pd.DataFrame, dict]:
+    """Promote every feature-complete slide into the primary cohort.
+
+    QC outputs remain as descriptive flags and define a secondary sensitivity
+    subset. This avoids selecting patients based on whether at least one slide
+    survived pathologist/tumor filtering while preserving the historical subset.
+    ``in_clean_set`` is retained as a backward-compatible alias for
+    ``in_primary_set`` because scorer runners already consume that column.
+    """
+    cohort = pd.read_csv(cohort_csv)
+    clinical = pd.read_csv(clinical_csv)
+
+    cohort["has_features"] = cohort["n_tiles"].fillna(0).gt(0)
+    sensitivity_source = (
+        "in_qc_sensitivity_set"
+        if "in_qc_sensitivity_set" in cohort
+        else "in_clean_set"
+    )
+    old_clean = (
+        cohort[sensitivity_source].eq(1)
+        if sensitivity_source in cohort
+        else pd.Series(False, index=cohort.index)
+    )
+    cohort["in_qc_sensitivity_set"] = old_clean.astype(int)
+    cohort["in_primary_set"] = cohort["has_features"].astype(int)
+    cohort["in_clean_set"] = cohort["in_primary_set"]  # legacy consumer alias
+    cohort["processing_site"] = cohort["site"].astype(str)
+
+    patient_cohorts = cohort.groupby("patient_id")["site"].apply(_patient_cohort)
+    cohort["patient_cohort"] = cohort["patient_id"].map(patient_cohorts)
+
+    label_cols = [
+        c for c in ("PATIENT", "cmo_msi_status", "cmo_msi_score", "msi_status_mmr")
+        if c in clinical.columns
+    ]
+    labels = clinical[label_cols].drop_duplicates("PATIENT").rename(columns={"PATIENT": "patient_id"})
+    cohort = cohort.drop(
+        columns=[c for c in ("cmo_msi_status", "cmo_msi_score", "msi_status_mmr",
+                             "label_source", "label_certainty") if c in cohort.columns]
+    ).merge(labels, on="patient_id", how="left")
+    for column in ("cmo_msi_status", "cmo_msi_score", "msi_status_mmr"):
+        if column not in cohort:
+            cohort[column] = np.nan
+    cohort["label_source"] = np.where(
+        cohort["cmo_msi_status"].notna(), "prospective_cmo", "retrospective_mmr"
+    )
+    cohort["label_certainty"] = np.where(
+        cohort["cmo_msi_status"].astype(str).str.contains("Indeterminate", na=False),
+        "indeterminate_as_mss",
+        "definite",
+    )
+
+    cohort.to_csv(cohort_csv, index=False)
+
+    primary = cohort[cohort["in_primary_set"] == 1]
+    sensitivity = cohort[cohort["in_qc_sensitivity_set"] == 1]
+    by_cohort = {}
+    for name, sub in primary.groupby("patient_cohort"):
+        by_cohort[str(name)] = {
+            "n_slides": int(len(sub)),
+            "n_patients": int(sub["patient_id"].nunique()),
+            "n_positive_patients": int(
+                sub.drop_duplicates("patient_id")["y"].sum()
+            ),
+        }
+
+    by_processing_site = {}
+    for name, sub in cohort.groupby("processing_site"):
+        sub_primary = sub[sub["in_primary_set"] == 1]
+        by_processing_site[str(name)] = {
+            "n_total": int(len(sub)),
+            "n_in_clean_set": int(len(sub_primary)),
+            "n_patients_in_clean_set": int(sub_primary["patient_id"].nunique()),
+        }
+
+    manifest = json.loads(Path(manifest_csv).read_text()) if Path(manifest_csv).exists() else {}
+    manifest.update({
+        "cohort_version": "v2-feature-complete-primary",
+        "frozen": False,
+        # Keep these legacy keys internally consistent for old consumers.  The
+        # named estimand blocks below are authoritative for new code.
+        "n_slides_total": int(len(cohort)),
+        "n_slides_in_clean_set": int(len(primary)),
+        "n_patients_total": int(cohort["patient_id"].nunique()),
+        "n_patients_in_clean_set": int(primary["patient_id"].nunique()),
+        "clean_prevalence": float(primary["y"].mean()),
+        "by_site": by_processing_site,
+        "cohort_reset": {
+            "reason": "D2 showed the inherited hard QC exclusion reduced discrimination",
+            "primary_rule": "n_tiles > 0",
+            "qc_flags_role": "descriptive and secondary sensitivity analysis only",
+        },
+        "primary_estimand": {
+            "description": "all patients with at least one feature-complete slide",
+            "inclusion_column": "in_primary_set",
+            "legacy_alias": "in_clean_set",
+            "n_slides": int(len(primary)),
+            "n_patients": int(primary["patient_id"].nunique()),
+            "n_positive_patients": int(primary.drop_duplicates("patient_id")["y"].sum()),
+            "by_patient_cohort": by_cohort,
+        },
+        "qc_sensitivity_estimand": {
+            "description": "historical eCRF-plus-tumor-filtered subset",
+            "inclusion_column": "in_qc_sensitivity_set",
+            "n_slides": int(len(sensitivity)),
+            "n_patients": int(sensitivity["patient_id"].nunique()),
+        },
+        "label_policy": {
+            "primary": "existing binary label; prospective Indeterminate remains MSS",
+            "sensitivity": "exclude label_certainty=indeterminate_as_mss",
+        },
+    })
+    Path(manifest_csv).write_text(json.dumps(manifest, indent=2))
+    return cohort, manifest
 
 
 def build_cohort(
@@ -304,33 +442,75 @@ def freeze_manifest(
     """
     manifest = json.loads(Path(manifest_csv).read_text())
     cohort = pd.read_csv(cohort_csv)
-    clean = cohort[cohort["in_clean_set"] == 1]
+    inclusion_col = "in_primary_set" if "in_primary_set" in cohort else "in_clean_set"
+    clean = cohort[cohort[inclusion_col] == 1]
 
     lb = pd.read_csv(leaderboard_csv)
-    best_auroc = float(lb["patient_auroc_clean"].max())
-    champion = str(lb.sort_values("patient_auroc_clean", ascending=False)["scorer"].iloc[0])
+    eligible = lb.copy()
+    if "comparable_primary" in eligible:
+        eligible = eligible[eligible["comparable_primary"].astype(bool)]
+    if "confirmatory_valid" in eligible:
+        eligible = eligible[eligible["confirmatory_valid"].astype(bool)]
+    if eligible.empty:
+        raise ValueError("leaderboard has no comparable confirmatory scorer")
+    best_auroc = float(eligible["patient_auroc_clean"].max())
+    champion = str(
+        eligible.sort_values("patient_auroc_clean", ascending=False)["scorer"].iloc[0]
+    )
 
     per_site = {}
     for site, sub in cohort.groupby("site"):
-        sub_clean = sub[sub["in_clean_set"] == 1]
+        sub_clean = sub[sub[inclusion_col] == 1]
         per_site[str(site)] = {
             "n_total": int(len(sub)),
             "n_in_clean_set": int(len(sub_clean)),
             "n_patients_in_clean_set": int(sub_clean["patient_id"].nunique()),
         }
 
-    manifest["cohort_version"] = "v1-ecrf+artifact+tumor"
+    manifest["cohort_version"] = (
+        "v2-feature-complete-primary" if inclusion_col == "in_primary_set"
+        else "v1-ecrf+artifact+tumor"
+    )
     manifest["frozen"] = True
     manifest["clean_cohort"] = {
         "csv": str(cohort_csv),
-        "layers": list(manifest.get("layers", [])),
+        "inclusion_column": inclusion_col,
+        "layers": (
+            ["feature_complete"]
+            if inclusion_col == "in_primary_set"
+            else list(manifest.get("layers", []))
+        ),
+        "descriptive_qc_layers": (
+            list(manifest.get("layers", []))
+            if inclusion_col == "in_primary_set"
+            else []
+        ),
         "n_slides_in_clean_set": int(len(clean)),
         "n_patients_in_clean_set": int(clean["patient_id"].nunique()),
         "clean_prevalence": float(clean["y"].mean()) if len(clean) else float("nan"),
+        "slide_prevalence": float(clean["y"].mean()) if len(clean) else float("nan"),
+        "patient_prevalence": float(
+            clean.drop_duplicates("patient_id")["y"].mean()
+        ) if len(clean) else float("nan"),
         "by_site": per_site,
     }
+    if "primary_estimand" in manifest:
+        manifest["primary_estimand"]["patient_prevalence"] = float(
+            clean.drop_duplicates("patient_id")["y"].mean()
+        ) if len(clean) else float("nan")
     manifest["no_regression_floor"] = best_auroc
     manifest["no_regression_champion"] = champion
+    redcap_audit = Path(cohort_csv).parent / "redcap_freshness_audit.json"
+    if redcap_audit.exists():
+        audit = json.loads(redcap_audit.read_text())
+        manifest["redcap_freshness_audit"] = {
+            "audit_time": audit.get("audit_time"),
+            "benchmark_labels_current": audit.get("benchmark_labels_current"),
+            "identity_delta": audit.get("identity_delta"),
+            "newly_labelled_nonbenchmark_patients": audit.get(
+                "full_clinical_field_delta", {}
+            ).get("isMSIH", {}).get("newly_populated"),
+        }
     Path(manifest_csv).write_text(json.dumps(manifest, indent=2))
     return manifest
 
@@ -376,6 +556,8 @@ def main() -> None:
                    default="results/data/tumor_smokeoff/smokeoff_metrics.json", type=Path)
     p.add_argument("--freeze", action="store_true",
                    help="freeze the manifest (Q4): set layer counts + no_regression_floor")
+    p.add_argument("--rebuild-full", action="store_true",
+                   help="make all feature-complete slides the primary cohort (C1 reset)")
     p.add_argument("--leaderboard",
                    default="results/comparison/leaderboard.csv", type=Path)
     a = p.parse_args()
@@ -383,6 +565,17 @@ def main() -> None:
     a.outdir.mkdir(parents=True, exist_ok=True)
     cohort_csv = a.outdir / "cohort_clean.csv"
     manifest_csv = a.outdir / "cohort_manifest.json"
+
+    if a.rebuild_full:
+        cohort, manifest = rebuild_full_feature_cohort(cohort_csv, a.clinical, manifest_csv)
+        primary = manifest["primary_estimand"]
+        sensitivity = manifest["qc_sensitivity_estimand"]
+        print(
+            f"full-cohort reset: {primary['n_slides']} slides / {primary['n_patients']} patients; "
+            f"QC sensitivity: {sensitivity['n_slides']} slides / "
+            f"{sensitivity['n_patients']} patients."
+        )
+        return
 
     if a.freeze:
         manifest = freeze_manifest(cohort_csv, manifest_csv, a.leaderboard)

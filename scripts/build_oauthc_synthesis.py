@@ -1,9 +1,12 @@
-"""A6 — OAUTHC-recovery synthesis: leaderboard + figure + head-to-head-vs-MSIntuit.
+"""A6 — historical OAUTHC-recovery synthesis: leaderboard and figure.
 
 Assembles the A-phase OAUTHC-recovery story from the per-scorer metrics + the leaderboard:
   - results/comparison/oauthc_recovery_leaderboard.csv
   - results/comparison/figure_oauthc_recovery.png
-  - results/comparison/head_to_head_msintuit.csv   (updated: full cohort WITH OAUTHC)
+
+The manuscript head-to-head is owned by ``scripts/build_paper_tables.py``.  This
+historical script deliberately does not overwrite it with the old 181-patient
+constants below.
 
 No modeling — pure assembly of already-computed results. Run on a compute node.
 """
@@ -72,8 +75,12 @@ def build_recovery_leaderboard() -> pd.DataFrame:
 def build_figure(df: pd.DataFrame) -> None:
     d = df.sort_values("oauthc_auroc")
     fig, ax = plt.subplots(figsize=(8, 5))
-    colors = ["#2b8cbe" if "A0" in l else ("#a6bddb" if l.startswith("A") else "#cccccc")
-              for l in d["label"]]
+    colors = [
+        "#2b8cbe"
+        if "A0" in label
+        else ("#a6bddb" if label.startswith("A") else "#cccccc")
+        for label in d["label"]
+    ]
     ax.barh(d["label"], d["oauthc_auroc"], color=colors)
     ax.axvline(0.5, color="k", ls=":", lw=1, label="chance")
     ax.axvline(CHAMPION_OAUTHC, color="#e34a33", ls="--", lw=1.2, label=f"champion {CHAMPION_OAUTHC:.2f}")
@@ -119,10 +126,10 @@ def update_head_to_head() -> None:
 def main() -> None:
     df = build_recovery_leaderboard()
     build_figure(df)
-    update_head_to_head()
     print("=== OAUTHC recovery leaderboard ===")
     print(df.to_string(index=False))
-    print(f"\nwrote {COMP/'oauthc_recovery_leaderboard.csv'}, figure_oauthc_recovery.png, head_to_head_msintuit.csv")
+    print(f"\nwrote {COMP/'oauthc_recovery_leaderboard.csv'} and figure_oauthc_recovery.png")
+    print("head_to_head_msintuit.csv is generated only by scripts/build_paper_tables.py")
 
 
 if __name__ == "__main__":

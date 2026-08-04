@@ -1,0 +1,47 @@
+{
+  "bootstrap": "patient-stratified, 2000 draws, seed 42",
+  "primary_vs_qc_paired_delta": {
+    "estimate": 0.019163763066201933,
+    "ci_low": -0.006271777003484249,
+    "ci_high": 0.046520034843205625,
+    "probability_le_zero": 0.072
+  },
+  "estimands": [
+    {
+      "estimand": "primary_full",
+      "n_patients": 217,
+      "n_positive": 47,
+      "auroc": 0.7166458072590739,
+      "auroc_ci_low": 0.630531914893617,
+      "auroc_ci_high": 0.7992615769712139,
+      "spec_at_sens90": 0.15294117647058825,
+      "spec_at_sens95": 0.1411764705882353,
+      "spec_at_sens96": 0.08235294117647059,
+      "npv_at_sens95": 0.9230769230769231
+    },
+    {
+      "estimand": "qc_sensitivity",
+      "n_patients": 181,
+      "n_positive": 41,
+      "auroc": 0.7127177700348433,
+      "auroc_ci_low": 0.625065331010453,
+      "auroc_ci_high": 0.7945993031358884,
+      "spec_at_sens90": 0.19285714285714287,
+      "spec_at_sens95": 0.17857142857142858,
+      "spec_at_sens96": 0.07857142857142857,
+      "npv_at_sens95": 0.9259259259259259
+    },
+    {
+      "estimand": "definite_labels",
+      "n_patients": 177,
+      "n_positive": 47,
+      "auroc": 0.7186579378068739,
+      "auroc_ci_low": 0.6294476268412438,
+      "auroc_ci_high": 0.8050736497545008,
+      "spec_at_sens90": 0.13846153846153847,
+      "spec_at_sens95": 0.12307692307692308,
+      "spec_at_sens96": 0.09230769230769231,
+      "npv_at_sens95": 0.8888888888888888
+    }
+  ]
+}

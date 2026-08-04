@@ -1,0 +1,35 @@
+{
+  "cohort_sha256": "1b4c517dc9b2bfa31fa4e59808d04cea73fd3f6574dd072931d82f3b936dbdbd",
+  "seed": 42,
+  "n_splits": 5,
+  "n_patients": 217,
+  "n_slides": 803,
+  "n_positive_patients": 47,
+  "fold_counts": {
+    "0": {
+      "patients": 43,
+      "positive_patients": 9,
+      "slides": 160
+    },
+    "1": {
+      "patients": 43,
+      "positive_patients": 9,
+      "slides": 141
+    },
+    "2": {
+      "patients": 44,
+      "positive_patients": 10,
+      "slides": 154
+    },
+    "3": {
+      "patients": 43,
+      "positive_patients": 9,
+      "slides": 142
+    },
+    "4": {
+      "patients": 44,
+      "positive_patients": 10,
+      "slides": 206
+    }
+  }
+}

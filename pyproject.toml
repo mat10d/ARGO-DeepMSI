@@ -89,6 +89,12 @@ conch = [
 omiclip = [
     "open_clip_torch>=2.24.0",
 ]
+# Waiv's gated remote model code currently requires the Transformers 5.x API.
+# Keep it opt-in so existing encoder environments are not upgraded implicitly.
+waiv = [
+    "transformers>=5.14.0,<6.0.0",
+    "safetensors>=0.8.0",
+]
 
 [project.scripts]
 argo = "argo_deepmsi.cli:app"

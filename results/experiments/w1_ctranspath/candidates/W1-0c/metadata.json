@@ -1,0 +1,10 @@
+{
+  "candidate_id": "W1-0c",
+  "description": "Frozen Wagner on deterministic 1024-tile reservoirs",
+  "tile_cap": 1024,
+  "parameter_count": {
+    "total": 3549697,
+    "trainable": 3549697
+  },
+  "uses_archived_old_tree": false
+}

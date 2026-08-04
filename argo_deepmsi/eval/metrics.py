@@ -25,6 +25,17 @@ PATIENT_AGG: dict[str, Callable[[pd.Series], float]] = {
 }
 
 
+def canonical_patient_site(values: pd.Series) -> str:
+    """Collapse slide processing sites into a stable patient cohort label."""
+    sites = {str(v) for v in values.dropna()}
+    retrospective = {"retrospective_msk", "retrospective_oau", "retrospective"}
+    if sites and sites <= retrospective:
+        return "retrospective"
+    if len(sites) == 1:
+        return next(iter(sites))
+    return "mixed:" + "+".join(sorted(sites))
+
+
 def aggregate_to_patient(
     slide_df: pd.DataFrame,
     score_col: str,
@@ -48,12 +59,93 @@ def aggregate_to_patient(
             {
                 group_col: pid,
                 label_col: int(sub[label_col].iloc[0]),
-                site_col: sub[site_col].iloc[0],
+                site_col: canonical_patient_site(sub[site_col]),
                 "n_slides": int(len(sub)),
                 "score": fn(sub[score_col]),
             }
         )
     return pd.DataFrame(rows)
+
+
+def stratified_patient_bootstrap(
+    patient_df: pd.DataFrame,
+    *,
+    score_col: str = "score",
+    label_col: str = "y",
+    n_boot: int = 2000,
+    seed: int = 42,
+) -> dict[str, float]:
+    """Patient-stratified bootstrap interval for AUROC.
+
+    Resampling positives and negatives separately avoids single-class bootstrap
+    draws in low-prevalence cohorts. The point estimate is always computed from
+    the original patients.
+    """
+    df = patient_df.dropna(subset=[score_col, label_col]).reset_index(drop=True)
+    pos = df[df[label_col] == 1]
+    neg = df[df[label_col] == 0]
+    if len(pos) == 0 or len(neg) == 0:
+        return {"estimate": float("nan"), "ci_low": float("nan"), "ci_high": float("nan")}
+    rng = np.random.default_rng(seed)
+    values = np.empty(n_boot, dtype=float)
+    pos_scores = pos[score_col].to_numpy()
+    neg_scores = neg[score_col].to_numpy()
+    labels = np.r_[np.ones(len(pos)), np.zeros(len(neg))]
+    for i in range(n_boot):
+        scores = np.r_[
+            pos_scores[rng.integers(0, len(pos_scores), len(pos_scores))],
+            neg_scores[rng.integers(0, len(neg_scores), len(neg_scores))],
+        ]
+        values[i] = roc_auc_score(labels, scores)
+    low, high = np.quantile(values, [0.025, 0.975])
+    return {
+        "estimate": float(roc_auc_score(df[label_col], df[score_col])),
+        "ci_low": float(low),
+        "ci_high": float(high),
+    }
+
+
+def paired_bootstrap_auroc_delta(
+    left: pd.DataFrame,
+    right: pd.DataFrame,
+    *,
+    patient_col: str = "patient_id",
+    score_col: str = "score",
+    label_col: str = "y",
+    n_boot: int = 2000,
+    seed: int = 42,
+) -> dict[str, float]:
+    """Paired patient bootstrap for AUROC(left) - AUROC(right)."""
+    joined = left[[patient_col, label_col, score_col]].merge(
+        right[[patient_col, label_col, score_col]],
+        on=[patient_col, label_col],
+        suffixes=("_left", "_right"),
+    )
+    pos = joined[joined[label_col] == 1].reset_index(drop=True)
+    neg = joined[joined[label_col] == 0].reset_index(drop=True)
+    if len(pos) == 0 or len(neg) == 0:
+        return {"estimate": float("nan"), "ci_low": float("nan"), "ci_high": float("nan")}
+    rng = np.random.default_rng(seed)
+    values = np.empty(n_boot, dtype=float)
+    labels = np.r_[np.ones(len(pos)), np.zeros(len(neg))]
+    for i in range(n_boot):
+        sample = pd.concat([
+            pos.iloc[rng.integers(0, len(pos), len(pos))],
+            neg.iloc[rng.integers(0, len(neg), len(neg))],
+        ])
+        values[i] = roc_auc_score(labels, sample[f"{score_col}_left"]) - roc_auc_score(
+            labels, sample[f"{score_col}_right"]
+        )
+    estimate = roc_auc_score(joined[label_col], joined[f"{score_col}_left"]) - roc_auc_score(
+        joined[label_col], joined[f"{score_col}_right"]
+    )
+    low, high = np.quantile(values, [0.025, 0.975])
+    return {
+        "estimate": float(estimate),
+        "ci_low": float(low),
+        "ci_high": float(high),
+        "probability_le_zero": float(np.mean(values <= 0)),
+    }
 
 
 def _safe_auroc(y: np.ndarray, scores: np.ndarray) -> float:

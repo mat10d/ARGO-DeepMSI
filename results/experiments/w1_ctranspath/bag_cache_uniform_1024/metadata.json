@@ -1,0 +1,10 @@
+{
+  "feature": "ctranspath_tiles",
+  "feature_dim": 768,
+  "max_tiles": 1024,
+  "seed": 42,
+  "sampling": "uniform",
+  "n_slides": 803,
+  "total_tiles": 788782,
+  "slide_index_sha256": "36c52668d819219c385137bb3f38fe5163e25d979e539d4bdcea29ef82cb8219"
+}

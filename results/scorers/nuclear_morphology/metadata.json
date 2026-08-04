@@ -1,0 +1,15 @@
+{
+  "name": "nuclear_morphology",
+  "description": "NuLite cell-type fractions (tumor / lymphocyte / stroma / dead / epithelial) + derived ratios (TIL density, stroma ratio, ...) fed to a class-balanced LR head trained 5-fold patient-grouped on our cohort. Refit on whatever slide set the harness hands in.",
+  "needs_training_on_our_data": true,
+  "resolution": "slide",
+  "score_columns": [
+    {
+      "name": "p_msih",
+      "description": "LR p(MSI-H) on morphology features",
+      "primary": true
+    }
+  ],
+  "primary_score": "p_msih",
+  "patient_aggregation": "max_sqrtn"
+}

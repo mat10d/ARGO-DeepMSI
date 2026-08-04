@@ -1,0 +1,15 @@
+{
+  "name": "simple_grid",
+  "description": "Sweeps logistic regression / random forest / xgboost over 6 frozen embeddings \u00d7 {raw, PCA-100} on our cohort with 5-fold patient-grouped CV. Picks the config that maximises patient AUROC (max/\u221an) and exposes its OOF as the primary score. The full sweep table is written to grid.csv for inspection.",
+  "needs_training_on_our_data": true,
+  "resolution": "slide",
+  "score_columns": [
+    {
+      "name": "p_msih",
+      "description": "OOF p(MSI-H) of best-grid config",
+      "primary": true
+    }
+  ],
+  "primary_score": "p_msih",
+  "patient_aggregation": "max_sqrtn"
+}

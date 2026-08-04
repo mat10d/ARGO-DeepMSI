@@ -2,6 +2,7 @@
   "name": "tip_adapter",
   "description": "Training-free Tip-Adapter on TITAN (CONCH v1.5) slide embeddings: few-shot class-balanced cache affinity combined at equal weight (per-fold z-scored) with the zero-shot MSI/MSS text delta. Secondary CoOp-lite variant learns a logistic head on the two prompt-channel cosines. Few-shot curve K\u2208{1,2,4,8,16,all}.",
   "needs_training_on_our_data": true,
+  "resolution": "slide",
   "score_columns": [
     {
       "name": "p_msih",
@@ -19,5 +20,6 @@
       "primary": false
     }
   ],
-  "primary_score": "p_msih"
+  "primary_score": "p_msih",
+  "patient_aggregation": "max_sqrtn"
 }

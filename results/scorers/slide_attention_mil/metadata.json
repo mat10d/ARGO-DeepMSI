@@ -1,0 +1,15 @@
+{
+  "name": "slide_attention_mil",
+  "description": "Attention-MIL head trained on our cohort: bag = all of a patient's slide-level frozen-embedding features; small attention pooler emits p(MSI-H). Trained 5-fold patient-grouped CV.",
+  "needs_training_on_our_data": true,
+  "resolution": "patient",
+  "score_columns": [
+    {
+      "name": "p_msih",
+      "description": "attention-MIL p(MSI-H)",
+      "primary": true
+    }
+  ],
+  "primary_score": "p_msih",
+  "patient_aggregation": "max_sqrtn"
+}

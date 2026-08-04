@@ -1,0 +1,151 @@
+{
+  "n_slides": 803,
+  "n_patients": 217,
+  "prevalence_slide": 0.1917808219178082,
+  "prevalence_patient": 0.21658986175115208,
+  "patient_agg": "max_sqrtn",
+  "slide_auroc": 0.5019710643747624,
+  "slide_auprc": 0.2082102160684091,
+  "patient_auroc": 0.633729662077597,
+  "patient_auprc": 0.34945535209099154,
+  "per_site_slide": {
+    "LASUTH": {
+      "n": 15,
+      "prevalence": 0.2,
+      "auroc": 0.5555555555555556,
+      "auprc": 0.2611111111111111
+    },
+    "LUTH": {
+      "n": 31,
+      "prevalence": 0.12903225806451613,
+      "auroc": 0.6203703703703703,
+      "auprc": 0.492816091954023
+    },
+    "OAUTHC": {
+      "n": 476,
+      "prevalence": 0.17436974789915966,
+      "auroc": 0.3657530886906404,
+      "auprc": 0.14444819043570098
+    },
+    "UITH": {
+      "n": 12,
+      "prevalence": 0.5,
+      "auroc": 0.75,
+      "auprc": 0.810515873015873
+    },
+    "retrospective_msk": {
+      "n": 97,
+      "prevalence": 0.20618556701030927,
+      "auroc": 0.6967532467532468,
+      "auprc": 0.3270407272331897
+    },
+    "retrospective_oau": {
+      "n": 172,
+      "prevalence": 0.22093023255813954,
+      "auroc": 0.687254516889238,
+      "auprc": 0.3364555594788523
+    }
+  },
+  "per_site_patient": {
+    "LASUTH": {
+      "n": 13,
+      "prevalence": 0.23076923076923078,
+      "auroc": 0.6333333333333333,
+      "auprc": 0.33730158730158727
+    },
+    "LUTH": {
+      "n": 19,
+      "prevalence": 0.15789473684210525,
+      "auroc": 0.8541666666666666,
+      "auprc": 0.6666666666666666
+    },
+    "OAUTHC": {
+      "n": 81,
+      "prevalence": 0.20987654320987653,
+      "auroc": 0.5091911764705883,
+      "auprc": 0.3079348306192814
+    },
+    "UITH": {
+      "n": 10,
+      "prevalence": 0.4,
+      "auroc": 0.8333333333333334,
+      "auprc": 0.875
+    },
+    "retrospective": {
+      "n": 94,
+      "prevalence": 0.2127659574468085,
+      "auroc": 0.6800675675675676,
+      "auprc": 0.3136367796591923
+    }
+  },
+  "patient_bootstrap": {
+    "estimate": 0.633729662077597,
+    "ci_low": 0.5499374217772216,
+    "ci_high": 0.7234058197747183
+  },
+  "screening": {
+    "op_sens90": {
+      "target_sensitivity": 0.9,
+      "sensitivity": 0.9148936170212766,
+      "specificity": 0.19411764705882353,
+      "npv": 0.8918918918918919,
+      "ruled_out_fraction": 0.17050691244239632,
+      "threshold": 0.00441741943359375
+    },
+    "spec_at_sens90": 0.19411764705882353,
+    "npv_at_sens90": 0.8918918918918919,
+    "op_sens95": {
+      "target_sensitivity": 0.95,
+      "sensitivity": 0.9574468085106383,
+      "specificity": 0.14705882352941177,
+      "npv": 0.9259259259259259,
+      "ruled_out_fraction": 0.12442396313364056,
+      "threshold": 0.003948753538723255
+    },
+    "spec_at_sens95": 0.14705882352941177,
+    "npv_at_sens95": 0.9259259259259259,
+    "op_sens96": {
+      "target_sensitivity": 0.96,
+      "sensitivity": 0.9787234042553191,
+      "specificity": 0.1411764705882353,
+      "npv": 0.96,
+      "ruled_out_fraction": 0.1152073732718894,
+      "threshold": 0.003616367881810629
+    },
+    "spec_at_sens96": 0.1411764705882353,
+    "npv_at_sens96": 0.96,
+    "op_sens98": {
+      "target_sensitivity": 0.98,
+      "sensitivity": 1.0,
+      "specificity": 0.12941176470588237,
+      "npv": 1.0,
+      "ruled_out_fraction": 0.10138248847926268,
+      "threshold": 0.0033512115478515625
+    },
+    "spec_at_sens98": 0.12941176470588237,
+    "npv_at_sens98": 1.0
+  },
+  "candidate_id": "W1-7",
+  "validation_design": "fixed candidate; 5-fold patient-grouped outer OOF; fold-local inner early-stopping epoch; refit on complete outer training fold",
+  "confirmatory_valid": false,
+  "confirmatory_note": "Each candidate has untouched outer predictions, but choosing the best W1 candidate on this development cohort makes the selected maximum exploratory.",
+  "paired_delta_vs_frozen_wagner": {
+    "estimate": -0.08291614518147694,
+    "ci_low": -0.16176783479349197,
+    "ci_high": -0.0033776595744680923,
+    "probability_le_zero": 0.978
+  },
+  "peft_design": {
+    "candidate_id": "W1-7",
+    "ctranspath_mode": "bitfit_norm",
+    "description": "CTransPath BitFit/normalization plus full warm-started Wagner",
+    "encoder_learning_rate": 1e-05,
+    "head_learning_rate": 5e-05,
+    "weight_decay": 0.0001,
+    "max_epochs": 6,
+    "patience": 2,
+    "train_bag_tiles": 256,
+    "eval_bag_tiles": 1024,
+    "raw_tiles_per_slide": 8
+  }
+}

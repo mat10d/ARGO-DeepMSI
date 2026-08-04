@@ -1,0 +1,59 @@
+{
+  "candidate": {
+    "candidate_id": "W1-5",
+    "description": "Fixed-query cross-attention pooler over frozen CTransPath tiles",
+    "learning_rate": 0.0002,
+    "weight_decay": 0.0001,
+    "max_epochs": 20,
+    "patience": 4,
+    "train_tile_cap": 256,
+    "eval_tile_cap": 1024,
+    "sampling": "uniform"
+  },
+  "parameter_count": {
+    "total": 464385,
+    "trainable": 464385
+  },
+  "seed": 42,
+  "device": "cuda",
+  "fold_contract": {
+    "cohort_sha256": "1b4c517dc9b2bfa31fa4e59808d04cea73fd3f6574dd072931d82f3b936dbdbd",
+    "seed": 42,
+    "n_splits": 5,
+    "n_patients": 217,
+    "n_slides": 803,
+    "n_positive_patients": 47,
+    "fold_counts": {
+      "0": {
+        "patients": 43,
+        "positive_patients": 9,
+        "slides": 160
+      },
+      "1": {
+        "patients": 43,
+        "positive_patients": 9,
+        "slides": 141
+      },
+      "2": {
+        "patients": 44,
+        "positive_patients": 10,
+        "slides": 154
+      },
+      "3": {
+        "patients": 43,
+        "positive_patients": 9,
+        "slides": 142
+      },
+      "4": {
+        "patients": 44,
+        "positive_patients": 10,
+        "slides": 206
+      }
+    }
+  },
+  "runtime_dependencies": {
+    "wagner": "argo_deepmsi.models.wagner",
+    "ctranspath_features": "current Zarr tables/ctranspath_tiles",
+    "archived_old_tree": false
+  }
+}

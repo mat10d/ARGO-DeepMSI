@@ -2,6 +2,7 @@
   "name": "tilemil_oauthc_adapt",
   "description": "Attention-MIL (ABMIL) on tumor CONCH bags with OAUTHC-specific few-shot adaptation: a good-site-trained head is fine-tuned on held-out OAUTHC support patients and evaluated on the rest of OAUTHC. Primary score is a full-cohort 5-fold OOF where OAUTHC test patients get within-fold OAUTHC adaptation. Reports the OAUTHC K-shot adaptation curve. Frozen features; no external data.",
   "needs_training_on_our_data": true,
+  "resolution": "slide",
   "score_columns": [
     {
       "name": "p_msih",
@@ -9,5 +10,6 @@
       "primary": true
     }
   ],
-  "primary_score": "p_msih"
+  "primary_score": "p_msih",
+  "patient_aggregation": "max_sqrtn"
 }

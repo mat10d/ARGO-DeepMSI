@@ -1,0 +1,138 @@
+{
+  "n_slides": 803,
+  "n_patients": 217,
+  "prevalence_slide": 0.1917808219178082,
+  "prevalence_patient": 0.21658986175115208,
+  "patient_agg": "max_sqrtn",
+  "slide_auroc": 0.3785494166850099,
+  "slide_auprc": 0.1487936765176977,
+  "patient_auroc": 0.5357321652065081,
+  "patient_auprc": 0.2510221997246156,
+  "per_site_slide": {
+    "LASUTH": {
+      "n": 15,
+      "prevalence": 0.2,
+      "auroc": 0.33333333333333337,
+      "auprc": 0.19461279461279463
+    },
+    "LUTH": {
+      "n": 31,
+      "prevalence": 0.12903225806451613,
+      "auroc": 0.7129629629629629,
+      "auprc": 0.44499341238471674
+    },
+    "OAUTHC": {
+      "n": 476,
+      "prevalence": 0.17436974789915966,
+      "auroc": 0.2905668475428431,
+      "auprc": 0.12013424750955186
+    },
+    "UITH": {
+      "n": 12,
+      "prevalence": 0.5,
+      "auroc": 0.8055555555555556,
+      "auprc": 0.7801587301587302
+    },
+    "retrospective_msk": {
+      "n": 97,
+      "prevalence": 0.20618556701030927,
+      "auroc": 0.46201298701298704,
+      "auprc": 0.1987937478200622
+    },
+    "retrospective_oau": {
+      "n": 172,
+      "prevalence": 0.22093023255813954,
+      "auroc": 0.43882560879811466,
+      "auprc": 0.19202558816330728
+    }
+  },
+  "per_site_patient": {
+    "LASUTH": {
+      "n": 13,
+      "prevalence": 0.23076923076923078,
+      "auroc": 0.4,
+      "auprc": 0.24206349206349206
+    },
+    "LUTH": {
+      "n": 19,
+      "prevalence": 0.15789473684210525,
+      "auroc": 0.6458333333333333,
+      "auprc": 0.5069444444444444
+    },
+    "OAUTHC": {
+      "n": 81,
+      "prevalence": 0.20987654320987653,
+      "auroc": 0.6047794117647058,
+      "auprc": 0.3088409203305062
+    },
+    "UITH": {
+      "n": 10,
+      "prevalence": 0.4,
+      "auroc": 0.6666666666666666,
+      "auprc": 0.6777777777777778
+    },
+    "retrospective": {
+      "n": 94,
+      "prevalence": 0.2127659574468085,
+      "auroc": 0.44256756756756754,
+      "auprc": 0.20848220119074165
+    }
+  },
+  "patient_bootstrap": {
+    "estimate": 0.5357321652065081,
+    "ci_low": 0.4434277221526909,
+    "ci_high": 0.628976846057572
+  },
+  "screening": {
+    "op_sens90": {
+      "target_sensitivity": 0.9,
+      "sensitivity": 0.9148936170212766,
+      "specificity": 0.13529411764705881,
+      "npv": 0.8518518518518519,
+      "ruled_out_fraction": 0.12442396313364056,
+      "threshold": 0.004078875345379589
+    },
+    "spec_at_sens90": 0.13529411764705881,
+    "npv_at_sens90": 0.8518518518518519,
+    "op_sens95": {
+      "target_sensitivity": 0.95,
+      "sensitivity": 0.9574468085106383,
+      "specificity": 0.12941176470588237,
+      "npv": 0.9166666666666666,
+      "ruled_out_fraction": 0.11059907834101383,
+      "threshold": 0.003970956937213498
+    },
+    "spec_at_sens95": 0.12941176470588237,
+    "npv_at_sens95": 0.9166666666666666,
+    "op_sens96": {
+      "target_sensitivity": 0.96,
+      "sensitivity": 0.9787234042553191,
+      "specificity": 0.12941176470588237,
+      "npv": 0.9565217391304348,
+      "ruled_out_fraction": 0.10599078341013825,
+      "threshold": 0.0038710367399292646
+    },
+    "spec_at_sens96": 0.12941176470588237,
+    "npv_at_sens96": 0.9565217391304348,
+    "op_sens98": {
+      "target_sensitivity": 0.98,
+      "sensitivity": 1.0,
+      "specificity": 0.0,
+      "npv": NaN,
+      "ruled_out_fraction": 0.0,
+      "threshold": 0.0011081054577362338
+    },
+    "spec_at_sens98": 0.0,
+    "npv_at_sens98": NaN
+  },
+  "candidate_id": "W1-5",
+  "validation_design": "fixed candidate; 5-fold patient-grouped outer OOF; fold-local inner early-stopping epoch; refit on complete outer training fold",
+  "confirmatory_valid": false,
+  "confirmatory_note": "Each candidate has untouched outer predictions, but choosing the best W1 candidate on this development cohort makes the selected maximum exploratory.",
+  "paired_delta_vs_frozen_wagner": {
+    "estimate": -0.18091364205256577,
+    "ci_low": -0.29042866082603247,
+    "ci_high": -0.06633135168961188,
+    "probability_le_zero": 0.9995
+  }
+}

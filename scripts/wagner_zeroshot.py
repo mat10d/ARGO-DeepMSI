@@ -10,16 +10,16 @@ Model source:
     architecture = Transformer(input_dim=768, dim=512, depth=2, heads=8,
     mlp_dim=512, pool='cls')).
 
-We inline a minimal copy of the transformer architecture so this script
-does not depend on the HistoBistro repo being importable. Architecture
-identical to old/HistoBistro/models/aggregators/{transformer,model_utils}.py.
+The canonical project-local implementation lives in
+``argo_deepmsi.models.wagner``. The external checkpoint is staged and
+checksum-verified under ``artifacts/checkpoints/wagner``. Runtime code never
+imports or reads the archived ``old/`` tree.
 
 Inputs:
     - Per-slide tile features from <slide>.zarr/tables/ctranspath_tiles.
       Shape (n_tiles, 768). LazySlide-extracted.
     - Clinical table for ground-truth MSI labels.
-    - Pretrained weights at old/HistoBistro/CancerCellCRCTransformer/
-      trained_models/MSI_high_CRC_model.pth.
+    - Pretrained weights at artifacts/checkpoints/wagner/MSI_high_CRC_model.pth.
 
 Output:
     results/analysis/wagner_zeroshot/
@@ -39,130 +39,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from einops import rearrange, repeat
 from sklearn.metrics import average_precision_score, roc_auc_score, roc_curve
 from tqdm import tqdm
 from wsidata import open_wsi
 
-
-# ---------------------------------------------------------------------------
-# Minimal transformer (architecture-identical to HistoBistro)
-# ---------------------------------------------------------------------------
-
-
-class PreNorm(nn.Module):
-    def __init__(self, dim, fn):
-        super().__init__()
-        self.norm = nn.LayerNorm(dim)
-        self.fn = fn
-
-    def forward(self, x, **kwargs):
-        return self.fn(self.norm(x), **kwargs)
-
-
-class FeedForward(nn.Module):
-    def __init__(self, dim=512, hidden_dim=512, dropout=0.0):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.Linear(dim, hidden_dim),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden_dim, dim),
-            nn.Dropout(dropout),
-        )
-
-    def forward(self, x):
-        return self.net(x)
-
-
-class Attention(nn.Module):
-    def __init__(self, dim=512, heads=8, dim_head=64, dropout=0.0):
-        super().__init__()
-        inner_dim = dim_head * heads
-        project_out = not (heads == 1 and dim_head == dim)
-        self.heads = heads
-        self.scale = dim_head**-0.5
-        self.attend = nn.Softmax(dim=-1)
-        self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)
-        self.to_out = (
-            nn.Sequential(nn.Linear(inner_dim, dim), nn.Dropout(dropout))
-            if project_out
-            else nn.Identity()
-        )
-
-    def forward(self, x, **kwargs):
-        # Use torch's memory-efficient SDPA instead of materializing the full
-        # N×N attention matrix — CTransPath slides can have 10k+ tiles, which
-        # would OOM on any consumer GPU with naive attention.
-        qkv = self.to_qkv(x).chunk(3, dim=-1)
-        q, k, v = (rearrange(t, "b n (h d) -> b h n d", h=self.heads) for t in qkv)
-        out = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0)
-        out = rearrange(out, "b h n d -> b n (h d)")
-        return self.to_out(out)
-
-
-class TransformerBlocks(nn.Module):
-    def __init__(self, dim, depth, heads, dim_head, mlp_dim, dropout=0.0):
-        super().__init__()
-        self.layers = nn.ModuleList([])
-        for _ in range(depth):
-            self.layers.append(
-                nn.ModuleList(
-                    [
-                        PreNorm(dim, Attention(dim, heads=heads, dim_head=dim_head, dropout=dropout)),
-                        PreNorm(dim, FeedForward(dim, mlp_dim, dropout=dropout)),
-                    ]
-                )
-            )
-
-    def forward(self, x):
-        for attn, ff in self.layers:
-            x = attn(x) + x
-            x = ff(x) + x
-        return x
-
-
-class WagnerTransformer(nn.Module):
-    """Architecture matches HistoBistro Transformer with CLS pooling."""
-
-    def __init__(self, num_classes=1, input_dim=768, dim=512, depth=2, heads=8,
-                 mlp_dim=512, dim_head=64, dropout=0.0, emb_dropout=0.0):
-        super().__init__()
-        self.projection = nn.Sequential(nn.Linear(input_dim, heads * dim_head, bias=True), nn.ReLU())
-        self.mlp_head = nn.Sequential(nn.LayerNorm(mlp_dim), nn.Linear(mlp_dim, num_classes))
-        self.transformer = TransformerBlocks(dim, depth, heads, dim_head, mlp_dim, dropout)
-        self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
-        self.norm = nn.LayerNorm(dim)
-        self.dropout = nn.Dropout(emb_dropout)
-
-    def forward(self, x):
-        # x: (B, N, input_dim)
-        b = x.shape[0]
-        x = self.projection(x)
-        cls_tokens = repeat(self.cls_token, "1 1 d -> b 1 d", b=b)
-        x = torch.cat((cls_tokens, x), dim=1)
-        x = self.dropout(x)
-        x = self.transformer(x)
-        x = x[:, 0]
-        x = self.norm(x)
-        return self.mlp_head(x)
-
-
-def load_wagner(weights: Path, device: str) -> WagnerTransformer:
-    model = WagnerTransformer()
-    sd = torch.load(weights, map_location="cpu", weights_only=False)
-    # pytorch-lightning wraps keys with "model." prefix
-    cleaned = {k.removeprefix("model."): v for k, v in sd.items()}
-    missing, unexpected = model.load_state_dict(cleaned, strict=False)
-    if missing:
-        print(f"WARNING: missing keys: {missing}")
-    if unexpected:
-        print(f"WARNING: unexpected keys: {unexpected}")
-    model.eval()
-    return model.to(device)
-
+from argo_deepmsi.models.wagner import DEFAULT_WAGNER_CHECKPOINT, load_wagner
 
 # ---------------------------------------------------------------------------
 # Data loading
@@ -192,7 +73,7 @@ def run(slide_table: Path, clinical: Path, weights: Path, outdir: Path, device: 
     cl["y"] = (cl["isMSIH"] == "MSI-H").astype(int)
     st = st.merge(cl[["PATIENT", "y"]], on="PATIENT", how="inner")
 
-    model = load_wagner(weights, device)
+    model = load_wagner(weights, device=device)
 
     rows = []
     with torch.no_grad():
@@ -286,7 +167,7 @@ def run(slide_table: Path, clinical: Path, weights: Path, outdir: Path, device: 
 
     print(f"\nSlide-level   AUROC={slide_auroc:.3f}  AUPRC={slide_auprc:.3f}  (n={metrics['n_slides']}, prev={metrics['prevalence_slide']:.2f})")
     print(f"Patient-level AUROC={pat_auroc:.3f}  AUPRC={pat_auprc:.3f}  (n={metrics['n_patients']}, prev={metrics['prevalence_patient']:.2f})")
-    print(f"\nPer-site slide AUROC:")
+    print("\nPer-site slide AUROC:")
     for s, m in per_site.items():
         if "auroc" in m:
             print(f"  {s:20s}  n={m['n']:4d}  prev={m['prevalence']:.2f}  AUROC={m['auroc']:.3f}")
@@ -300,8 +181,7 @@ def main() -> None:
     p = argparse.ArgumentParser()
     p.add_argument("--slide-table", default="results/data/slide_table_pyramidal.csv")
     p.add_argument("--clinical", default="results/data/clinical_table.csv")
-    p.add_argument("--weights",
-                   default="old/HistoBistro/CancerCellCRCTransformer/trained_models/MSI_high_CRC_model.pth")
+    p.add_argument("--weights", default=DEFAULT_WAGNER_CHECKPOINT)
     p.add_argument("--outdir", default="results/analysis/wagner_zeroshot")
     p.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
     args = p.parse_args()

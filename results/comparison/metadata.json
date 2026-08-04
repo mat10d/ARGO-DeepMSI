@@ -7,13 +7,12 @@
     "fmmap_probe",
     "fusion_top3",
     "harmony_probe",
+    "nested_linear_probe",
     "nuclear_morphology",
     "protonet_cluster",
-    "score_fusion",
     "selective_abstention",
     "setencoder_agg",
     "simple_grid",
-    "slide_attention_mil",
     "slidefm_linearprobe",
     "stainnorm_probe",
     "tilemil_oauthc_adapt",
@@ -22,7 +21,8 @@
     "vl_text_cosine",
     "wagner_zeroshot"
   ],
-  "qc_excluded_slides": 380,
+  "qc_excluded_slides": 5,
   "exclusion_source": "results/data/cohort_clean.csv",
-  "clean_cohort": true
+  "clean_cohort": true,
+  "cache_only": true
 }

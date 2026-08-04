@@ -1,16 +1,16 @@
 {
   "scorer": "selective_abstention",
   "base": "calibrated_pool (champion)",
-  "operating_threshold": 0.13745258981791145,
+  "operating_threshold": 0.1374525898179114,
   "target_sensitivity": 0.95,
   "n_patients": 181,
   "prevalence_patient": 0.2265193370165746,
-  "auroc": 0.7127177700348433,
-  "auprc": 0.4114956443634056,
-  "spec_at_sens90": 0.19285714285714287,
-  "spec_at_sens95": 0.17857142857142858,
+  "auroc": 0.7166458072590739,
+  "auprc": 0.390596125514714,
+  "spec_at_sens90": 0.15294117647058825,
+  "spec_at_sens95": 0.1411764705882353,
   "spec_at_sens96": 0.07857142857142857,
-  "npv_at_sens95": 0.9259259259259259,
+  "npv_at_sens95": 0.9230769230769231,
   "sensitivity": 0.9512195121951219,
   "aurc": 0.13036497472349204,
   "coverage_risk": [
@@ -187,21 +187,21 @@
   },
   "by_site": {
     "LASUTH": {
-      "n": 9,
-      "prevalence": 0.3333333333333333,
-      "auroc": 0.888888888888889,
-      "spec_at_sens95": 0.6666666666666666
+      "n": 13,
+      "prevalence": 0.23076923076923078,
+      "auroc": 0.9333333333333333,
+      "spec_at_sens95": 0.8
     },
     "LUTH": {
-      "n": 15,
-      "prevalence": 0.13333333333333333,
-      "auroc": 1.0,
-      "spec_at_sens95": 1.0
+      "n": 19,
+      "prevalence": 0.15789473684210525,
+      "auroc": 0.8541666666666666,
+      "spec_at_sens95": 0.6875
     },
     "OAUTHC": {
-      "n": 64,
-      "prevalence": 0.203125,
-      "auroc": 0.579185520361991,
+      "n": 81,
+      "prevalence": 0.20987654320987653,
+      "auroc": 0.6158088235294117,
       "spec_at_sens95": 0.0
     },
     "UITH": {
@@ -211,16 +211,54 @@
       "spec_at_sens95": 0.5
     },
     "retrospective_msk": {
-      "n": 60,
-      "prevalence": 0.23333333333333334,
-      "auroc": 0.7934782608695653,
-      "spec_at_sens95": 0.13043478260869565
-    },
-    "retrospective_oau": {
-      "n": 23,
-      "prevalence": 0.21739130434782608,
-      "auroc": 0.8,
-      "spec_at_sens95": 0.7222222222222222
+      "n": 94,
+      "prevalence": 0.2127659574468085,
+      "auroc": 0.7824324324324324,
+      "spec_at_sens95": 0.08108108108108109
     }
-  }
+  },
+  "screening_clean": {
+    "op_sens90": {
+      "target_sensitivity": 0.9,
+      "sensitivity": 0.9148936170212766,
+      "specificity": 0.15294117647058825,
+      "npv": 0.8666666666666667,
+      "ruled_out_fraction": 0.1382488479262673,
+      "threshold": 0.1474684399935004
+    },
+    "spec_at_sens90": 0.15294117647058825,
+    "npv_at_sens90": 0.8666666666666667,
+    "op_sens95": {
+      "target_sensitivity": 0.95,
+      "sensitivity": 0.9574468085106383,
+      "specificity": 0.1411764705882353,
+      "npv": 0.9230769230769231,
+      "ruled_out_fraction": 0.11981566820276497,
+      "threshold": 0.1374525898179114
+    },
+    "spec_at_sens95": 0.1411764705882353,
+    "npv_at_sens95": 0.9230769230769231,
+    "op_sens96": {
+      "target_sensitivity": 0.96,
+      "sensitivity": 0.9787234042553191,
+      "specificity": 0.08235294117647059,
+      "npv": 0.9333333333333333,
+      "ruled_out_fraction": 0.06912442396313365,
+      "threshold": 0.112158221178279
+    },
+    "spec_at_sens96": 0.08235294117647059,
+    "npv_at_sens96": 0.9333333333333333,
+    "op_sens98": {
+      "target_sensitivity": 0.98,
+      "sensitivity": 1.0,
+      "specificity": 0.029411764705882353,
+      "npv": 1.0,
+      "ruled_out_fraction": 0.02304147465437788,
+      "threshold": 0.0723239779472351
+    },
+    "spec_at_sens98": 0.029411764705882353,
+    "npv_at_sens98": 1.0
+  },
+  "screening_primary_variant": "p_msih",
+  "screening_n_patients_clean": 217
 }

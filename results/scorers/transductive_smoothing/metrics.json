@@ -238,86 +238,86 @@
       }
     }
   },
-  "auroc": 0.568986568986569,
-  "auprc": 0.2526609212903253,
-  "spec_at_sens90": 0.1346153846153846,
-  "spec_at_sens95": 0.08974358974358974,
-  "npv_at_sens95": 0.875,
-  "operating_threshold": -0.0200101938098669,
+  "auroc": 0.5824780976220275,
+  "auprc": 0.2626432058757276,
+  "spec_at_sens90": 0.15294117647058825,
+  "spec_at_sens95": 0.1411764705882353,
+  "npv_at_sens95": 0.9230769230769231,
+  "operating_threshold": 0.00015510179402674192,
   "by_site": {
     "LASUTH": {
-      "n": 11,
-      "prevalence": 0.2727272727272727,
-      "auroc": 0.75,
-      "spec_at_sens95": 0.75
+      "n": 13,
+      "prevalence": 0.23076923076923078,
+      "auroc": 0.3333333333333333,
+      "spec_at_sens95": 0.2
     },
     "LUTH": {
-      "n": 16,
-      "prevalence": 0.125,
-      "auroc": 0.32142857142857145,
-      "spec_at_sens95": 0.14285714285714285
+      "n": 19,
+      "prevalence": 0.15789473684210525,
+      "auroc": 0.3125,
+      "spec_at_sens95": 0.125
     },
     "OAUTHC": {
-      "n": 67,
-      "prevalence": 0.19402985074626866,
-      "auroc": 0.5227920227920229,
-      "spec_at_sens95": 0.07407407407407407
+      "n": 81,
+      "prevalence": 0.20987654320987653,
+      "auroc": 0.5854779411764706,
+      "spec_at_sens95": 0.0
     },
     "UITH": {
       "n": 10,
       "prevalence": 0.4,
       "auroc": 0.5833333333333334,
-      "spec_at_sens95": 0.0
+      "spec_at_sens95": 0.16666666666666666
     },
-    "retrospective_msk": {
+    "retrospective": {
       "n": 94,
       "prevalence": 0.2127659574468085,
-      "auroc": 0.5695945945945946,
-      "spec_at_sens95": 0.013513513513513514
+      "auroc": 0.6425675675675675,
+      "spec_at_sens95": 0.06756756756756757
     }
   },
   "screening_clean": {
     "op_sens90": {
       "target_sensitivity": 0.9,
-      "sensitivity": 0.9047619047619048,
-      "specificity": 0.1346153846153846,
-      "npv": 0.84,
-      "ruled_out_fraction": 0.12626262626262627,
-      "threshold": -0.016633278464763885
+      "sensitivity": 0.9148936170212766,
+      "specificity": 0.15294117647058825,
+      "npv": 0.8666666666666667,
+      "ruled_out_fraction": 0.1382488479262673,
+      "threshold": 0.0006676400303068563
     },
-    "spec_at_sens90": 0.1346153846153846,
-    "npv_at_sens90": 0.84,
+    "spec_at_sens90": 0.15294117647058825,
+    "npv_at_sens90": 0.8666666666666667,
     "op_sens95": {
       "target_sensitivity": 0.95,
-      "sensitivity": 0.9523809523809523,
-      "specificity": 0.08974358974358974,
-      "npv": 0.875,
-      "ruled_out_fraction": 0.08080808080808081,
-      "threshold": -0.0200101938098669
+      "sensitivity": 0.9574468085106383,
+      "specificity": 0.1411764705882353,
+      "npv": 0.9230769230769231,
+      "ruled_out_fraction": 0.11981566820276497,
+      "threshold": 0.00015510179402674192
     },
-    "spec_at_sens95": 0.08974358974358974,
-    "npv_at_sens95": 0.875,
+    "spec_at_sens95": 0.1411764705882353,
+    "npv_at_sens95": 0.9230769230769231,
     "op_sens96": {
       "target_sensitivity": 0.96,
-      "sensitivity": 0.9761904761904762,
-      "specificity": 0.08974358974358974,
-      "npv": 0.9333333333333333,
-      "ruled_out_fraction": 0.07575757575757576,
-      "threshold": -0.0206250082701444
+      "sensitivity": 0.9787234042553191,
+      "specificity": 0.052941176470588235,
+      "npv": 0.9,
+      "ruled_out_fraction": 0.04608294930875576,
+      "threshold": -0.00243381190874585
     },
-    "spec_at_sens96": 0.08974358974358974,
-    "npv_at_sens96": 0.9333333333333333,
+    "spec_at_sens96": 0.052941176470588235,
+    "npv_at_sens96": 0.9,
     "op_sens98": {
       "target_sensitivity": 0.98,
       "sensitivity": 1.0,
-      "specificity": 0.00641025641025641,
+      "specificity": 0.03529411764705882,
       "npv": 1.0,
-      "ruled_out_fraction": 0.005050505050505051,
-      "threshold": -0.0272377971559762
+      "ruled_out_fraction": 0.027649769585253458,
+      "threshold": -0.0033375460402882665
     },
-    "spec_at_sens98": 0.00641025641025641,
+    "spec_at_sens98": 0.03529411764705882,
     "npv_at_sens98": 1.0
   },
-  "screening_primary_variant": "smooth_mean",
-  "screening_n_patients_clean": 198
+  "screening_primary_variant": "smooth_max",
+  "screening_n_patients_clean": 217
 }

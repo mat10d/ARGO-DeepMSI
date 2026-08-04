@@ -51,6 +51,7 @@ class Scorer(abc.ABC):
     needs_training_on_our_data: bool = False       # fit() does meaningful work?
     score_columns: list[ScoreColumn] = []          # what slide_scores.csv contains
     resolution: str = "slide"                      # "slide" or "patient"
+    patient_aggregation: str = "max_sqrtn"         # slide -> patient operator
 
     def __init__(self) -> None:
         if self.name and self.score_path is None:
@@ -120,10 +121,12 @@ class Scorer(abc.ABC):
             "name": self.name,
             "description": self.description,
             "needs_training_on_our_data": self.needs_training_on_our_data,
+            "resolution": self.resolution,
             "score_columns": [
                 {"name": c.name, "description": c.description, "primary": c.primary}
                 for c in self.score_columns
             ],
             "primary_score": self.primary_score,
+            "patient_aggregation": self.patient_aggregation,
         }
         (outdir / "metadata.json").write_text(json.dumps(meta, indent=2))

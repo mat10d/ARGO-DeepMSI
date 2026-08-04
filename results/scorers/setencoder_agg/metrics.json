@@ -10,7 +10,7 @@
   "spec_at_sens95": 0.16428571428571428,
   "spec_at_sens96": 0.10714285714285714,
   "npv_at_sens95": 0.92,
-  "operating_threshold": 3.014844596194166e-09,
+  "operating_threshold": 3.0148446e-09,
   "by_site": {
     "LASUTH": {
       "n": 9,
@@ -106,7 +106,7 @@
       "specificity": 0.16428571428571428,
       "npv": 0.8846153846153846,
       "ruled_out_fraction": 0.143646408839779,
-      "threshold": 3.202130782753443e-09
+      "threshold": 3.2021308e-09
     },
     "spec_at_sens90": 0.16428571428571428,
     "npv_at_sens90": 0.8846153846153846,
@@ -116,7 +116,7 @@
       "specificity": 0.16428571428571428,
       "npv": 0.92,
       "ruled_out_fraction": 0.13812154696132597,
-      "threshold": 3.014844596194166e-09
+      "threshold": 3.0148446e-09
     },
     "spec_at_sens95": 0.16428571428571428,
     "npv_at_sens95": 0.92,
@@ -126,7 +126,7 @@
       "specificity": 0.10714285714285714,
       "npv": 0.9375,
       "ruled_out_fraction": 0.08839779005524862,
-      "threshold": 1.0626224206111701e-10
+      "threshold": 1.0626224e-10
     },
     "spec_at_sens96": 0.10714285714285714,
     "npv_at_sens96": 0.9375,
@@ -136,9 +136,11 @@
       "specificity": 0.1,
       "npv": 1.0,
       "ruled_out_fraction": 0.07734806629834254,
-      "threshold": 7.006591487557223e-12
+      "threshold": 7.0065915e-12
     },
     "spec_at_sens98": 0.1,
     "npv_at_sens98": 1.0
-  }
+  },
+  "screening_primary_variant": "p_msih",
+  "screening_n_patients_clean": 181
 }

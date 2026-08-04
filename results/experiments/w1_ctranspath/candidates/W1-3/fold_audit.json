@@ -1,0 +1,232 @@
+[
+  {
+    "outer_fold": 0,
+    "n_train_patients": 174,
+    "n_validation_patients": 44,
+    "n_test_patients": 43,
+    "n_train_slides": 643,
+    "n_validation_slides": 166,
+    "n_test_slides": 160,
+    "patient_overlap": 0,
+    "selected_epochs": 4,
+    "best_inner_patient_auroc": 0.5941176470588235,
+    "elapsed_seconds": 54.59703904297203,
+    "validation_history": [
+      {
+        "epoch": 1.0,
+        "train_loss": 3.6927515709794534,
+        "validation_patient_auroc": 0.5455882352941177
+      },
+      {
+        "epoch": 2.0,
+        "train_loss": 3.677133071159859,
+        "validation_patient_auroc": 0.55
+      },
+      {
+        "epoch": 3.0,
+        "train_loss": 3.6386206803346375,
+        "validation_patient_auroc": 0.5441176470588235
+      },
+      {
+        "epoch": 4.0,
+        "train_loss": 3.4427338486414207,
+        "validation_patient_auroc": 0.5941176470588235
+      },
+      {
+        "epoch": 5.0,
+        "train_loss": 3.309732931045717,
+        "validation_patient_auroc": 0.5470588235294117
+      },
+      {
+        "epoch": 6.0,
+        "train_loss": 3.112076548116434,
+        "validation_patient_auroc": 0.5558823529411765
+      },
+      {
+        "epoch": 7.0,
+        "train_loss": 2.132407826934734,
+        "validation_patient_auroc": 0.5823529411764706
+      },
+      {
+        "epoch": 8.0,
+        "train_loss": 1.7086855846104858,
+        "validation_patient_auroc": 0.4882352941176471
+      }
+    ]
+  },
+  {
+    "outer_fold": 1,
+    "n_train_patients": 174,
+    "n_validation_patients": 44,
+    "n_test_patients": 43,
+    "n_train_slides": 662,
+    "n_validation_slides": 149,
+    "n_test_slides": 141,
+    "patient_overlap": 0,
+    "selected_epochs": 1,
+    "best_inner_patient_auroc": 0.5264705882352941,
+    "elapsed_seconds": 27.837807879783213,
+    "validation_history": [
+      {
+        "epoch": 1.0,
+        "train_loss": 3.736373877173285,
+        "validation_patient_auroc": 0.5264705882352941
+      },
+      {
+        "epoch": 2.0,
+        "train_loss": 3.662896713725898,
+        "validation_patient_auroc": 0.525
+      },
+      {
+        "epoch": 3.0,
+        "train_loss": 3.5719292565457113,
+        "validation_patient_auroc": 0.4823529411764706
+      },
+      {
+        "epoch": 4.0,
+        "train_loss": 3.322305240320286,
+        "validation_patient_auroc": 0.49264705882352944
+      },
+      {
+        "epoch": 5.0,
+        "train_loss": 2.914311374468665,
+        "validation_patient_auroc": 0.4970588235294118
+      }
+    ]
+  },
+  {
+    "outer_fold": 2,
+    "n_train_patients": 173,
+    "n_validation_patients": 44,
+    "n_test_patients": 44,
+    "n_train_slides": 649,
+    "n_validation_slides": 140,
+    "n_test_slides": 154,
+    "patient_overlap": 0,
+    "selected_epochs": 2,
+    "best_inner_patient_auroc": 0.6264705882352941,
+    "elapsed_seconds": 36.63572559412569,
+    "validation_history": [
+      {
+        "epoch": 1.0,
+        "train_loss": 3.6184785759660443,
+        "validation_patient_auroc": 0.6029411764705883
+      },
+      {
+        "epoch": 2.0,
+        "train_loss": 3.596525544708862,
+        "validation_patient_auroc": 0.6264705882352941
+      },
+      {
+        "epoch": 3.0,
+        "train_loss": 3.4492461855842302,
+        "validation_patient_auroc": 0.5705882352941176
+      },
+      {
+        "epoch": 4.0,
+        "train_loss": 3.0026182476215815,
+        "validation_patient_auroc": 0.6029411764705882
+      },
+      {
+        "epoch": 5.0,
+        "train_loss": 2.6350599670950174,
+        "validation_patient_auroc": 0.5352941176470588
+      },
+      {
+        "epoch": 6.0,
+        "train_loss": 1.9785856130528576,
+        "validation_patient_auroc": 0.45882352941176474
+      }
+    ]
+  },
+  {
+    "outer_fold": 3,
+    "n_train_patients": 174,
+    "n_validation_patients": 43,
+    "n_test_patients": 43,
+    "n_train_slides": 661,
+    "n_validation_slides": 190,
+    "n_test_slides": 142,
+    "patient_overlap": 0,
+    "selected_epochs": 1,
+    "best_inner_patient_auroc": 0.6241830065359477,
+    "elapsed_seconds": 26.647557839751244,
+    "validation_history": [
+      {
+        "epoch": 1.0,
+        "train_loss": 3.4372300190930183,
+        "validation_patient_auroc": 0.6241830065359477
+      },
+      {
+        "epoch": 2.0,
+        "train_loss": 3.6238711480796537,
+        "validation_patient_auroc": 0.5686274509803921
+      },
+      {
+        "epoch": 3.0,
+        "train_loss": 3.497559821923147,
+        "validation_patient_auroc": 0.5718954248366013
+      },
+      {
+        "epoch": 4.0,
+        "train_loss": 3.1498459236828165,
+        "validation_patient_auroc": 0.5686274509803922
+      },
+      {
+        "epoch": 5.0,
+        "train_loss": 2.4785039785197776,
+        "validation_patient_auroc": 0.5718954248366013
+      }
+    ]
+  },
+  {
+    "outer_fold": 4,
+    "n_train_patients": 173,
+    "n_validation_patients": 44,
+    "n_test_patients": 44,
+    "n_train_slides": 597,
+    "n_validation_slides": 174,
+    "n_test_slides": 206,
+    "patient_overlap": 0,
+    "selected_epochs": 3,
+    "best_inner_patient_auroc": 0.6823529411764706,
+    "elapsed_seconds": 42.34117104578763,
+    "validation_history": [
+      {
+        "epoch": 1.0,
+        "train_loss": 3.8731081776505145,
+        "validation_patient_auroc": 0.6308823529411764
+      },
+      {
+        "epoch": 2.0,
+        "train_loss": 3.7710359677156977,
+        "validation_patient_auroc": 0.6617647058823529
+      },
+      {
+        "epoch": 3.0,
+        "train_loss": 3.4872936693654357,
+        "validation_patient_auroc": 0.6823529411764706
+      },
+      {
+        "epoch": 4.0,
+        "train_loss": 3.143284172859472,
+        "validation_patient_auroc": 0.6
+      },
+      {
+        "epoch": 5.0,
+        "train_loss": 2.8958584544201615,
+        "validation_patient_auroc": 0.5794117647058823
+      },
+      {
+        "epoch": 6.0,
+        "train_loss": 2.5337465022649535,
+        "validation_patient_auroc": 0.5529411764705883
+      },
+      {
+        "epoch": 7.0,
+        "train_loss": 2.1356460716884866,
+        "validation_patient_auroc": 0.6441176470588236
+      }
+    ]
+  }
+]

@@ -1,6 +1,15 @@
 # You are extending ARGO-DeepMSI in the NO-NEW-TRAINING-DATA regime.
 
-## D-PHASE (parallel with A-phase results) — every inherited choice is a HYPOTHESIS
+## C1 RESET — current primary evaluation contract
+The canonical primary cohort is all 217 patients / 803 feature-complete slides. QC flags are
+retained for the historical 181-patient sensitivity analysis but no longer define primary
+eligibility. Cohort-trained model/configuration selection must use the nested outer/inner
+patient-grouped machinery in `argo_deepmsi.eval.validation`; the final outer predictions may
+not select an encoder, correction, aggregation, or threshold. Patient cohort is distinct from
+slide processing location: the 83 paired retrospective patients form one `retrospective`
+patient cohort.
+
+## D-PHASE (historical) — every inherited choice is a HYPOTHESIS
 The A-phase is done (A0 Harmony is the OAUTHC frontier at 0.683; normalization A1/A2 falsified;
 A3 adaptation real but capped; A6 names "site-routed ensemble" as next). Before building that
 readout, D-phase tests the pipeline choices we INHERITED as defaults — each kept only if it

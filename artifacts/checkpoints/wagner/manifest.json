@@ -1,0 +1,11 @@
+{
+  "name": "Wagner HistoBistro MSI-high CRC transformer",
+  "filename": "MSI_high_CRC_model.pth",
+  "sha256": "201678419198039bcc48614ef1c262928b61e2d79dab494be99c97cc60169b15",
+  "bytes": 14212031,
+  "source_repository": "https://github.com/peng-lab/HistoBistro",
+  "source_commit": "52313bbc9671191d648a78111e4c5f52084d66c0",
+  "source_path": "CancerCellCRCTransformer/trained_models/MSI_high_CRC_model.pth",
+  "runtime_implementation": "argo_deepmsi.models.wagner.WagnerTransformer",
+  "note": "The .pth file is gitignored; stage it at this manifest's location or set ARGO_WAGNER_CHECKPOINT. Runtime code never reads old/."
+}

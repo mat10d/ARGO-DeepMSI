@@ -21,7 +21,7 @@
   "spec_at_sens95": 0.10714285714285714,
   "spec_at_sens96": 0.04285714285714286,
   "npv_at_sens95": 0.8823529411764706,
-  "operating_threshold": 0.2616969347000122,
+  "operating_threshold": 0.26169693,
   "msintuit_target": {
     "sensitivity": [
       0.96,
@@ -95,7 +95,7 @@
       "specificity": 0.32857142857142857,
       "npv": 0.9387755102040817,
       "ruled_out_fraction": 0.27071823204419887,
-      "threshold": 0.35042813420295715
+      "threshold": 0.35042813
     },
     "spec_at_sens90": 0.32857142857142857,
     "npv_at_sens90": 0.9387755102040817,
@@ -105,7 +105,7 @@
       "specificity": 0.10714285714285714,
       "npv": 0.8823529411764706,
       "ruled_out_fraction": 0.09392265193370165,
-      "threshold": 0.2616969347000122
+      "threshold": 0.26169693
     },
     "spec_at_sens95": 0.10714285714285714,
     "npv_at_sens95": 0.8823529411764706,
@@ -115,7 +115,7 @@
       "specificity": 0.04285714285714286,
       "npv": 0.8571428571428571,
       "ruled_out_fraction": 0.03867403314917127,
-      "threshold": 0.23095333576202393
+      "threshold": 0.23095334
     },
     "spec_at_sens96": 0.04285714285714286,
     "npv_at_sens96": 0.8571428571428571,
@@ -125,9 +125,11 @@
       "specificity": 0.0,
       "npv": NaN,
       "ruled_out_fraction": 0.0,
-      "threshold": 0.1755349338054657
+      "threshold": 0.17553493
     },
     "spec_at_sens98": 0.0,
     "npv_at_sens98": NaN
-  }
+  },
+  "screening_primary_variant": "p_msih",
+  "screening_n_patients_clean": 181
 }

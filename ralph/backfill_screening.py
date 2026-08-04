@@ -24,38 +24,44 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import average_precision_score, roc_auc_score
 
-from argo_deepmsi.eval.cohort import load_qc_exclusion
+from argo_deepmsi.eval.cohort import load_clean_exclusion
 from argo_deepmsi.eval.metrics import aggregate_to_patient
 from argo_deepmsi.eval.screening import screening_block
 
 RESULTS = Path("results/scorers")
-QC_CSV = Path("results/data/problem_slides.csv")
+COHORT_CSV = Path("results/data/cohort_clean.csv")
 SENS_FLOORS = (0.90, 0.95, 0.96, 0.98)
 
 
 def _auroc(y, s):
-    y = np.asarray(y); s = np.asarray(s)
+    y = np.asarray(y)
+    s = np.asarray(s)
     return float(roc_auc_score(y, s)) if len(np.unique(y)) == 2 else float("nan")
 
 
 def _auprc(y, s):
-    y = np.asarray(y); s = np.asarray(s)
+    y = np.asarray(y)
+    s = np.asarray(s)
     return float(average_precision_score(y, s)) if len(np.unique(y)) == 2 else float("nan")
 
 
-def _patient_scores(sdf: pd.DataFrame, score_col: str, resolution: str) -> pd.DataFrame:
+def _patient_scores(
+    sdf: pd.DataFrame, score_col: str, resolution: str, patient_aggregation: str
+) -> pd.DataFrame:
     if resolution == "patient":
         keep = sdf.drop_duplicates("patient_id")
         return keep.rename(columns={score_col: "score"})[["patient_id", "y", "site", "score"]]
-    return aggregate_to_patient(sdf, score_col=score_col)
+    return aggregate_to_patient(sdf, score_col=score_col, agg=patient_aggregation)
 
 
 def backfill_one(d: Path, excluded: set[str]) -> str:
     ss = d / "slide_scores.csv"
+    if not ss.exists():
+        ss = d / "patient_scores.csv"
     mj = d / "metrics.json"
     md = d / "metadata.json"
-    if not ss.exists() or not mj.exists():
-        return f"{d.name}: SKIP (missing slide_scores/metrics)"
+    if not ss.exists():
+        return f"{d.name}: SKIP (missing score CSV)"
     sdf = pd.read_csv(ss)
     meta = json.loads(md.read_text()) if md.exists() else {}
     primary = meta.get("primary_score")
@@ -76,9 +82,10 @@ def backfill_one(d: Path, excluded: set[str]) -> str:
                 break
     if primary is None:
         return f"{d.name}: SKIP (no usable score column in {list(sdf.columns)[:8]})"
-    resolution = "slide"  # scorers cache per-slide rows; patient scorers dedup fine too
+    resolution = meta.get("resolution", "slide")
+    patient_aggregation = meta.get("patient_aggregation", "max_sqrtn")
     clean = sdf[~sdf["slide_id"].isin(excluded)].copy() if "slide_id" in sdf.columns else sdf.copy()
-    pat = _patient_scores(clean, primary, resolution).dropna(subset=["score"])
+    pat = _patient_scores(clean, primary, resolution, patient_aggregation).dropna(subset=["score"])
 
     block = screening_block(pat["y"].to_numpy(), pat["score"].to_numpy(), SENS_FLOORS)
     by_site = {}
@@ -91,7 +98,7 @@ def backfill_one(d: Path, excluded: set[str]) -> str:
             if sub["y"].nunique() == 2 else float("nan"),
         }
 
-    m = json.loads(mj.read_text())
+    m = json.loads(mj.read_text()) if mj.exists() else {"scorer": d.name}
     m["auroc"] = _auroc(pat["y"], pat["score"])
     m["auprc"] = _auprc(pat["y"], pat["score"])
     m["spec_at_sens90"] = block["spec_at_sens90"]
@@ -108,8 +115,8 @@ def backfill_one(d: Path, excluded: set[str]) -> str:
 
 
 def main() -> int:
-    excluded = load_qc_exclusion(QC_CSV)
-    print(f"QC exclusion: {len(excluded)} slides")
+    excluded = load_clean_exclusion(COHORT_CSV)
+    print(f"Primary exclusion: {len(excluded)} feature-incomplete slides")
     if not RESULTS.exists():
         print("no results/scorers/ — nothing to backfill")
         return 0
