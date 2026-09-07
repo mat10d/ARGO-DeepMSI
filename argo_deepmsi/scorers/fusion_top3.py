@@ -27,7 +27,6 @@ import numpy as np
 import pandas as pd
 from sklearn.base import clone
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import roc_auc_score
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.preprocessing import StandardScaler
 

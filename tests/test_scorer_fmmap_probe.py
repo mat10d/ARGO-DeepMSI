@@ -58,6 +58,7 @@ def test_fmmap_fold_separates_classes():
     assert p[y[te] == 1].mean() > p[y[te] == 0].mean()
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not (TITAN_DIR / "embeddings.npy").exists() or not CLEAN_CSV.exists(),
     reason="TITAN embeddings / cohort_clean.csv not present",

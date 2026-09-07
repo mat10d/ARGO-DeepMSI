@@ -31,6 +31,7 @@ def test_contract_attributes():
     assert s.score_path is not None and s.score_path.name == "slide_scores.csv"
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not CLEAN_CSV.exists() or not (BAG_DIR / "bags_concat.npy").exists(),
     reason="S4 tumor-CONCH bags / cohort_clean.csv not present in this checkout",

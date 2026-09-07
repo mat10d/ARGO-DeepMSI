@@ -112,6 +112,7 @@ class Scorer(abc.ABC):
         self.score_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(self.score_path, index=False)
         self.write_metadata(self.score_path.parent)
+        self.write_run_artifacts(self.score_path.parent)
         return self.score_path
 
     def write_metadata(self, outdir: Path) -> None:
@@ -130,3 +131,6 @@ class Scorer(abc.ABC):
             "patient_aggregation": self.patient_aggregation,
         }
         (outdir / "metadata.json").write_text(json.dumps(meta, indent=2))
+
+    def write_run_artifacts(self, outdir: Path) -> None:  # noqa: B027
+        """Write optional fold audits/curves produced by the most recent run."""

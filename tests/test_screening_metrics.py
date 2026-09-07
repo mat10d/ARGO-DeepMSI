@@ -6,9 +6,7 @@ import pytest
 from argo_deepmsi.eval.screening import (
     npv_at_threshold,
     screening_block,
-    sensitivity_specificity_at_threshold,
     specificity_at_sensitivity,
-    threshold_at_sensitivity,
 )
 
 

@@ -1,0 +1,15 @@
+{
+  "slide_id": "MSI-B1919-22",
+  "patient_id": "P_0382",
+  "n_tiles": 15505,
+  "n_tumor_tiles": 3906,
+  "wagner_attn_corr_vl_msi": -0.27029824844100164,
+  "wagner_attn_corr_vl_quality": -0.09303687393142347,
+  "vl_msi_all": -0.004135691095143557,
+  "vl_msi_tumor": 0.01055609155446291,
+  "vl_msi_top_attn": -0.017987491562962532,
+  "vl_quality_all": 0.00488413916900754,
+  "vl_quality_tumor": 0.012210759334266186,
+  "vl_quality_top_attn": -0.0007779694278724492,
+  "frac_top_attn_on_tumor": 0.0
+}

@@ -4,14 +4,15 @@ I/O utilities for ARGO-DeepMSI pipeline.
 Simplified path management and file operations.
 """
 
-import os
 from pathlib import Path
-from typing import Union, Optional
+from typing import Optional, Union
+
+from ._environment import configure_environment, project_root
 
 
 def get_project_root() -> Path:
     """Get the absolute path to the project root directory."""
-    return Path(__file__).parent.parent
+    return project_root()
 
 
 def setup_huggingface_cache() -> Path:
@@ -23,18 +24,9 @@ def setup_huggingface_cache() -> Path:
     Returns:
         Path to HuggingFace cache directory
     """
-    if "HF_HOME" not in os.environ:
-        cache_dir = get_project_root() / ".huggingface_cache"
-        os.environ["HF_HOME"] = str(cache_dir)
-    else:
-        cache_dir = Path(os.environ["HF_HOME"])
-
+    cache_dir = configure_environment() or get_project_root() / ".huggingface_cache"
     cache_dir.mkdir(parents=True, exist_ok=True)
     return cache_dir
-
-
-# Set up HuggingFace cache on module import
-setup_huggingface_cache()
 
 
 def ensure_dir(path: Union[str, Path]) -> Path:

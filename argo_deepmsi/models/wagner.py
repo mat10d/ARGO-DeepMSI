@@ -8,6 +8,7 @@ verified before loading.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import os
 from pathlib import Path
@@ -190,6 +191,53 @@ class WagnerTransformer(nn.Module):
         x = self.transformer(x)
         x = self.norm(x[:, 0])
         return self.mlp_head(x)
+
+
+def _last_attention_module(model: WagnerTransformer) -> "Attention":
+    """The Attention submodule of the final transformer block (inside its PreNorm)."""
+    return model.transformer.layers[-1][0].fn
+
+
+def build_slide_transformer_for_test(input_dim: int = 768) -> WagnerTransformer:
+    """Small randomly-initialised WagnerTransformer for hook/equivalence tests (no checkpoint)."""
+    model = WagnerTransformer(input_dim=input_dim)
+    model.eval()
+    model.tile_dim = input_dim
+    return model
+
+
+@contextlib.contextmanager
+def capture_attention(model: WagnerTransformer):
+    """Record the last block's CLS->tile attention on ``model.last_cls_attn`` during forward.
+
+    Numerically inert: the patched Attention returns the original fused-SDPA output unchanged, so
+    the model logit is identical to a normal forward; the stored weights are an explicit
+    softmax(QK^T/sqrt(d)) computed alongside it, reduced over heads and renormalised over tiles
+    (shape ``(n_tiles,)`` for a single-slide batch, summing to 1).
+    """
+    target = _last_attention_module(model)
+    orig = target.forward
+
+    def patched(x, **kwargs):
+        qkv = target.to_qkv(x).chunk(3, dim=-1)
+        q, k, _ = (rearrange(t, "b n (h d) -> b h n d", h=target.heads) for t in qkv)
+        d = q.shape[-1]
+        # Only the CLS query's attention is needed -> O(n) memory, not the O(n^2) full matrix
+        # (materialising (h, n, n) OOMs on slides with thousands of tiles).
+        q_cls = q[:, :, :1, :]                                       # (b, h, 1, d)
+        scores = (q_cls @ k.transpose(-2, -1)) / (d ** 0.5)         # (b, h, 1, n)
+        attn_cls = torch.softmax(scores, dim=-1)                    # (b, h, 1, n)
+        cls_to_tiles = attn_cls[:, :, 0, 1:].mean(dim=1)           # (b, n_tiles)
+        denom = cls_to_tiles.sum(dim=-1, keepdim=True)
+        cls_to_tiles = cls_to_tiles / denom.clamp_min(1e-12)
+        model.last_cls_attn = cls_to_tiles.squeeze(0).detach()
+        return orig(x, **kwargs)
+
+    target.forward = patched
+    try:
+        yield
+    finally:
+        target.forward = orig
 
 
 def load_wagner(

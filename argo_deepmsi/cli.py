@@ -18,11 +18,15 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 
+from . import __version__
+
 app = typer.Typer(
     name="argo",
     help="ARGO-DeepMSI: MSI prediction from whole slide images using LazySlide",
     add_completion=False,
 )
+scorers_app = typer.Typer(help="Inspect and run registered MSI scoring methods.")
+app.add_typer(scorers_app, name="scorers")
 console = Console()
 
 
@@ -66,7 +70,9 @@ def ingest(
 def pyramidal(
     slide_table: Path = typer.Argument(..., help="Path to slide table CSV"),
     output: Optional[Path] = typer.Option(
-        None, "--output", "-o",
+        None,
+        "--output",
+        "-o",
         help="Output CSV path (default: <slide_table>_pyramidal.csv)",
     ),
     slide_column: str = typer.Option(
@@ -127,13 +133,23 @@ def pyramidal(
 def extract(
     slide_table: Path = typer.Argument(..., help="Path to slide table CSV"),
     models: List[str] = typer.Option(["uni2"], "--model", "-m", help="Models to use"),
-    output_dir: Optional[Path] = typer.Option(None, "--output", "-o", help="Output directory"),
     tile_px: int = typer.Option(256, "--tile-px", help="Tile size in pixels"),
     mpp: float = typer.Option(0.5, "--mpp", help="Microns per pixel"),
     device: str = typer.Option("cuda", "--device", "-d", help="Device (cuda/cpu)"),
     amp: bool = typer.Option(True, "--amp/--no-amp", help="Use automatic mixed precision"),
+    num_workers: int = typer.Option(4, "--workers", "-j", min=0),
+    batch_size: int = typer.Option(64, "--batch-size", min=1),
+    tiling_policy: str = typer.Option(
+        "require-current",
+        "--tiling-policy",
+        help="require-current, or reuse to opt into legacy/unversioned tile grids",
+    ),
     max_slides: Optional[int] = typer.Option(None, "--max-slides", help="Max slides (for testing)"),
-    overwrite: bool = typer.Option(False, "--overwrite", help="Overwrite existing features"),
+    overwrite: bool = typer.Option(
+        False,
+        "--overwrite",
+        help="Re-extract requested features; does not regenerate an existing tile grid",
+    ),
 ):
     """Extract features from slides using LazySlide.
 
@@ -172,6 +188,9 @@ def extract(
         device=device,
         overwrite=overwrite,
         max_slides=max_slides,
+        num_workers=num_workers,
+        batch_size=batch_size,
+        tiling_policy=tiling_policy,  # type: ignore[arg-type]
     )
 
     # Summary
@@ -179,6 +198,54 @@ def extract(
     total = len(results)
     console.print(f"[green]Complete![/green] {success}/{total} slides processed")
     console.print(f"Each slide contains features from: {', '.join(models)}")
+
+
+@app.command("extract-dask")
+def extract_dask_command(
+    slide_table: Path = typer.Argument(..., help="Path to slide table CSV"),
+    models: Optional[List[str]] = typer.Option(None, "--model", "-m"),
+    partition: str = typer.Option("nvidia-A6000-20", "--partition"),
+    min_workers: int = typer.Option(1, "--min-workers", min=0),
+    max_workers: int = typer.Option(3, "--max-workers", min=1),
+    walltime: str = typer.Option("24:00:00", "--walltime"),
+    cores: int = typer.Option(16, "--cores", min=1),
+    memory: str = typer.Option("256 GB", "--memory"),
+    tile_px: int = typer.Option(256, "--tile-px"),
+    mpp: float = typer.Option(0.5, "--mpp"),
+    batch_size: int = typer.Option(32, "--batch-size", min=1),
+    num_workers: int = typer.Option(2, "--workers", "-j", min=0),
+    conda_env: Optional[str] = typer.Option(None, "--conda-env"),
+    output_dir: Optional[Path] = typer.Option(None, "--output", "-o"),
+    overwrite: bool = typer.Option(False, "--overwrite"),
+    tiling_policy: str = typer.Option("require-current", "--tiling-policy"),
+):
+    """Extract features on an elastic SLURM GPU cluster using the canonical extractor."""
+    from .dask_extraction import DEFAULT_MODELS, run_dask_extraction
+
+    report = run_dask_extraction(
+        slide_table=slide_table,
+        models=models or DEFAULT_MODELS,
+        partition=partition,
+        min_workers=min_workers,
+        max_workers=max_workers,
+        walltime=walltime,
+        cores=cores,
+        memory=memory,
+        tile_px=tile_px,
+        mpp=mpp,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        conda_env=conda_env,
+        output_dir=output_dir,
+        overwrite=overwrite,
+        tiling_policy=tiling_policy,
+    )
+    counts = report["counts"]
+    console.print(
+        f"[green]success={counts['success']}[/green] "
+        f"[yellow]skipped={counts['skipped']}[/yellow] "
+        f"[red]failed={counts['failed']}[/red]"
+    )
 
 
 @app.command()
@@ -266,12 +333,12 @@ def aggregate(
         argo aggregate virchow --method prism --device cuda
         argo aggregate conch_v1.5 --method titan --device cuda
     """
-    from .io_utils import get_data_dir
+    from .io_utils import get_results_dir
     from .feature_extraction import aggregate_features
 
     # Default to results/data/slide_table.csv
     if slide_table is None:
-        slide_table = get_data_dir().parent / "results" / "data" / "slide_table.csv"
+        slide_table = get_results_dir() / "data" / "slide_table.csv"
 
     if not slide_table.exists():
         console.print(f"[red]Slide table not found: {slide_table}[/red]")
@@ -305,12 +372,12 @@ def _models_check(patch_models, non_gated_only: bool = False) -> None:
     import os
 
     try:
-        import lazyslide as zs
+        from .models._lazyslide import MODEL_REGISTRY
     except ImportError:  # pragma: no cover
         console.print("[red]lazyslide not installed[/red]")
         raise typer.Exit(1)
 
-    registry = zs.models.MODEL_REGISTRY
+    registry = MODEL_REGISTRY
     hf_token_set = bool(os.environ.get("HF_TOKEN"))
 
     table = Table(title="Model availability check")
@@ -325,13 +392,13 @@ def _models_check(patch_models, non_gated_only: bool = False) -> None:
         if non_gated_only and gated:
             continue
         if name not in registry:
-            table.add_row(name, "?" if gated else "-", "[red]missing[/red]", "not in lazyslide registry")
+            table.add_row(
+                name, "?" if gated else "-", "[red]missing[/red]", "not in lazyslide registry"
+            )
             n_fail += 1
             continue
         if gated and not hf_token_set:
-            table.add_row(
-                name, "yes", "[yellow]skipped[/yellow]", "HF_TOKEN not set"
-            )
+            table.add_row(name, "yes", "[yellow]skipped[/yellow]", "HF_TOKEN not set")
             n_skip += 1
             continue
         try:
@@ -347,7 +414,9 @@ def _models_check(patch_models, non_gated_only: bool = False) -> None:
             n_fail += 1
 
     console.print(table)
-    console.print(f"\n[green]ok={n_ok}[/green]  [yellow]skipped={n_skip}[/yellow]  [red]fail={n_fail}[/red]")
+    console.print(
+        f"\n[green]ok={n_ok}[/green]  [yellow]skipped={n_skip}[/yellow]  [red]fail={n_fail}[/red]"
+    )
 
 
 # ============================================================================
@@ -359,8 +428,12 @@ def _models_check(patch_models, non_gated_only: bool = False) -> None:
 def qc(
     slide_table: Path = typer.Argument(..., help="slide_table.csv"),
     qc_model: str = typer.Option("grandqc-artifact", "--model", "-m", help="QC model name"),
-    threshold: float = typer.Option(0.5, "--threshold", "-t", help="Pass if reduced score <= threshold"),
-    reduce: str = typer.Option("mean", "--reduce", "-r", help="Per-tile reduction: mean/max/median"),
+    threshold: float = typer.Option(
+        0.5, "--threshold", "-t", help="Pass if reduced score <= threshold"
+    ),
+    reduce: str = typer.Option(
+        "mean", "--reduce", "-r", help="Per-tile reduction: mean/max/median"
+    ),
     output_csv: Optional[Path] = typer.Option(
         None, "--output", "-o", help="Filtered slide table output path"
     ),
@@ -412,7 +485,6 @@ def visualize(
     output_dir: Optional[Path] = typer.Option(None, "--output", "-o", help="Output directory"),
 ):
     """Generate visualizations (slides, embeddings, summaries)."""
-    import pandas as pd
     import numpy as np
     from .io_utils import get_visualizations_dir, ensure_dir
     from . import visualization as viz
@@ -470,6 +542,17 @@ def train(
     ),
     label_column: str = typer.Option("isMSIH", "--label", "-l"),
     n_splits: int = typer.Option(5, "--splits"),
+    seed: int = typer.Option(42, "--seed"),
+    classifiers: Optional[List[str]] = typer.Option(
+        None,
+        "--classifier",
+        help="Repeat to select logistic, random_forest, and/or svm",
+    ),
+    classifier_params: Optional[List[str]] = typer.Option(
+        None,
+        "--classifier-param",
+        help="Repeat CLASSIFIER.KEY=JSON, for example logistic.C=0.1",
+    ),
     output_dir: Optional[Path] = typer.Option(None, "--output", "-o"),
 ):
     """Train classifiers on slide embeddings.
@@ -478,12 +561,14 @@ def train(
         argo train results/embeddings/plip_mean \\
             --clinical results/data/clinical_table.csv
     """
-    from .io_utils import get_models_dir, get_data_dir, ensure_dir
+    from .io_utils import ensure_dir, get_models_dir, get_results_dir
+    from .reproducibility import environment_snapshot, write_json
+    from .scorer_runner import parse_parameters
     from .training import compare_classifiers, load_training_data
 
     # Default to results/data/clinical_table.csv
     if clinical_table is None:
-        clinical_table = get_data_dir().parent / "results" / "data" / "clinical_table.csv"
+        clinical_table = get_results_dir() / "data" / "clinical_table.csv"
 
     if not clinical_table.exists():
         console.print(f"[red]Clinical table not found: {clinical_table}[/red]")
@@ -509,11 +594,41 @@ def train(
 
     # Train classifiers — group CV by patient_id to prevent leakage
     groups = merged_df["patient_id"].values
-    results = compare_classifiers(X, y, groups=groups, n_splits=n_splits)
+    selected = classifiers or ["logistic", "random_forest", "svm"]
+    nested_params: dict[str, dict] = {}
+    for key, value in parse_parameters(classifier_params or []).items():
+        if "." not in key:
+            raise typer.BadParameter(
+                f"Classifier parameter {key!r} must have the form CLASSIFIER.KEY=VALUE"
+            )
+        classifier, parameter = key.split(".", 1)
+        nested_params.setdefault(classifier, {})[parameter] = value
+    results = compare_classifiers(
+        X,
+        y,
+        groups=groups,
+        n_splits=n_splits,
+        random_state=seed,
+        classifiers=selected,
+        classifier_params=nested_params,
+    )
 
     # Save
     results.to_csv(output_dir / "classifier_comparison.csv", index=False)
     merged_df.to_csv(output_dir / "training_data.csv", index=False)
+    write_json(
+        output_dir / "run.json",
+        {
+            "embeddings": str(embeddings_dir.resolve()),
+            "clinical_table": str(clinical_table.resolve()),
+            "label_column": label_column,
+            "n_splits": n_splits,
+            "seed": seed,
+            "classifiers": selected,
+            "parameters": nested_params,
+            "environment": environment_snapshot(Path.cwd()),
+        },
+    )
 
     # Display results
     table = Table(title="Classifier Performance")
@@ -531,6 +646,182 @@ def train(
     console.print(table)
 
     console.print(f"\n[green]Results saved to:[/green] {output_dir}")
+
+
+# ============================================================================
+# Registered scorers and reproducible experiment runner
+# ============================================================================
+
+
+@scorers_app.command("list")
+def list_registered_scorers():
+    """List scorer names without importing every model stack."""
+    from .scorers import list_scorers
+
+    for name in list_scorers():
+        console.print(name)
+
+
+@scorers_app.command("show")
+def show_scorer(name: str = typer.Argument(..., help="Registered scorer name")):
+    """Show a scorer's contract and configurable compute parameters."""
+    from .scorer_runner import scorer_contract
+
+    try:
+        contract = scorer_contract(name)
+    except KeyError as error:
+        console.print(f"[red]{error}[/red]")
+        raise typer.Exit(1) from error
+
+    console.print(f"[bold]{contract['name']}[/bold] — {contract['description']}")
+    table = Table(title="Scorer contract")
+    table.add_column("Field", style="cyan")
+    table.add_column("Value", overflow="fold")
+    for key in (
+        "resolution",
+        "needs_training_on_our_data",
+        "primary_score",
+        "patient_aggregation",
+        "cache",
+    ):
+        table.add_row(key, str(contract[key]))
+    for key, default in contract["parameters"].items():
+        table.add_row(f"parameter.{key}", repr(default))
+    console.print(table)
+
+
+@scorers_app.command("run")
+def run_registered_scorer(
+    name: str = typer.Argument(..., help="Registered scorer name"),
+    cohort: Optional[Path] = typer.Option(None, "--cohort"),
+    slide_table: Optional[Path] = typer.Option(None, "--slide-table"),
+    output_dir: Optional[Path] = typer.Option(None, "--output", "-o"),
+    run_name: Optional[str] = typer.Option(None, "--run-name"),
+    parameters: Optional[List[str]] = typer.Option(
+        None,
+        "--param",
+        "-p",
+        help='Repeat KEY=JSON, for example embeddings=["phaet_mean","mascaret_mean"]',
+    ),
+    cache: bool = typer.Option(False, "--cache/--recompute"),
+    publish: bool = typer.Option(False, "--publish", help="Replace the canonical scorer cache"),
+):
+    """Run any scorer with explicit parameters and capture its provenance."""
+    from datetime import datetime, timezone
+
+    from .io_utils import get_results_dir
+    from .scorer_runner import parse_parameters, run_scorer
+
+    results = get_results_dir()
+    cohort = cohort or results / "data" / "cohort_clean.csv"
+    slide_table = slide_table or results / "data" / "slide_table_pyramidal.csv"
+    if output_dir is None:
+        run_name = run_name or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        output_dir = results / "runs" / run_name / "scorers" / name
+    try:
+        parsed = parse_parameters(parameters or [])
+        outcome = run_scorer(
+            name,
+            cohort_csv=cohort,
+            slide_table_csv=slide_table,
+            output_dir=output_dir,
+            parameters=parsed,
+            use_cache=cache,
+            publish=publish,
+        )
+    except (KeyError, ValueError, OSError) as error:
+        console.print(f"[red]{error}[/red]")
+        raise typer.Exit(1) from error
+    console.print(f"[green]Scored {outcome['n_rows']} rows[/green] → {outcome['scores']}")
+
+
+@app.command("experiment")
+def experiment_command(
+    config: Path = typer.Argument(..., help="Experiment TOML file"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Validate and print the stage plan"),
+    resume: bool = typer.Option(True, "--resume/--fresh"),
+):
+    """Run or resume a configuration-driven extraction/training/scorer experiment."""
+    from .experiment import run_experiment
+
+    def report(stage: str, status: str) -> None:
+        color = {"completed": "green", "failed": "red", "skipped": "yellow"}.get(status, "cyan")
+        console.print(f"[{color}]{status:9s}[/{color}] {stage}")
+
+    try:
+        result = run_experiment(config, dry_run=dry_run, resume=resume, on_stage=report)
+    except (KeyError, ValueError, OSError) as error:
+        console.print(f"[red]{error}[/red]")
+        raise typer.Exit(1) from error
+    if dry_run:
+        console.print(f"Workspace: {result['workspace']}")
+        console.print(f"Run directory: {result['run_dir']}")
+        for stage in result["plan"]:
+            console.print(f"  {stage['id']}")
+    else:
+        console.print(f"[bold green]Experiment complete[/bold green]: {result['name']}")
+
+
+@app.command("experiment-schema")
+def experiment_schema_command(
+    output: Optional[Path] = typer.Option(None, "--output", "-o", help="Write JSON Schema here"),
+):
+    """Print the experiment JSON Schema used by agents and editors."""
+    import json
+
+    from .experiment_schema import experiment_json_schema
+    from .reproducibility import write_json
+
+    schema = experiment_json_schema()
+    if output is not None:
+        write_json(output, schema)
+        console.print(f"[green]Wrote experiment schema[/green] → {output}")
+    else:
+        typer.echo(json.dumps(schema, indent=2))
+
+
+@app.command()
+def strategies():
+    """List the distinct pathology-ML training strategy families."""
+    from .experiment_schema import STRATEGIES
+
+    table = Table(title="Pathology ML strategy families")
+    table.add_column("Strategy", style="cyan")
+    table.add_column("Meaning")
+    for name, description in STRATEGIES.items():
+        table.add_row(name, description)
+    console.print(table)
+
+
+@app.command("self-test")
+def self_test(
+    output: Optional[Path] = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Keep the synthetic acceptance workspace at this empty path",
+    ),
+):
+    """Run a small, offline acceptance experiment across every stage."""
+    import tempfile
+
+    from .synthetic import run_synthetic_acceptance
+
+    def report(stage: str, status: str) -> None:
+        console.print(f"{status:9s} {stage}")
+
+    if output is not None:
+        result = run_synthetic_acceptance(output, on_stage=report)
+        console.print(
+            f"[bold green]Synthetic acceptance passed[/bold green]: "
+            f"{len(result['stages'])} stages → {result['acceptance_workspace']}"
+        )
+        return
+    with tempfile.TemporaryDirectory(prefix="argo-acceptance-") as directory:
+        result = run_synthetic_acceptance(Path(directory), on_stage=report)
+        console.print(
+            f"[bold green]Synthetic acceptance passed[/bold green]: {len(result['stages'])} stages"
+        )
 
 
 # ============================================================================
@@ -611,7 +902,7 @@ def run(
 @app.command()
 def version():
     """Show version information."""
-    console.print("ARGO-DeepMSI v0.2.0")
+    console.print(f"ARGO-DeepMSI v{__version__}")
     console.print("LazySlide-based MSI prediction pipeline")
 
 
@@ -643,6 +934,42 @@ def env():
             table.add_row(var, val or "(unset — HF defaults to ~/.cache/huggingface)", disk)
 
     console.print(table)
+
+
+@app.command()
+def doctor(
+    config: Optional[Path] = typer.Option(
+        None, "--config", "-c", help="Experiment TOML to validate and preflight"
+    ),
+    workspace: Optional[Path] = typer.Option(
+        None, "--workspace", "-w", help="Workspace override (defaults to config or cwd)"
+    ),
+    json_output: bool = typer.Option(
+        False, "--json", help="Emit a machine-readable report instead of a table"
+    ),
+    strict: bool = typer.Option(False, "--strict", help="Treat warnings as a failed preflight"),
+):
+    """Check environment, inputs, models, GPU, tiling provenance, and budgets."""
+    import json
+
+    from .doctor import run_doctor
+
+    report = run_doctor(workspace=workspace, config_path=config)
+    if json_output:
+        typer.echo(json.dumps(report, indent=2))
+    else:
+        table = Table(title=f"ARGO doctor: {report['status']}")
+        table.add_column("Status")
+        table.add_column("Check", style="cyan")
+        table.add_column("Result")
+        colors = {"ok": "green", "warning": "yellow", "error": "red"}
+        for check in report["checks"]:
+            color = colors[check["status"]]
+            table.add_row(f"[{color}]{check['status']}[/{color}]", check["name"], check["message"])
+        console.print(table)
+    failed = report["status"] == "error" or (strict and report["status"] == "warning")
+    if failed:
+        raise typer.Exit(1)
 
 
 if __name__ == "__main__":

@@ -58,6 +58,7 @@ def test_ctranspath_trainable_policies_are_bounded():
     )
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not DEFAULT_WAGNER_CHECKPOINT.exists(), reason="external Wagner checkpoint not staged"
 )

@@ -1,5 +1,4 @@
-"""
-ARGO-DeepMSI: MSI prediction from whole slide images using LazySlide.
+"""ARGO-DeepMSI: MSI prediction from whole slide images using LazySlide.
 
 A simplified pipeline for:
 - Data ingestion from REDCap
@@ -12,99 +11,46 @@ Usage:
     argo --help
 """
 
+from __future__ import annotations
+
+from importlib import import_module
+from types import ModuleType
+
+from ._environment import configure_environment
+
 __version__ = "0.2.0"
 
-# ---------------------------------------------------------------------------
-# HuggingFace cache default.
-#
-# Runs BEFORE any downstream import (huggingface_hub, transformers,
-# lazyslide) so the right cache is picked up globally. Rules:
-#
-#   1. If the user set $HF_HOME explicitly, respect it. Always.
-#   2. Else if the package lives inside a checkout (pyproject.toml sits one
-#      level above the package), default to <repo>/.huggingface_cache —
-#      create if missing, and export HF_HOME + HF_HUB_CACHE +
-#      TRANSFORMERS_CACHE so every downstream library agrees.
-#   3. Else leave everything unset. Downstream libs default to
-#      ~/.cache/huggingface; we log a warning so the user notices.
-#
-# Override anytime by exporting HF_HOME in your shell or .env.
-# ---------------------------------------------------------------------------
+# Cache variables must be set before libraries such as transformers are
+# imported. This performs no authentication, network access, or directory
+# creation; those actions belong to the command that needs them.
+configure_environment()
 
-
-def _configure_hf_env() -> None:
-    """Set HF_HOME + load .env so HF_TOKEN / HF_HOME are consistent across
-    argo CLI, pytest, and SLURM jobs started from a checkout. See module
-    docstring for rules."""
-    import os
-    from pathlib import Path
-    import warnings
-
-    here = Path(__file__).resolve().parent
-    repo_root = here.parent
-    in_checkout = (repo_root / "pyproject.toml").exists()
-
-    # Step 1: HF_HOME default (only applies in a checkout; user override wins)
-    if not os.environ.get("HF_HOME"):
-        if not in_checkout:
-            warnings.warn(
-                "argo_deepmsi: HF_HOME is not set and the package is not in "
-                "a checkout layout — HuggingFace will default to "
-                "~/.cache/huggingface. Export HF_HOME to a large scratch "
-                "volume before using gated or large models.",
-                stacklevel=2,
-            )
-        else:
-            cache = repo_root / ".huggingface_cache"
-            cache.mkdir(parents=True, exist_ok=True)
-            os.environ["HF_HOME"] = str(cache)
-            os.environ.setdefault("HF_HUB_CACHE", str(cache / "hub"))
-            os.environ.setdefault("TRANSFORMERS_CACHE", str(cache / "hub"))
-
-    # Step 2: load .env from the repo root so HF_TOKEN (+ any REDCAP_* vars)
-    # are available in pytest, `argo env`, and sbatch scripts that import
-    # argo_deepmsi without running their own dotenv logic. Existing
-    # environment variables always win — we only fill in what's missing.
-    if in_checkout:
-        env_file = repo_root / ".env"
-        if env_file.exists():
-            try:
-                from dotenv import load_dotenv
-
-                load_dotenv(env_file, override=False)
-            except ImportError:  # python-dotenv is a core dep, shouldn't happen
-                pass
-
-    # Step 3: if we now have an HF token, call huggingface_hub.login() so
-    # downstream code that uses lazyslide's hf_access() context (MUSK and
-    # some other gated models) picks it up. The standard hf_hub_download
-    # path reads HF_TOKEN from env, but hf_access specifically checks the
-    # cached-login token. login(add_to_git_credential=False) is the pattern
-    # the dask workers re-run in-job.
-    token = os.environ.get("HF_TOKEN")
-    if token:
-        try:
-            from huggingface_hub import login as _hf_login
-
-            _hf_login(token=token, add_to_git_credential=False)
-        except Exception:  # login failures shouldn't break imports
-            pass
-
-
-_configure_hf_env()
-del _configure_hf_env
-
-
-from . import io_utils
-from . import data_ingestion
-from . import feature_extraction
-from . import visualization
-from . import training
+_LAZY_MODULES = {
+    "data_ingestion",
+    "feature_extraction",
+    "io_utils",
+    "training",
+    "visualization",
+}
 
 __all__ = [
+    "__version__",
     "io_utils",
     "data_ingestion",
     "feature_extraction",
     "visualization",
     "training",
 ]
+
+
+def __getattr__(name: str) -> ModuleType:
+    """Load public submodules only when they are first accessed."""
+    if name not in _LAZY_MODULES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    module = import_module(f".{name}", __name__)
+    globals()[name] = module
+    return module
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | _LAZY_MODULES)

@@ -1,0 +1,135 @@
+# Reproducible Nigeria-only sweep for a fresh machine.
+# Start with: argo experiment configs/nigeria-v2.toml --dry-run
+# Then change [run].name for each distinct hypothesis and run without --dry-run.
+
+[run]
+name = "nigeria-v2"
+workspace = ".."
+results_dir = "results/runs"
+slide_table = "results/data/slide_table_pyramidal.csv"
+clinical_table = "results/data/clinical_table.csv"
+cohort = "results/data/cohort_clean.csv"
+seed = 42
+device = "cuda"
+strategy = "frozen_foundation_trained_head"
+
+[run.budget]
+max_models = 8
+max_stages = 16
+max_trainable_stages = 12
+max_epochs = 25
+max_repeats = 5
+allow_network = true
+allow_model_downloads = true
+
+# On a single workstation, change only this to engine="local"; scheduler fields
+# below are ignored and recorded. The default requires tile stores created
+# by the currently installed LazySlide/wsidata versions, preventing a silent
+# mix of old (0.10) and corrected (0.12) tile grids.
+[extract]
+enabled = true
+engine = "dask"
+models = ["conch_v1.5", "ctranspath", "uni2", "virchow2", "phaet", "mascaret"]
+tile_px = 256
+mpp = 0.5
+amp = true
+batch_size = 32
+num_workers = 2
+tiling_policy = "require-current"
+# The experiment stops after reporting all failed slides. Set
+# allow_failures=true only for a deliberate partial-cohort diagnostic run.
+allow_failures = false
+partition = "nvidia-A6000-20"
+min_workers = 1
+max_workers = 8
+cores = 16
+memory = "256 GB"
+walltime = "24:00:00"
+
+[[aggregate]]
+id = "mean_pool"
+models = ["conch_v1.5", "ctranspath", "uni2", "virchow2", "phaet", "mascaret"]
+method = "mean"
+
+# The same bag builder handles one encoder or aligned concatenations. Omit
+# tumor_tiles_dir to use every tissue tile.
+[[bag]]
+id = "robust_encoders"
+models = ["phaet", "mascaret"]
+variants = { phaet = ["phaet"], mascaret = ["mascaret"], waiv_concat = ["phaet", "mascaret"] }
+tumor_tiles_dir = "results/data/tumor_tiles"
+max_tiles = 500
+seed = 42
+
+# Exploratory top-layer comparison on each frozen slide embedding. The nested
+# scorer jobs below are the confirmatory, model-selection-safe comparison.
+[[train]]
+id = "phaet_mean"
+strategy = "frozen_foundation_trained_head"
+embedding = "phaet_mean"
+classifiers = ["logistic", "random_forest", "svm"]
+n_splits = 5
+parameters = { logistic = { C = 0.1 }, random_forest = { n_estimators = 500, min_samples_leaf = 2 }, svm = { C = 1.0, kernel = "rbf" } }
+
+[[train]]
+id = "mascaret_mean"
+strategy = "frozen_foundation_trained_head"
+embedding = "mascaret_mean"
+classifiers = ["logistic", "random_forest", "svm"]
+n_splits = 5
+
+# This encodes scripts/waiv_race.py as three auditable runs. Encoder selection,
+# scaling, and fitting all occur inside patient-grouped nested CV.
+[[scorer]]
+id = "nested_base4"
+strategy = "frozen_foundation_trained_head"
+name = "nested_linear_probe"
+parameters = { embeddings = ["conch_v1.5_mean", "ctranspath_mean", "uni2_mean", "virchow2_mean"], repeats = 3, outer_splits = 5, inner_splits = 4, seed = 42 }
+
+[[scorer]]
+id = "nested_waiv"
+strategy = "frozen_foundation_trained_head"
+name = "nested_linear_probe"
+parameters = { embeddings = ["phaet_mean", "mascaret_mean"], repeats = 3, outer_splits = 5, inner_splits = 4, seed = 42 }
+
+[[scorer]]
+id = "nested_all6"
+strategy = "frozen_foundation_trained_head"
+name = "nested_linear_probe"
+parameters = { embeddings = ["conch_v1.5_mean", "ctranspath_mean", "uni2_mean", "virchow2_mean", "phaet_mean", "mascaret_mean"], repeats = 3, outer_splits = 5, inner_splits = 4, seed = 42 }
+
+# Configurable ABMIL replaces scripts/waiv_mil.py. Change the bag paths and
+# architecture values to test any tile encoder with the same validation design.
+[[scorer]]
+id = "abmil_phaet"
+strategy = "frozen_foundation_trained_head"
+name = "clam_tilemil"
+parameters = { bag_file = "$RUN_DIR/bags/robust_encoders/phaet_bags.npz", index_file = "$RUN_DIR/bags/robust_encoders/phaet_index.csv", ensemble_size = 3, epochs = 12, top_k = 2, hidden = 128, projection = 192, dropout = 0.25, learning_rate = 0.001, n_splits = 5, seed = 42 }
+
+[[scorer]]
+id = "abmil_mascaret"
+strategy = "frozen_foundation_trained_head"
+name = "clam_tilemil"
+parameters = { bag_file = "$RUN_DIR/bags/robust_encoders/mascaret_bags.npz", index_file = "$RUN_DIR/bags/robust_encoders/mascaret_index.csv", ensemble_size = 3, epochs = 12, top_k = 2, n_splits = 5, seed = 42 }
+
+[[scorer]]
+id = "abmil_waiv_concat"
+strategy = "frozen_foundation_trained_head"
+name = "clam_tilemil"
+parameters = { bag_file = "$RUN_DIR/bags/robust_encoders/waiv_concat_bags.npz", index_file = "$RUN_DIR/bags/robust_encoders/waiv_concat_index.csv", ensemble_size = 3, epochs = 12, top_k = 2, n_splits = 5, seed = 42 }
+
+# The from-scratch Wagner-style experiment is now encoder-agnostic too.
+[[scorer]]
+id = "transformer_phaet"
+strategy = "frozen_foundation_trained_head"
+name = "bag_transformer"
+parameters = { index_file = "$WORKSPACE/results/experiments/w1_ctranspath/slide_index.csv", feature_key = "phaet", zarr_column = "ctranspath_zarr", tile_cap = 2048, fold_column = "outer_fold", epochs = 20, device = "cuda", inner_splits = 5, depth = 2, heads = 8, dim = 512, dim_head = 64, capture_attention = true, seed = 42 }
+
+[[scorer]]
+id = "transformer_mascaret"
+strategy = "frozen_foundation_trained_head"
+name = "bag_transformer"
+parameters = { index_file = "$WORKSPACE/results/experiments/w1_ctranspath/slide_index.csv", feature_key = "mascaret", zarr_column = "ctranspath_zarr", tile_cap = 2048, fold_column = "outer_fold", epochs = 20, device = "cuda", inner_splits = 5, depth = 2, heads = 8, dim = 512, dim_head = 64, capture_attention = true, seed = 42 }
+
+[comparison]
+enabled = true

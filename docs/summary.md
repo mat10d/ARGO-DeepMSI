@@ -130,12 +130,32 @@ Add a new scorer:
 1. Subclass `Scorer` in `argo_deepmsi/scorers/<name>.py`
 2. Implement `compute_batch` returning the canonical schema
 3. `register(name, NewScorer)` at module bottom
-4. Add `from . import <name>` in `argo_deepmsi/scorers/__init__.py`
-5. Re-run `python -m argo_deepmsi.eval.qc_comparison`
+4. Run it with `argo scorers run <name>` or add a `[[scorer]]` job to an experiment TOML
+5. Re-run `python -m argo_deepmsi.eval.qc_comparison` for the historical leaderboard
 
 `needs_training_on_our_data=True` is allowed (sklearn / attention heads
 fit on our 198 patients). External pretraining is permitted only for
 frozen foundation-model embedders; no external slide-level training.
+
+## Error anatomy → next levers (2026-08-04)
+
+A depth-first anatomy of *which* patients Wagner gets wrong and *why* (full write-up:
+`docs/experiments/E1..E4-*.md`; run via `python -m argo_deepmsi.eval.error_anatomy` +
+`scripts/error_anatomy_c.sh`). At sens-0.95 Wagner makes **146 false positives vs 2 false
+negatives** — the failure is **specificity**, not sensitivity. The 148 errors decompose (after an
+enrichment gate that correctly discards the ubiquitous-but-non-causal artifact signal) into:
+
+| Cause | % of errors | lever |
+|---|---:|---|
+| borderline-score | 39% | operating point / selective abstention |
+| unexplained confident FP | 29% | new signal / abstention — **not** another head (Stage C: attention is normal) |
+| label-suspect (enriched 1.66×) | 22% | re-adjudication worklist (written) |
+| low-tumor-content (enriched 2.80×) | 11% | re-tile / QC-refix worklist (written) |
+
+~33% is addressable data/QC work with concrete worklists; ~39% is an operating-point/abstention
+question; ~29% is a genuine representational limit (Wagner attends to tumor normally yet mis-reads
+Nigerian MSS as MSI-H). Paired MSK/OAU scans flip only 4.8% of calls, so acquisition is mostly not
+the driver. **Do not add aggregation/attention heads on frozen CTransPath.**
 
 ## Current path forward
 

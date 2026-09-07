@@ -17,9 +17,7 @@ from __future__ import annotations
 
 import torch
 
-from lazyslide.models._model_registry import register
-from lazyslide.models._utils import hf_access
-from lazyslide.models.base import ImageModel, ModelTask
+from ._lazyslide import ImageModel, ModelTask, hf_access, register
 
 
 def _resize_crop_normalize(mean, std):

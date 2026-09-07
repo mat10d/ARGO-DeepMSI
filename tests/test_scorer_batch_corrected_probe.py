@@ -49,6 +49,7 @@ def test_oauthc_target_only_transforms_oauthc():
     assert not np.allclose(out[0], X[0])
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not CLEAN_CSV.exists() or not (EMB_ROOT / RAW_EMB / "embeddings.npy").exists(),
     reason="raw CONCH-TITAN embedding / cohort_clean.csv not present in this checkout",

@@ -84,7 +84,10 @@ class TrainableCTransPath(nn.Module):
 
     def __init__(self, mode: CTransPathMode = "frozen"):
         super().__init__()
-        from lazyslide.models.vision.ctranspath import CTransPath
+        try:
+            from lazyslide_models.vision.ctranspath import CTransPath
+        except ImportError:  # LazySlide 0.10
+            from lazyslide.models.vision.ctranspath import CTransPath
 
         source = CTransPath()
         self.encoder = source.model

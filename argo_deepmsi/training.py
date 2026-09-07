@@ -6,15 +6,16 @@ Provides simple classifiers and lightweight ViT training on embeddings.
 
 import logging
 from pathlib import Path
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import StratifiedGroupKFold, cross_val_score
+from sklearn.model_selection import StratifiedGroupKFold, cross_validate
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
 from sklearn.metrics import roc_auc_score
+from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 try:
@@ -77,8 +78,11 @@ def load_training_data(
             f"embeddings array has {len(embeddings)} rows."
         )
 
-    # Robust merge on patient_id — metadata index (0..N-1) is preserved by merge,
-    # so the resulting index directly indexes the embeddings matrix.
+    # Preserve the source row explicitly. pandas.merge creates a new RangeIndex,
+    # which does not identify the embedding row when metadata is unmatched or
+    # the merge changes row order.
+    metadata = metadata.copy()
+    metadata["_embedding_row"] = np.arange(len(metadata))
     merged = metadata.merge(
         clinical,
         left_on="patient_id",
@@ -96,7 +100,8 @@ def load_training_data(
             "  - Values match (case-sensitive)"
         )
 
-    X = embeddings[merged.index.values]
+    embedding_rows = merged.pop("_embedding_row").to_numpy(dtype=int)
+    X = embeddings[embedding_rows]
 
     # Extract labels
     y = (merged[label_column] == positive_label).astype(int).values
@@ -121,12 +126,74 @@ def load_training_data(
 # ============================================================================
 
 
+def _cross_validate_and_fit(
+    model: Any,
+    X: np.ndarray,
+    y: np.ndarray,
+    *,
+    groups: Optional[np.ndarray],
+    n_splits: int,
+    random_state: int,
+    scale_features: bool,
+) -> Dict[str, Any]:
+    """Evaluate with grouped CV, then fit the classifier on all observations.
+
+    Preprocessing lives in the estimator pipeline so it is fitted independently
+    inside each fold. Both metrics are collected in one CV pass.
+    """
+    if groups is None:
+        raise ValueError(
+            "`groups` (patient IDs) must be provided to avoid patient-level data leakage."
+        )
+
+    estimator = (
+        Pipeline([("scaler", StandardScaler()), ("classifier", model)]) if scale_features else model
+    )
+    cv = StratifiedGroupKFold(
+        n_splits=n_splits,
+        shuffle=True,
+        random_state=random_state,
+    )
+    scores = cross_validate(
+        estimator,
+        X,
+        y,
+        cv=cv,
+        groups=groups,
+        scoring={"auroc": "roc_auc", "accuracy": "accuracy"},
+    )
+    estimator.fit(X, y)
+
+    auroc_scores = scores["test_auroc"]
+    accuracy_scores = scores["test_accuracy"]
+    result = {
+        "model": estimator,
+        "auroc_mean": auroc_scores.mean(),
+        "auroc_std": auroc_scores.std(),
+        "accuracy_mean": accuracy_scores.mean(),
+        "accuracy_std": accuracy_scores.std(),
+        "cv_auroc_scores": auroc_scores,
+        "cv_accuracy_scores": accuracy_scores,
+    }
+    if scale_features:
+        # Retain the original model/scaler fields for callers that use them
+        # separately, and expose the safer raw-input pipeline as well.
+        result["model"] = estimator.named_steps["classifier"]
+        result["scaler"] = estimator.named_steps["scaler"]
+        result["pipeline"] = estimator
+    return result
+
+
 def train_logistic_regression(
     X: np.ndarray,
     y: np.ndarray,
     groups: Optional[np.ndarray] = None,
     n_splits: int = 5,
     random_state: int = 42,
+    C: float = 1.0,
+    solver: str = "lbfgs",
+    max_iter: int = 1000,
+    class_weight: str | dict | None = "balanced",
 ) -> Dict[str, Any]:
     """Train logistic regression with cross-validation.
 
@@ -139,42 +206,23 @@ def train_logistic_regression(
     Returns:
         Dictionary with model and metrics
     """
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
     model = LogisticRegression(
-        max_iter=1000,
+        C=C,
+        solver=solver,
+        max_iter=max_iter,
         random_state=random_state,
-        class_weight="balanced",
+        class_weight=class_weight,
     )
 
-    cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-    if groups is None:
-        raise ValueError(
-            "`groups` (patient IDs) must be provided to avoid patient-level data leakage. "
-            "Pass merged_df['patient_id'].values."
-        )
-
-    auroc_scores = cross_val_score(
-        model, X_scaled, y, cv=cv, groups=groups, scoring="roc_auc"
+    return _cross_validate_and_fit(
+        model,
+        X,
+        y,
+        groups=groups,
+        n_splits=n_splits,
+        random_state=random_state,
+        scale_features=True,
     )
-    accuracy_scores = cross_val_score(
-        model, X_scaled, y, cv=cv, groups=groups, scoring="accuracy"
-    )
-
-    # Fit final model on all data
-    model.fit(X_scaled, y)
-
-    return {
-        "model": model,
-        "scaler": scaler,
-        "auroc_mean": auroc_scores.mean(),
-        "auroc_std": auroc_scores.std(),
-        "accuracy_mean": accuracy_scores.mean(),
-        "accuracy_std": accuracy_scores.std(),
-        "cv_auroc_scores": auroc_scores,
-        "cv_accuracy_scores": accuracy_scores,
-    }
 
 
 def train_random_forest(
@@ -184,6 +232,10 @@ def train_random_forest(
     n_splits: int = 5,
     n_estimators: int = 100,
     random_state: int = 42,
+    max_depth: int | None = None,
+    min_samples_leaf: int = 1,
+    max_features: str | float | int | None = "sqrt",
+    class_weight: str | dict | None = "balanced",
 ) -> Dict[str, Any]:
     """Train random forest with cross-validation.
 
@@ -199,32 +251,25 @@ def train_random_forest(
     """
     model = RandomForestClassifier(
         n_estimators=n_estimators,
+        max_depth=max_depth,
+        min_samples_leaf=min_samples_leaf,
+        max_features=max_features,
         random_state=random_state,
-        class_weight="balanced",
+        class_weight=class_weight,
         n_jobs=-1,
     )
 
-    cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-    if groups is None:
-        raise ValueError(
-            "`groups` (patient IDs) must be provided to avoid patient-level data leakage."
-        )
-
-    auroc_scores = cross_val_score(model, X, y, cv=cv, groups=groups, scoring="roc_auc")
-    accuracy_scores = cross_val_score(model, X, y, cv=cv, groups=groups, scoring="accuracy")
-
-    model.fit(X, y)
-
-    return {
-        "model": model,
-        "auroc_mean": auroc_scores.mean(),
-        "auroc_std": auroc_scores.std(),
-        "accuracy_mean": accuracy_scores.mean(),
-        "accuracy_std": accuracy_scores.std(),
-        "cv_auroc_scores": auroc_scores,
-        "cv_accuracy_scores": accuracy_scores,
-        "feature_importances": model.feature_importances_,
-    }
+    result = _cross_validate_and_fit(
+        model,
+        X,
+        y,
+        groups=groups,
+        n_splits=n_splits,
+        random_state=random_state,
+        scale_features=False,
+    )
+    result["feature_importances"] = result["model"].feature_importances_
+    return result
 
 
 def train_svm(
@@ -233,6 +278,10 @@ def train_svm(
     groups: Optional[np.ndarray] = None,
     n_splits: int = 5,
     random_state: int = 42,
+    C: float = 1.0,
+    kernel: str = "rbf",
+    gamma: str | float = "scale",
+    class_weight: str | dict | None = "balanced",
 ) -> Dict[str, Any]:
     """Train SVM with cross-validation.
 
@@ -245,41 +294,24 @@ def train_svm(
     Returns:
         Dictionary with model and metrics
     """
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
-
     model = SVC(
-        kernel="rbf",
+        C=C,
+        kernel=kernel,
+        gamma=gamma,
         probability=True,
         random_state=random_state,
-        class_weight="balanced",
+        class_weight=class_weight,
     )
 
-    cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-    if groups is None:
-        raise ValueError(
-            "`groups` (patient IDs) must be provided to avoid patient-level data leakage."
-        )
-
-    auroc_scores = cross_val_score(
-        model, X_scaled, y, cv=cv, groups=groups, scoring="roc_auc"
+    return _cross_validate_and_fit(
+        model,
+        X,
+        y,
+        groups=groups,
+        n_splits=n_splits,
+        random_state=random_state,
+        scale_features=True,
     )
-    accuracy_scores = cross_val_score(
-        model, X_scaled, y, cv=cv, groups=groups, scoring="accuracy"
-    )
-
-    model.fit(X_scaled, y)
-
-    return {
-        "model": model,
-        "scaler": scaler,
-        "auroc_mean": auroc_scores.mean(),
-        "auroc_std": auroc_scores.std(),
-        "accuracy_mean": accuracy_scores.mean(),
-        "accuracy_std": accuracy_scores.std(),
-        "cv_auroc_scores": auroc_scores,
-        "cv_accuracy_scores": accuracy_scores,
-    }
 
 
 def compare_classifiers(
@@ -288,6 +320,8 @@ def compare_classifiers(
     groups: Optional[np.ndarray] = None,
     n_splits: int = 5,
     random_state: int = 42,
+    classifiers: Sequence[str] = ("logistic", "random_forest", "svm"),
+    classifier_params: Mapping[str, Mapping[str, Any]] | None = None,
 ) -> pd.DataFrame:
     """Compare multiple classifiers on the same data.
 
@@ -300,46 +334,43 @@ def compare_classifiers(
     Returns:
         DataFrame comparing classifier performance
     """
+    if groups is None:
+        raise ValueError(
+            "`groups` (patient IDs) must be provided to avoid patient-level data leakage."
+        )
+
+    trainers = {
+        "logistic": ("Logistic Regression", train_logistic_regression),
+        "random_forest": ("Random Forest", train_random_forest),
+        "svm": ("SVM", train_svm),
+    }
+    if not classifiers:
+        raise ValueError("Select at least one classifier")
+    unknown = set(classifiers) - trainers.keys()
+    if unknown:
+        raise ValueError(f"Unknown classifiers: {sorted(unknown)}. Available: {sorted(trainers)}")
+    classifier_params = classifier_params or {}
+    unused_params = set(classifier_params) - set(classifiers)
+    if unused_params:
+        raise ValueError(f"Parameters supplied for unselected classifiers: {sorted(unused_params)}")
+    metric_names = ("auroc_mean", "auroc_std", "accuracy_mean", "accuracy_std")
     results = []
+    for classifier_key in classifiers:
+        classifier_name, trainer = trainers[classifier_key]
+        logger.info("Training %s...", classifier_name)
+        metrics = trainer(
+            X,
+            y,
+            groups=groups,
+            n_splits=n_splits,
+            random_state=random_state,
+            **classifier_params.get(classifier_key, {}),
+        )
+        results.append(
+            {"classifier": classifier_name, **{name: metrics[name] for name in metric_names}}
+        )
 
-    logger.info("Training Logistic Regression...")
-    lr_results = train_logistic_regression(X, y, groups=groups, n_splits=n_splits, random_state=random_state)
-    results.append(
-        {
-            "classifier": "Logistic Regression",
-            "auroc_mean": lr_results["auroc_mean"],
-            "auroc_std": lr_results["auroc_std"],
-            "accuracy_mean": lr_results["accuracy_mean"],
-            "accuracy_std": lr_results["accuracy_std"],
-        }
-    )
-
-    logger.info("Training Random Forest...")
-    rf_results = train_random_forest(X, y, groups=groups, n_splits=n_splits, random_state=random_state)
-    results.append(
-        {
-            "classifier": "Random Forest",
-            "auroc_mean": rf_results["auroc_mean"],
-            "auroc_std": rf_results["auroc_std"],
-            "accuracy_mean": rf_results["accuracy_mean"],
-            "accuracy_std": rf_results["accuracy_std"],
-        }
-    )
-
-    logger.info("Training SVM...")
-    svm_results = train_svm(X, y, groups=groups, n_splits=n_splits, random_state=random_state)
-    results.append(
-        {
-            "classifier": "SVM",
-            "auroc_mean": svm_results["auroc_mean"],
-            "auroc_std": svm_results["auroc_std"],
-            "accuracy_mean": svm_results["accuracy_mean"],
-            "accuracy_std": svm_results["accuracy_std"],
-        }
-    )
-
-    df = pd.DataFrame(results)
-    df = df.sort_values("auroc_mean", ascending=False)
+    df = pd.DataFrame(results).sort_values("auroc_mean", ascending=False)
 
     logger.info("\nClassifier Comparison:")
     logger.info(df.to_string(index=False))
@@ -359,7 +390,7 @@ if TORCH_AVAILABLE:
         def __init__(
             self,
             input_dim: int,
-            hidden_dims: List[int] = [256, 128],
+            hidden_dims: Sequence[int] = (256, 128),
             num_classes: int = 2,
             dropout: float = 0.3,
         ):
@@ -430,7 +461,7 @@ if TORCH_AVAILABLE:
 def train_mlp(
     X: np.ndarray,
     y: np.ndarray,
-    hidden_dims: List[int] = [256, 128],
+    hidden_dims: Sequence[int] = (256, 128),
     n_epochs: int = 100,
     batch_size: int = 32,
     learning_rate: float = 1e-3,

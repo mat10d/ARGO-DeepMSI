@@ -59,6 +59,7 @@ def test_deepsets_learns_separable_bags():
     assert np.all((p >= 0) & (p <= 1))
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not WAGNER_CSV.exists() or not (TITAN_DIR / "embeddings.npy").exists() or not CLEAN_CSV.exists(),
     reason="Wagner scores / TITAN embeddings / cohort_clean.csv not present",

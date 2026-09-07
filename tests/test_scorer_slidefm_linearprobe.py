@@ -40,6 +40,7 @@ def _first_available_embedding() -> str | None:
     return None
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not CLEAN_CSV.exists() or _first_available_embedding() is None,
     reason="slide-FM embeddings / cohort_clean.csv not present in this checkout",

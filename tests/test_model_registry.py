@@ -25,16 +25,20 @@ import os
 
 import pytest
 
-import lazyslide as zs
-
 from argo_deepmsi.feature_extraction import (
     PATCH_MODELS,
     QC_MODELS,
     SLIDE_ENCODERS,
 )
+from argo_deepmsi.models._lazyslide import MODEL_REGISTRY
+
+REGISTRY = MODEL_REGISTRY
 
 
-REGISTRY = zs.models.MODEL_REGISTRY
+def _has_task(model_class, name: str) -> bool:
+    tasks = getattr(model_class, "task", ())
+    tasks = tasks if isinstance(tasks, (list, tuple, set)) else (tasks,)
+    return any(str(task).rsplit(".", 1)[-1] == name for task in tasks)
 
 
 # --------------------------------------------------------------------------
@@ -62,9 +66,8 @@ class TestRegistryConsistency:
                     f"{name}: argo.requires_auth={cfg.requires_auth}, "
                     f"lazyslide.is_gated={upstream}"
                 )
-        assert not mismatches, (
-            "requires_auth disagrees with lazyslide.is_gated:\n  "
-            + "\n  ".join(mismatches)
+        assert not mismatches, "requires_auth disagrees with lazyslide.is_gated:\n  " + "\n  ".join(
+            mismatches
         )
 
     def test_qc_models_have_qc_appropriate_task(self):
@@ -79,32 +82,44 @@ class TestRegistryConsistency:
             if task not in allowed:
                 bad.append(f"{name}: task={task}")
         assert not bad, (
-            f"QC models with unexpected task types: {bad}. "
-            f"Expected one of {sorted(allowed)}."
+            f"QC models with unexpected task types: {bad}. " f"Expected one of {sorted(allowed)}."
         )
 
     def test_neural_slide_encoders_exist_in_registry(self):
         """Statistical methods (mean/max/median/sum) are not in the registry
         by design; the neural encoders must be."""
-        neural = {"prism", "titan", "chief", "madeleine", "gigapath-slide-encoder"}
-        missing = sorted(n for n in neural if n in SLIDE_ENCODERS and n not in REGISTRY)
+        statistical = {"mean", "max", "median", "sum"}
+        neural = set(SLIDE_ENCODERS) - statistical
+        missing = sorted(neural - set(REGISTRY))
         assert not missing, f"Neural slide encoders missing from registry: {missing}"
+        wrong_task = sorted(
+            name for name in neural if not _has_task(REGISTRY[name], "slide_encoder")
+        )
+        assert not wrong_task, f"Non-slide models exposed as neural encoders: {wrong_task}"
 
     def test_statistical_methods_not_treated_as_models(self):
         """mean/max/median/sum should never leak into PATCH_MODELS."""
         leaked = sorted(set(PATCH_MODELS) & {"mean", "max", "median", "sum"})
         assert not leaked, f"Statistical methods leaked into PATCH_MODELS: {leaked}"
 
+    def test_patch_models_implement_image_encoding(self):
+        invalid = sorted(
+            name
+            for name in PATCH_MODELS
+            if not callable(getattr(REGISTRY[name], "encode_image", None))
+        )
+        assert not invalid, f"Non-image models exposed as patch extractors: {invalid}"
+
     def test_vision_coverage_is_intentional(self):
-        """If LazySlide adds a new vision model upstream, catch it so we can
-        decide whether to expose it. Currently allow-listed: midnight (larger
-        and we haven't evaluated it yet)."""
-        upstream_vision = {
-            n for n, cls in REGISTRY.items()
-            if str(getattr(cls, "task", "")) == "ModelTask.vision"
+        """Every upstream image encoder is automatically CLI-addressable."""
+        upstream_patch = {
+            name
+            for name, model_class in REGISTRY.items()
+            if callable(getattr(model_class, "encode_image", None))
+            and (_has_task(model_class, "vision") or _has_task(model_class, "multimodal"))
         }
-        known_excluded = {"midnight"}
-        new = sorted(upstream_vision - set(PATCH_MODELS) - known_excluded)
+        exposed_classes = {REGISTRY[name] for name in PATCH_MODELS}
+        new = sorted(name for name in upstream_patch if REGISTRY[name] not in exposed_classes)
         assert not new, (
             f"LazySlide has new vision models that are not in PATCH_MODELS "
             f"or the known-excluded list: {new}. Add them to PATCH_MODELS "
@@ -143,13 +158,9 @@ class TestWaivModels:
 # --------------------------------------------------------------------------
 
 _NON_GATED_PATCH = sorted(
-    n for n, cfg in PATCH_MODELS.items()
-    if not cfg.requires_auth and n in REGISTRY
+    n for n, cfg in PATCH_MODELS.items() if not cfg.requires_auth and n in REGISTRY
 )
-_GATED_PATCH = sorted(
-    n for n, cfg in PATCH_MODELS.items()
-    if cfg.requires_auth and n in REGISTRY
-)
+_GATED_PATCH = sorted(n for n, cfg in PATCH_MODELS.items() if cfg.requires_auth and n in REGISTRY)
 
 
 def _instantiate(name: str) -> None:

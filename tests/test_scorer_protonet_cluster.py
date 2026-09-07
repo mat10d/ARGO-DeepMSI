@@ -42,6 +42,7 @@ def test_proto_scores_separates_classes():
     assert np.all((p >= 0) & (p <= 1))
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not FEAT.exists() or not CLEAN_CSV.exists(),
     reason="cluster features / cohort_clean.csv not present in this checkout",

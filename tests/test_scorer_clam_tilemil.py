@@ -13,7 +13,7 @@ import numpy as np
 import pytest
 
 from argo_deepmsi.scorers import get_scorer, list_scorers
-from argo_deepmsi.scorers.clam_tilemil import BAG_DIR, CLAMTileMIL, _make_model, _predict, _train_one
+from argo_deepmsi.scorers.clam_tilemil import BAG_DIR, CLAMTileMIL, _predict, _train_one
 
 CLEAN_CSV = Path("results/data/cohort_clean.csv")
 
@@ -53,6 +53,7 @@ def test_abmil_learns_separable_bags():
     assert np.all((p >= 0) & (p <= 1))
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not (BAG_DIR / "bags_concat.npy").exists() or not CLEAN_CSV.exists(),
     reason="tile bags / cohort_clean.csv not present in this checkout",

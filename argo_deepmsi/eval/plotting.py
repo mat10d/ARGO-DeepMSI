@@ -90,7 +90,7 @@ def auroc_bar(
         cats = df[color_col].astype("category")
         palette = plt.get_cmap("tab10")(np.linspace(0, 1, max(cats.cat.codes.max() + 1, 1)))
         colors = [palette[c] for c in cats.cat.codes]
-    bars = ax.bar(np.arange(len(df)), df[score_col], color=colors)
+    ax.bar(np.arange(len(df)), df[score_col], color=colors)
     ax.set_xticks(np.arange(len(df)))
     ax.set_xticklabels(df[label_col], rotation=35, ha="right")
     ax.set_ylabel("AUROC")

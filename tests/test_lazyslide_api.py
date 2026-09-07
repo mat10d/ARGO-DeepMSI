@@ -27,43 +27,15 @@ Public data used:
 """
 
 import pytest
-import os
-import shutil
-import tempfile
 from pathlib import Path
 
-import numpy as np
 import pandas as pd
+
+pytestmark = pytest.mark.network
 
 # ============================================================================
 # Fixtures
 # ============================================================================
-
-@pytest.fixture(scope="session")
-def data_dir():
-    """Create a temporary directory for test data that persists across all tests."""
-    d = Path(tempfile.mkdtemp(prefix="argo_test_"))
-    yield d
-    # Cleanup after all tests
-    shutil.rmtree(d, ignore_errors=True)
-
-
-@pytest.fixture(scope="session")
-def sample_slide(data_dir):
-    """Download the small GTEx artery slide (GTEX-1117F-0526.svs).
-
-    This is a ~20K×20K slide that produces ~253 tiles at 256px/0.5mpp.
-    Used in LazySlide's own preprocessing tutorial.
-    """
-    from huggingface_hub import hf_hub_download
-
-    slide_path = hf_hub_download(
-        "rendeirolab/lazyslide-data",
-        "GTEX-1117F-0526.svs",
-        repo_type="dataset",
-        cache_dir=str(data_dir),
-    )
-    return Path(slide_path)
 
 
 @pytest.fixture(scope="session")
@@ -81,6 +53,7 @@ def large_slide(data_dir):
         "GTEX-11DXX-1626.svs",
         repo_type="dataset",
         cache_dir=str(data_dir),
+        token=False,
     )
     return Path(slide_path)
 
@@ -97,23 +70,15 @@ def gtex_dataset():
         "rendeirolab/lazyslide-data",
         "GTEx_artery_dataset.csv.gz",
         repo_type="dataset",
+        token=False,
     )
     return pd.read_csv(table_path)
-
-
-@pytest.fixture(scope="session")
-def has_cuda():
-    """Check if CUDA is available."""
-    try:
-        import torch
-        return torch.cuda.is_available()
-    except ImportError:
-        return False
 
 
 # ============================================================================
 # 1. Core: Slide Opening
 # ============================================================================
+
 
 class TestSlideOpening:
     """Test wsidata.open_wsi() patterns from reference guide Section 2."""
@@ -152,6 +117,7 @@ class TestSlideOpening:
 # ============================================================================
 # 2. Preprocessing
 # ============================================================================
+
 
 class TestPreprocessing:
     """Test zs.pp.* patterns from reference guide Section 3."""
@@ -223,6 +189,7 @@ class TestPreprocessing:
 # ============================================================================
 # 3. Feature Extraction
 # ============================================================================
+
 
 class TestFeatureExtraction:
     """Test zs.tl.feature_extraction() patterns from reference guide Section 4.
@@ -310,6 +277,7 @@ class TestFeatureExtraction:
         assert "resnet50_tiles" in wsi.tables
         print(f"  batch_size=64 succeeded: {wsi['resnet50_tiles'].shape}")
 
+    @pytest.mark.model_download
     def test_multi_model_extraction(self, sample_slide, data_dir):
         """Extract multiple models on same slide, single write."""
         from wsidata import open_wsi
@@ -325,8 +293,12 @@ class TestFeatureExtraction:
         # Extract two models, single preprocess
         for model in ["resnet50", "ctranspath"]:
             zs.tl.feature_extraction(
-                wsi, model=model, device="cpu",
-                batch_size=16, num_workers=0, pbar=False,
+                wsi,
+                model=model,
+                device="cpu",
+                batch_size=16,
+                num_workers=0,
+                pbar=False,
             )
 
         # Both should be in tables
@@ -334,8 +306,10 @@ class TestFeatureExtraction:
         assert "ctranspath_tiles" in wsi.tables
 
         wsi.write()
-        print(f"  Multi-model: resnet50={wsi['resnet50_tiles'].shape}, "
-              f"ctranspath={wsi['ctranspath_tiles'].shape}")
+        print(
+            f"  Multi-model: resnet50={wsi['resnet50_tiles'].shape}, "
+            f"ctranspath={wsi['ctranspath_tiles'].shape}"
+        )
 
     @pytest.mark.gpu
     def test_feature_extraction_uni2_gpu(self, sample_slide, data_dir, has_cuda):
@@ -354,8 +328,13 @@ class TestFeatureExtraction:
         zs.pp.tile_tissues(wsi, tile_px=256, mpp=0.5)
 
         zs.tl.feature_extraction(
-            wsi, model="uni2", amp=True, device="cuda",
-            num_workers=4, batch_size=64, pbar=False,
+            wsi,
+            model="uni2",
+            amp=True,
+            device="cuda",
+            num_workers=4,
+            batch_size=64,
+            pbar=False,
         )
 
         assert "uni2_tiles" in wsi.tables
@@ -368,6 +347,7 @@ class TestFeatureExtraction:
 # ============================================================================
 # 4. Feature Aggregation
 # ============================================================================
+
 
 class TestFeatureAggregation:
     """Test aggregation patterns from reference guide Sections 5-6."""
@@ -384,8 +364,12 @@ class TestFeatureAggregation:
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=256, mpp=0.5)
         zs.tl.feature_extraction(
-            wsi, model="resnet50", device="cpu",
-            batch_size=16, num_workers=0, pbar=False,
+            wsi,
+            model="resnet50",
+            device="cpu",
+            batch_size=16,
+            num_workers=0,
+            pbar=False,
         )
 
         # Default aggregation
@@ -395,8 +379,7 @@ class TestFeatureAggregation:
         adata = wsi["resnet50_tiles"]
         has_agg = ("agg_slide" in adata.varm) or ("agg_slide" in adata.uns)
         assert has_agg, "Aggregation result not found in varm or uns"
-        print(f"  Aggregation stored in: "
-              f"{'varm' if 'agg_slide' in adata.varm else 'uns'}")
+        print(f"  Aggregation stored in: {'varm' if 'agg_slide' in adata.varm else 'uns'}")
 
         wsi.write()
 
@@ -420,8 +403,12 @@ class TestFeatureAggregation:
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=256, mpp=0.5)
         zs.tl.feature_extraction(
-            wsi, model="resnet50", device="cpu",
-            batch_size=16, num_workers=0, pbar=False,
+            wsi,
+            model="resnet50",
+            device="cpu",
+            batch_size=16,
+            num_workers=0,
+            pbar=False,
         )
         zs.tl.feature_aggregation(wsi, feature_key="resnet50")
         wsi.write()
@@ -436,14 +423,18 @@ class TestFeatureAggregation:
             # Try alongside the SVS
             zarr_path = str(sample_slide.with_suffix(".zarr"))
 
-        assert zarr_path is not None and Path(zarr_path).exists(),             f"Zarr not found in {store_dir} or alongside SVS"
+        assert (
+            zarr_path is not None and Path(zarr_path).exists()
+        ), f"Zarr not found in {store_dir} or alongside SVS"
 
         # Create a fake multi-slide dataset (same slide twice)
-        dataset = pd.DataFrame({
-            "slide_id": ["slide_1", "slide_2"],
-            "store": [zarr_path, zarr_path],
-            "label": ["healthy", "calcified"],
-        })
+        dataset = pd.DataFrame(
+            {
+                "slide_id": ["slide_1", "slide_2"],
+                "store": [zarr_path, zarr_path],
+                "label": ["healthy", "calcified"],
+            }
+        )
 
         # THE KEY CALL — agg_wsi
         agg_data = agg_wsi(
@@ -455,11 +446,10 @@ class TestFeatureAggregation:
 
         # Validate output
         assert agg_data is not None, "agg_wsi returned None"
-        assert hasattr(agg_data, 'X'), "agg_wsi result is not AnnData"
+        assert hasattr(agg_data, "X"), "agg_wsi result is not AnnData"
         assert agg_data.shape[0] == 2, f"Expected 2 slides, got {agg_data.shape[0]}"
         assert agg_data.shape[1] > 0, "No features in aggregated data"
-        print(f"  agg_wsi result: {agg_data.shape} "
-              f"(2 slides x {agg_data.shape[1]} features)")
+        print(f"  agg_wsi result: {agg_data.shape} (2 slides x {agg_data.shape[1]} features)")
 
     def test_agg_wsi_scanpy_integration(self, sample_slide, data_dir):
         """agg_wsi output works directly with scanpy."""
@@ -475,8 +465,12 @@ class TestFeatureAggregation:
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=256, mpp=0.5)
         zs.tl.feature_extraction(
-            wsi, model="resnet50", device="cpu",
-            batch_size=16, num_workers=0, pbar=False,
+            wsi,
+            model="resnet50",
+            device="cpu",
+            batch_size=16,
+            num_workers=0,
+            pbar=False,
         )
         zs.tl.feature_aggregation(wsi, feature_key="resnet50")
         wsi.write()
@@ -490,11 +484,13 @@ class TestFeatureAggregation:
             zarr_path = str(sample_slide.with_suffix(".zarr"))
 
         # Create dataset with 3+ slides (need >=3 for neighbors)
-        dataset = pd.DataFrame({
-            "slide_id": [f"slide_{i}" for i in range(5)],
-            "store": [zarr_path] * 5,
-            "label": ["A", "B", "A", "B", "A"],
-        })
+        dataset = pd.DataFrame(
+            {
+                "slide_id": [f"slide_{i}" for i in range(5)],
+                "store": [zarr_path] * 5,
+                "label": ["A", "B", "A", "B", "A"],
+            }
+        )
 
         agg_data = agg_wsi(dataset, "resnet50", store_col="store", agg_key="agg_slide")
 
@@ -514,6 +510,7 @@ class TestFeatureAggregation:
 # 5. Zarr-Based Visualization (no re-extraction)
 # ============================================================================
 
+
 class TestVisualizationFromZarr:
     """Test that visualization works from pre-computed zarr data."""
 
@@ -530,8 +527,12 @@ class TestVisualizationFromZarr:
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=256, mpp=0.5)
         zs.tl.feature_extraction(
-            wsi, model="resnet50", device="cpu",
-            batch_size=16, num_workers=0, pbar=False,
+            wsi,
+            model="resnet50",
+            device="cpu",
+            batch_size=16,
+            num_workers=0,
+            pbar=False,
         )
         wsi.write()
 
@@ -547,6 +548,7 @@ class TestVisualizationFromZarr:
         from wsidata import open_wsi
         import lazyslide as zs
         import matplotlib
+
         matplotlib.use("Agg")  # non-interactive backend
         import matplotlib.pyplot as plt
 
@@ -558,8 +560,12 @@ class TestVisualizationFromZarr:
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=256, mpp=0.5)
         zs.tl.feature_extraction(
-            wsi, model="resnet50", device="cpu",
-            batch_size=16, num_workers=0, pbar=False,
+            wsi,
+            model="resnet50",
+            device="cpu",
+            batch_size=16,
+            num_workers=0,
+            pbar=False,
         )
         wsi.write()
 
@@ -579,6 +585,7 @@ class TestVisualizationFromZarr:
 # 6. Direct Zarr Read (fallback for custom pooling)
 # ============================================================================
 
+
 class TestDirectZarrRead:
     """Test the fallback pattern of reading X directly from zarr."""
 
@@ -596,8 +603,12 @@ class TestDirectZarrRead:
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=256, mpp=0.5)
         zs.tl.feature_extraction(
-            wsi, model="resnet50", device="cpu",
-            batch_size=16, num_workers=0, pbar=False,
+            wsi,
+            model="resnet50",
+            device="cpu",
+            batch_size=16,
+            num_workers=0,
+            pbar=False,
         )
         wsi.write()
 
@@ -629,9 +640,11 @@ class TestDirectZarrRead:
 # 7. Incremental Extraction
 # ============================================================================
 
+
 class TestIncrementalExtraction:
     """Test that adding models to existing zarr works correctly."""
 
+    @pytest.mark.model_download
     def test_add_model_to_existing_zarr(self, sample_slide, data_dir):
         """Extract model A, write, then extract model B on same zarr."""
         from wsidata import open_wsi
@@ -645,8 +658,12 @@ class TestIncrementalExtraction:
         zs.pp.find_tissues(wsi)
         zs.pp.tile_tissues(wsi, tile_px=256, mpp=0.5)
         zs.tl.feature_extraction(
-            wsi, model="resnet50", device="cpu",
-            batch_size=16, num_workers=0, pbar=False,
+            wsi,
+            model="resnet50",
+            device="cpu",
+            batch_size=16,
+            num_workers=0,
+            pbar=False,
         )
         wsi.write()
 
@@ -655,8 +672,12 @@ class TestIncrementalExtraction:
         assert "resnet50_tiles" in wsi2.tables  # first model persisted
 
         zs.tl.feature_extraction(
-            wsi2, model="ctranspath", device="cpu",
-            batch_size=16, num_workers=0, pbar=False,
+            wsi2,
+            model="ctranspath",
+            device="cpu",
+            batch_size=16,
+            num_workers=0,
+            pbar=False,
         )
         wsi2.write()
 
@@ -664,13 +685,16 @@ class TestIncrementalExtraction:
         wsi3 = open_wsi(str(sample_slide), store=str(store_dir))
         assert "resnet50_tiles" in wsi3.tables
         assert "ctranspath_tiles" in wsi3.tables
-        print(f"  Incremental: resnet50={wsi3['resnet50_tiles'].shape}, "
-              f"ctranspath={wsi3['ctranspath_tiles'].shape}")
+        print(
+            f"  Incremental: resnet50={wsi3['resnet50_tiles'].shape}, "
+            f"ctranspath={wsi3['ctranspath_tiles'].shape}"
+        )
 
 
 # ============================================================================
 # Pytest configuration
 # ============================================================================
+
 
 def pytest_configure(config):
     config.addinivalue_line("markers", "gpu: marks tests requiring CUDA GPU")

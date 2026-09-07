@@ -1,0 +1,9 @@
+attributed_cause,count,scope
+borderline-score,57,overall
+unexplained,43,overall
+label-suspect,32,overall
+low-tumor-content,16,overall
+label-suspect,21,OAUTHC
+borderline-score,19,OAUTHC
+unexplained,16,OAUTHC
+low-tumor-content,3,OAUTHC

@@ -56,6 +56,7 @@ def test_flex_learns_separable_features():
     assert np.all((p >= 0) & (p <= 1))
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not (TITAN_DIR / "embeddings.npy").exists() or not PROTO_NPY.exists() or not CLEAN_CSV.exists(),
     reason="TITAN embeddings / text prototypes / cohort_clean.csv not present",

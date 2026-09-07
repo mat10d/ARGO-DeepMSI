@@ -1,0 +1,15 @@
+{
+  "n_patients_scored": 195,
+  "tumor_vl_msi_auroc_true_labels": 0.5183629007158419,
+  "mean_tumor_vl_msi": {
+    "true_MSIH": -0.013437009098320754,
+    "true_MSS_TN": -0.007755446967599217,
+    "confident_FP": -0.014055249284305234
+  },
+  "fp_position_0MSS_1MSIH": 1.1088151764884364,
+  "tumor_vl_quality_by_group": {
+    "true_MSIH": -0.0020481080863034365,
+    "confident_FP": -0.0022795723182993575,
+    "TN": 0.003018776384264433
+  }
+}

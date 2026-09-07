@@ -20,6 +20,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+pytestmark = pytest.mark.network
+
 
 # --------------------------------------------------------------------------
 # Fixtures
@@ -79,7 +81,9 @@ def slide_table_csv(workspace_slide, extracted_zarr, data_dir) -> Path:
         zarr_link = ws / f"{pid}_{workspace_slide.stem}.zarr"
         if not zarr_link.exists():
             zarr_link.symlink_to(zarr_target)
-        rows.append({"PATIENT": pid, "FILENAME": str(link.resolve().parent / link.name), "SITE": "TEST"})
+        rows.append(
+            {"PATIENT": pid, "FILENAME": str(link.resolve().parent / link.name), "SITE": "TEST"}
+        )
     df = pd.DataFrame(rows)
     path = data_dir / "slide_table.csv"
     df.to_csv(path, index=False)
@@ -214,9 +218,7 @@ class TestAggregateSimplePooling:
 
 
 class TestTrainingWiring:
-    def test_load_training_data_prefers_h5ad(
-        self, slide_table_csv, clinical_table_csv, tmp_path
-    ):
+    def test_load_training_data_prefers_h5ad(self, slide_table_csv, clinical_table_csv, tmp_path):
         from argo_deepmsi.feature_extraction import aggregate_simple_pooling
         from argo_deepmsi.training import load_training_data
 
@@ -260,6 +262,35 @@ class TestTrainingWiring:
         with pytest.raises(ValueError, match="Row count mismatch"):
             load_training_data(embeddings_dir=d, clinical_table=clinical_table_csv)
 
+    def test_load_training_data_preserves_embedding_rows(self, tmp_path):
+        """An unmatched metadata row must not shift the matched embeddings."""
+        from argo_deepmsi.training import load_training_data
+
+        embedding_dir = tmp_path / "partially_matched"
+        embedding_dir.mkdir()
+        embeddings = np.array([[10.0, 11.0], [20.0, 21.0], [30.0, 31.0]])
+        np.save(embedding_dir / "embeddings.npy", embeddings)
+        pd.DataFrame(
+            {
+                "slide_id": ["unmatched", "matched-2", "matched-1"],
+                "patient_id": ["PX", "P2", "P1"],
+            }
+        ).to_csv(embedding_dir / "metadata.csv", index=False)
+        clinical = tmp_path / "clinical.csv"
+        pd.DataFrame(
+            {
+                "PATIENT": ["P1", "P2"],
+                "isMSIH": ["MSI-H", "MSS"],
+            }
+        ).to_csv(clinical, index=False)
+
+        X, y, merged = load_training_data(embedding_dir, clinical)
+
+        np.testing.assert_array_equal(X, embeddings[[1, 2]])
+        assert y.tolist() == [0, 1]
+        assert merged["patient_id"].tolist() == ["P2", "P1"]
+        assert "_embedding_row" not in merged
+
     def test_compare_classifiers_requires_groups(self):
         from argo_deepmsi.training import compare_classifiers
 
@@ -282,11 +313,25 @@ class TestTrainingWiring:
         # Make the signal linearly separable so the classifiers don't NaN out
         X = rng.randn(20, 8).astype(np.float32) + labels.reshape(-1, 1) * 3.0
 
-        results = compare_classifiers(
-            X, labels, groups=patient_ids, n_splits=3, random_state=0
-        )
+        results = compare_classifiers(X, labels, groups=patient_ids, n_splits=3, random_state=0)
         assert len(results) == 3  # LR, RF, SVM
         assert results["auroc_mean"].notna().all()
+
+    def test_scaled_classifier_exposes_fitted_pipeline(self):
+        """The reusable estimator applies the same scaling used in training."""
+        from argo_deepmsi.training import train_logistic_regression
+
+        rng = np.random.RandomState(1)
+        groups = np.repeat([f"P{i:02d}" for i in range(8)], 2)
+        y = np.repeat([0, 1] * 4, 2)
+        X = rng.randn(16, 4) + y[:, None]
+
+        result = train_logistic_regression(X, y, groups=groups, n_splits=2)
+
+        np.testing.assert_array_equal(
+            result["pipeline"].predict(X),
+            result["model"].predict(result["scaler"].transform(X)),
+        )
 
 
 # --------------------------------------------------------------------------

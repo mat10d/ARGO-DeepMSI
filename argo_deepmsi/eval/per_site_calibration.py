@@ -84,8 +84,10 @@ def _cv_site_operating_point(
         thresholds.append(t)
         oof_pred[te] = s_te_c >= t
         oof_cal[te] = s_te_c
-    P = int((y == 1).sum()); N = int((y == 0).sum())
-    tp = int((oof_pred & (y == 1)).sum()); tn = int((~oof_pred & (y == 0)).sum())
+    P = int((y == 1).sum())
+    N = int((y == 0).sum())
+    tp = int((oof_pred & (y == 1)).sum())
+    tn = int((~oof_pred & (y == 0)).sum())
     pred_neg = ~oof_pred
     npv = (tn / int(pred_neg.sum())) if pred_neg.sum() else float("nan")
     return {

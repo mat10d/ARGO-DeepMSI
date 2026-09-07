@@ -33,6 +33,7 @@ def test_contract_attributes():
     assert s.score_path is not None and s.score_path.name == "slide_scores.csv"
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not CLEAN_CSV.exists() or not (EMB_ROOT / HARMONY_EMB / "embeddings.npy").exists(),
     reason="Harmony CONCH-TITAN embedding / cohort_clean.csv not present in this checkout",

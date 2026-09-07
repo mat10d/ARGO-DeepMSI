@@ -14,10 +14,15 @@ from pathlib import Path
 
 import pytest
 
-
 # Opt-in marks: skip by default unless the user asks for them explicitly via
 # `-m <mark>` or a boolean expression that mentions the mark.
-_OPT_IN_MARKS = ("model_download", "requires_hf_token")
+_OPT_IN_MARKS = (
+    "gpu",
+    "integration",
+    "model_download",
+    "network",
+    "requires_hf_token",
+)
 
 
 def pytest_collection_modifyitems(config, items):
@@ -25,9 +30,7 @@ def pytest_collection_modifyitems(config, items):
     for item in items:
         for mark in _OPT_IN_MARKS:
             if mark in item.keywords and mark not in selected:
-                item.add_marker(
-                    pytest.mark.skip(reason=f"opt-in: run with `-m {mark}`")
-                )
+                item.add_marker(pytest.mark.skip(reason=f"opt-in: run with `-m {mark}`"))
                 break
 
 
@@ -48,6 +51,7 @@ def sample_slide(data_dir: Path) -> Path:
         "GTEX-1117F-0526.svs",
         repo_type="dataset",
         cache_dir=str(data_dir),
+        token=False,
     )
     return Path(slide_path)
 
@@ -56,6 +60,7 @@ def sample_slide(data_dir: Path) -> Path:
 def has_cuda() -> bool:
     try:
         import torch
+
         return torch.cuda.is_available()
     except ImportError:
         return False

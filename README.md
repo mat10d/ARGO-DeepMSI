@@ -5,13 +5,8 @@ MSI prediction from whole slide images using [LazySlide](https://github.com/rend
 ## Installation
 
 ```bash
-# Create conda environment
-conda create -n argo -c pytorch -c nvidia -c conda-forge \
-  python=3.11 uv pip pytorch pytorch-cuda=12.1 -y
-
-# Install dependencies
-conda activate argo
-uv pip install -e .
+# Python 3.11; exact versions come from uv.lock
+uv sync --frozen --extra dev --extra dask --extra waiv
 
 # Configure HuggingFace token (for gated models)
 cp .env.template .env
@@ -55,25 +50,23 @@ Writes `results/data/slide_table_pyramidal.csv` pointing at the converted files;
 
 ### 3. Feature Extraction
 
-One Dask worker per slide, auto-scaling between 1–N GPU workers, per-slide failure isolation:
+One failure-isolated task per slide, auto-scaling between 1–N GPU workers:
 
 ```bash
-python scripts/extract_dask.py \
-    --slide-table results/data/slide_table_pyramidal.csv \
-    --max-workers 3
+uv run argo extract-dask results/data/slide_table_pyramidal.csv --max-workers 3
 ```
 
 Monitor progress:
 ```bash
 squeue -u $USER
-tail -f scripts/logs/dask/*.err
+tail -f results/runs/dask-extraction/logs/*.err
 ```
 
 Creates: `data/SITE/slide.zarr/tables/{model}_tiles/` for each slide.
 
 ### 4. Aggregation
 
-Edit `scripts/aggregate.sh` to match your extracted models, then submit:
+The wrapper discovers extracted models from the slide zarr stores:
 
 ```bash
 sbatch scripts/aggregate.sh
@@ -85,7 +78,7 @@ Creates: `results/embeddings/{model}_{method}/`
 
 ### 5. Training
 
-Edit `scripts/train.sh` to match your embeddings, then submit:
+The wrapper discovers every completed embedding directory:
 
 ```bash
 sbatch scripts/train.sh
@@ -95,30 +88,61 @@ Creates: `results/models/{embedding_type}/`
 - `classifier_comparison.csv` - Performance metrics
 - `training_data.csv` - Patient-slide-label mappings
 
-## Customizing Scripts
+## Reproducible experiments
+
+The preferred interface for a new sweep is one versioned TOML file:
+
+```bash
+uv run argo doctor --strict --config configs/nigeria-v2.toml
+uv run argo experiment configs/nigeria-v2.toml --dry-run
+uv run argo experiment configs/nigeria-v2.toml
+```
+
+The run is resumable and captures the config, git state, dependency versions,
+stage outputs, scorer parameters, and fold audits under `results/runs/<name>/`.
+It includes the recent Waiv nested-probe, ABMIL, and from-scratch transformer
+experiments as tunable jobs. See [the reproducibility guide](docs/reproducibility.md).
+Autonomous work follows [AGENTS.md](AGENTS.md), which fixes the validation
+invariants and keeps frozen-head, pretrained end-to-end, adapted-head, and
+backbone-finetuning experiments scientifically distinct.
 
 ### Feature Extraction
 
-Edit `DEFAULT_MODELS` in `scripts/extract_dask.py` to change the models extracted by default, or pass `--models m1 m2 ...` on the command line. Scale parallelism with `--min-workers` / `--max-workers` (cap: 3 GPUs/user on `nvidia-A6000-20`).
+Pass any number of `--model` options; no source edit is needed. LazySlide 0.12
+models are discovered from its registry, including newly added encoders. Scale
+parallelism with `--min-workers` / `--max-workers`.
 
 ### Aggregation and Training
 
-`scripts/aggregate.sh` and `scripts/train.sh` use model-based arrays:
-- For N models/embeddings: `--array=0-$((N-1))%M`
-- M = max concurrent jobs
+`scripts/aggregate.sh` scans the first available zarr for extracted models.
+`scripts/train.sh` scans `results/embeddings/` for completed embedding sets.
+Neither script requires a hardcoded model list.
 
 ## Available Models
 
-**Non-gated** (no auth): plip, ctranspath, phikon, phikonv2, resnet50
+Use the CLI as the source of truth for the current model and aggregation catalog:
 
-**Gated** (requires HF_TOKEN): uni2, virchow2, h-optimus-0, gigapath, conch, hibou-b
-
-**Aggregation methods**: mean, max, median, sum
+```bash
+argo models
+argo models --check --non-gated-only  # optionally verify installed weights
+```
 
 For neural aggregators (prism, titan), use the CLI:
 ```bash
 argo aggregate virchow --method prism
 ```
+
+## Development
+
+Run static checks and the CPU test suite before submitting changes:
+
+```bash
+ruff check argo_deepmsi tests scripts/extract_dask.py
+pytest -m "not gpu and not integration and not model_download and not network and not requires_hf_token"
+```
+
+Local-data integration, network, model-download, and GPU tests are opt-in through
+their corresponding pytest markers.
 
 ## References
 

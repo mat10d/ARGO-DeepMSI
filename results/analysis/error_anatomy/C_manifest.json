@@ -1,0 +1,14 @@
+[
+  {
+    "group": "control",
+    "n": 59,
+    "mean_tumor_attention": 0.2732621456222942,
+    "mean_tumor_fraction": 0.24995510150093345
+  },
+  {
+    "group": "error",
+    "n": 76,
+    "mean_tumor_attention": 0.2052313975810882,
+    "mean_tumor_fraction": 0.1935080596029094
+  }
+]

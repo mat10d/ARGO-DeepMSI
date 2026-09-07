@@ -17,6 +17,9 @@ Aggregation Methods:
 """
 
 import logging
+import json
+from datetime import datetime, timezone
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Optional, List, Union, Literal, Dict
 from dataclasses import dataclass
@@ -30,14 +33,64 @@ try:
     from wsidata import open_wsi
 
     from . import models as _argo_models  # noqa: F401  (registers phaet/mascaret)
+    from .models._lazyslide import MODEL_REGISTRY
 
     LAZYSLIDE_AVAILABLE = True
 except ImportError:
     LAZYSLIDE_AVAILABLE = False
 
-from .io_utils import get_embeddings_dir, ensure_dir
+from .io_utils import ensure_dir, get_embeddings_dir
+from .reproducibility import write_json
 
 logger = logging.getLogger(__name__)
+
+
+def _package_version(package: str) -> str:
+    try:
+        return version(package)
+    except PackageNotFoundError:
+        return "unknown"
+
+
+def _feature_store_manifest(zarr_path: Path) -> dict:
+    path = zarr_path / "argo_manifest.json"
+    if path.exists():
+        try:
+            return json.loads(path.read_text())
+        except (json.JSONDecodeError, OSError):
+            logger.warning("Ignoring unreadable feature-store manifest: %s", path)
+    return {}
+
+
+def _current_tiling(tile_px: int, mpp: float) -> dict:
+    return {
+        "tile_px": tile_px,
+        "mpp": mpp,
+        "lazyslide": _package_version("lazyslide"),
+        "wsidata": _package_version("wsidata"),
+    }
+
+
+def _tiling_matches(manifest: dict, tile_px: int, mpp: float) -> bool:
+    recorded = manifest.get("tiling", {})
+    expected = _current_tiling(tile_px, mpp)
+    return all(recorded.get(key) == value for key, value in expected.items())
+
+
+def _model_provenance(model: str) -> dict:
+    model_class = MODEL_REGISTRY.get(model) if LAZYSLIDE_AVAILABLE else None
+    if model_class is None:
+        return {"class": None}
+    fields = ("description", "encode_dim", "hf_url", "github_url", "license", "is_gated")
+    return {
+        "class": f"{model_class.__module__}.{model_class.__qualname__}",
+        **{
+            field: getattr(model_class, field)
+            for field in fields
+            if getattr(model_class, field, None) is not None
+        },
+        "task": str(getattr(model_class, "task", "unknown")),
+    }
 
 
 # ============================================================================
@@ -50,15 +103,15 @@ class ModelConfig:
     """Configuration for a feature extraction model."""
 
     name: str
-    type: str  # "patch" or "slide"
+    type: str  # patch, slide, qc, segmentation, or style_transfer
     requires_auth: bool = False
     tile_px: int = 256
     mpp: float = 0.5
     description: str = ""
 
 
-# Patch-level feature extractors (tile → embedding)
-PATCH_MODELS = {
+# Known LazySlide models. Capability-specific catalogs are derived below.
+_MODEL_CONFIGS = {
     # No authentication required
     "ctranspath": ModelConfig(
         "ctranspath", "patch", False, 256, 0.5, "CTransPath pathology foundation model"
@@ -98,9 +151,7 @@ PATCH_MODELS = {
         "hibou-l", "patch", True, 256, 0.5, "Hibou-L pathology foundation model"
     ),
     "chief": ModelConfig("chief", "patch", False, 256, 0.5, "CHIEF pathology foundation model"),
-    "madeleine": ModelConfig(
-        "madeleine", "patch", False, 256, 0.5, "Madeleine pathology foundation model"
-    ),
+    "madeleine": ModelConfig("madeleine", "slide", False, 256, 0.5, "Madeleine slide encoder"),
     "medsiglip": ModelConfig(
         "medsiglip", "patch", True, 256, 0.5, "MedSigLIP vision-language model"
     ),
@@ -109,15 +160,15 @@ PATCH_MODELS = {
         "path_orchestra", "patch", True, 256, 0.5, "PathOrchestra pathology model"
     ),
     "pathprofiler": ModelConfig(
-        "pathprofiler", "patch", False, 256, 0.5, "PathProfiler pathology model"
+        "pathprofiler", "segmentation", False, 256, 0.5, "PathProfiler segmentation model"
     ),
     "musk": ModelConfig("musk", "patch", True, 256, 0.5, "MUSK pathology foundation model"),
-    "nulite": ModelConfig("nulite", "patch", False, 256, 0.5, "NuLite pathology foundation model"),
+    "nulite": ModelConfig("nulite", "segmentation", False, 256, 0.5, "NuLite segmentation model"),
     "gpfm": ModelConfig("gpfm", "patch", False, 256, 0.5, "GPFM pathology foundation model"),
     "histoplus": ModelConfig(
-        "histoplus", "patch", True, 256, 0.5, "HistoPlus pathology foundation model"
+        "histoplus", "segmentation", True, 256, 0.5, "HistoPlus segmentation model"
     ),
-    "rosie": ModelConfig("rosie", "patch", True, 256, 0.5, "Rosie pathology foundation model"),
+    "rosie": ModelConfig("rosie", "style_transfer", True, 256, 0.5, "Rosie virtual staining"),
     # ---- Waiv robust encoders (argo_deepmsi.models.waiv) ----
     "phaet": ModelConfig(
         "phaet", "patch", True, 256, 0.5, "Phaet: robust fine-tuned Phikon-v2 (Waiv)"
@@ -139,7 +190,41 @@ PATCH_MODELS = {
     "focuslitenn": ModelConfig("focuslitenn", "qc", False, 256, 0.5, "FocusLiteNN focus metric"),
 }
 
-QC_MODELS = {k: v for k, v in PATCH_MODELS.items() if v.type == "qc"}
+
+def _model_has_task(model_class, *names: str) -> bool:
+    tasks = getattr(model_class, "task", ())
+    tasks = (tasks,) if not isinstance(tasks, (list, tuple, set)) else tasks
+    return any(str(task).rsplit(".", 1)[-1] in names for task in tasks)
+
+
+if LAZYSLIDE_AVAILABLE:
+    # LazySlide 0.12's separate model catalog evolves faster than this project.
+    # Make new vision/multimodal encoders immediately CLI-addressable while
+    # retaining curated names above and suppressing duplicate registry aliases.
+    _patch_classes = {
+        MODEL_REGISTRY[name]
+        for name, config in _MODEL_CONFIGS.items()
+        if config.type == "patch" and name in MODEL_REGISTRY
+    }
+    for _name, _model_class in MODEL_REGISTRY.items():
+        if (
+            _name not in _MODEL_CONFIGS
+            and _model_class not in _patch_classes
+            and callable(getattr(_model_class, "encode_image", None))
+            and _model_has_task(_model_class, "vision", "multimodal")
+        ):
+            _MODEL_CONFIGS[_name] = ModelConfig(
+                _name,
+                "patch",
+                bool(getattr(_model_class, "is_gated", False)),
+                256,
+                0.5,
+                str(getattr(_model_class, "description", "LazySlide model")),
+            )
+            _patch_classes.add(_model_class)
+
+PATCH_MODELS = {key: value for key, value in _MODEL_CONFIGS.items() if value.type == "patch"}
+QC_MODELS = {key: value for key, value in _MODEL_CONFIGS.items() if value.type == "qc"}
 
 # Slide-level aggregation methods
 SLIDE_ENCODERS = {
@@ -148,13 +233,16 @@ SLIDE_ENCODERS = {
     "max": "Max pooling across all tiles",
     "median": "Median pooling across all tiles",
     "sum": "Sum pooling across all tiles",
-    # Neural slide encoders (slower, GPU required, needs spatial context)
-    "prism": "PRISM slide encoder (requires virchow/virchow2 features)",
-    "titan": "TITAN slide encoder (requires conch_v1.5 features)",
-    "chief": "CHIEF slide encoder (requires chief features)",
-    "madeleine": "Madeleine slide encoder (requires conch features)",
-    "gigapath-slide-encoder": "GigaPath slide-level aggregator",
 }
+
+if LAZYSLIDE_AVAILABLE:
+    _slide_classes = set()
+    for _name, _model_class in MODEL_REGISTRY.items():
+        if _model_class not in _slide_classes and _model_has_task(_model_class, "slide_encoder"):
+            SLIDE_ENCODERS[_name] = str(
+                getattr(_model_class, "description", "LazySlide slide encoder")
+            )
+            _slide_classes.add(_model_class)
 
 ALL_MODELS = {**PATCH_MODELS}
 
@@ -184,6 +272,7 @@ def extract_features_single_slide(
     overwrite: bool = False,
     num_workers: int = 4,
     batch_size: int = 64,
+    tiling_policy: Literal["reuse", "require-current"] = "require-current",
 ) -> Optional[Path]:
     """Extract patch features from a single slide using one or more models.
 
@@ -201,8 +290,12 @@ def extract_features_single_slide(
         mpp: Microns per pixel
         amp: Use automatic mixed precision
         device: Device for inference
-        overwrite: If True, reprocess all models even if zarr exists.
-                   If False (default), only extract missing models.
+        overwrite: If True, re-extract the requested model features. This does
+                   not regenerate an existing tile grid. If False (default),
+                   only extract missing models.
+        tiling_policy: ``require-current`` rejects an existing feature store
+                       unless its manifest matches the installed tiling stack,
+                       tile size, and MPP. ``reuse`` accepts legacy stores.
 
     Returns:
         Path to saved Zarr directory (next to original slide)
@@ -230,6 +323,21 @@ def extract_features_single_slide(
 
     # Zarr will be saved next to the slide
     zarr_path = slide_path.parent / f"{slide_path.stem}.zarr"
+    store_existed = zarr_path.exists()
+    store_manifest = _feature_store_manifest(zarr_path)
+    if tiling_policy not in {"reuse", "require-current"}:
+        raise ValueError("tiling_policy must be 'reuse' or 'require-current'")
+    if (
+        store_existed
+        and tiling_policy == "require-current"
+        and not _tiling_matches(store_manifest, tile_px, mpp)
+    ):
+        logger.error(
+            "%s uses an unverified or different tiling stack. Preserve/move the old "
+            "zarr and rerun into a fresh store before comparing LazySlide 0.12 features.",
+            zarr_path,
+        )
+        return None
 
     # Check which models need extraction
     models_to_extract = models.copy() if isinstance(models, list) else [models]
@@ -298,6 +406,31 @@ def extract_features_single_slide(
         logger.info("Saving WSI with all features...")
         wsi.write()
 
+        if not store_existed:
+            store_manifest["tiling"] = {
+                **_current_tiling(tile_px, mpp),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "implementation": "lazyslide.pp.tile_tissues",
+            }
+        elif "tiling" not in store_manifest:
+            store_manifest["tiling"] = {
+                "source": "preexisting-unversioned-store",
+                "lazyslide": "unknown",
+                "wsidata": "unknown",
+                "tile_px": "unknown",
+                "mpp": "unknown",
+            }
+        features = store_manifest.setdefault("features", {})
+        for model in models_to_extract:
+            features[model] = {
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "lazyslide": _package_version("lazyslide"),
+                "lazyslide-models": _package_version("lazyslide-models"),
+                "torch": _package_version("torch"),
+                "registry": _model_provenance(model),
+            }
+        write_json(zarr_path / "argo_manifest.json", store_manifest)
+
         # Verify features were saved
         if hasattr(wsi, "tables"):
             saved_features = list(wsi.tables.keys())
@@ -326,6 +459,7 @@ def extract_features_batch(
     max_slides: Optional[int] = None,
     num_workers: int = 4,
     batch_size: int = 64,
+    tiling_policy: Literal["reuse", "require-current"] = "require-current",
 ) -> pd.DataFrame:
     """Extract features from all slides using one or more models.
 
@@ -358,6 +492,7 @@ def extract_features_batch(
             overwrite=overwrite,
             num_workers=num_workers,
             batch_size=batch_size,
+            tiling_policy=tiling_policy,
         )
         results.append(
             {
@@ -368,7 +503,10 @@ def extract_features_batch(
             }
         )
 
-    results_df = pd.DataFrame(results)
+    results_df = pd.DataFrame(
+        results,
+        columns=["slide_path", "models", "zarr_path", "success"],
+    )
     success_count = results_df["success"].sum()
     logger.info(f"Completed: {success_count}/{len(slides)} slides successful")
 
@@ -408,6 +546,7 @@ def _save_embeddings(
     model: str,
     method: str,
     output_dir: Optional[Path],
+    write_h5ad: bool = True,
 ) -> Path:
     """Save embeddings in numpy + CSV format.
 
@@ -437,18 +576,19 @@ def _save_embeddings(
     np.save(output_dir / "embeddings.npy", embedding_matrix)
 
     # Also save as AnnData for scverse interop (scanpy UMAP/leiden/etc.)
-    try:
-        import anndata as ad
+    if write_h5ad:
+        try:
+            import anndata as ad
 
-        obs = metadata_df.set_index("slide_id", drop=False).astype(
-            {"slide_id": str, "patient_id": str, "site": str, "zarr_path": str}
-        )
-        adata = ad.AnnData(X=embedding_matrix.astype(np.float32), obs=obs)
-        adata.uns["model"] = model
-        adata.uns["aggregation"] = method
-        adata.write_h5ad(output_dir / "embeddings.h5ad")
-    except Exception as e:
-        logger.warning(f"Could not write AnnData output: {e}")
+            obs = metadata_df.set_index("slide_id", drop=False).astype(
+                {"slide_id": str, "patient_id": str, "site": str, "zarr_path": str}
+            )
+            adata = ad.AnnData(X=embedding_matrix.astype(np.float32), obs=obs)
+            adata.uns["model"] = model
+            adata.uns["aggregation"] = method
+            adata.write_h5ad(output_dir / "embeddings.h5ad")
+        except Exception as e:
+            logger.warning(f"Could not write AnnData output: {e}")
 
     logger.info(f"Saved {len(df)} embeddings ({embedding_matrix.shape[1]}D) to {output_dir}")
 
@@ -463,11 +603,19 @@ _POOL_FNS = {
 }
 
 
+def _open_feature_store(zarr_path: Path):
+    """Open the tile store behind a narrow boundary that acceptance tests can replace."""
+    import zarr
+
+    return zarr.open(str(zarr_path), mode="r")
+
+
 def aggregate_simple_pooling(
     slide_table: Union[str, Path, pd.DataFrame],
     models: Union[str, List[str]],
     method: Literal["mean", "max", "median", "sum"] = "mean",
     output_dir: Optional[Path] = None,
+    write_h5ad: bool = True,
 ) -> Dict[str, pd.DataFrame]:
     """Aggregate features using simple pooling.
 
@@ -485,8 +633,6 @@ def aggregate_simple_pooling(
     Returns:
         Dict mapping model -> results DataFrame
     """
-    import zarr as _zarr
-
     # Load slide table
     if isinstance(slide_table, (str, Path)):
         df = pd.read_csv(slide_table)
@@ -497,9 +643,7 @@ def aggregate_simple_pooling(
     models = [models] if isinstance(models, str) else list(models)
 
     if method not in _POOL_FNS:
-        raise ValueError(
-            f"Unknown pooling method: {method}. Supported: {list(_POOL_FNS)}"
-        )
+        raise ValueError(f"Unknown pooling method: {method}. Supported: {list(_POOL_FNS)}")
     pool_fn = _POOL_FNS[method]
 
     # Accumulator per model — open each zarr exactly once per slide
@@ -515,7 +659,7 @@ def aggregate_simple_pooling(
             continue
 
         try:
-            store = _zarr.open(str(zarr_path), mode="r")
+            store = _open_feature_store(zarr_path)
         except Exception as e:
             logger.error(f"Failed to open zarr {zarr_path.name}: {e}")
             continue
@@ -531,6 +675,7 @@ def aggregate_simple_pooling(
                 except Exception:
                     # Sparse fallback via anndata
                     import anndata as ad
+
                     adata = ad.read_zarr(str(zarr_path / "tables" / feature_key))
                     X = np.asarray(adata.X.toarray() if hasattr(adata.X, "toarray") else adata.X)
 
@@ -558,7 +703,7 @@ def aggregate_simple_pooling(
             logger.warning(f"No embeddings generated for {model}")
             continue
         df_result = pd.DataFrame(rows)
-        _save_embeddings(df_result, model, method, output_dir)
+        _save_embeddings(df_result, model, method, output_dir, write_h5ad=write_h5ad)
         results[model] = df_result
 
     return results
@@ -567,9 +712,10 @@ def aggregate_simple_pooling(
 def aggregate_neural_encoders(
     slide_table: Union[str, Path, pd.DataFrame],
     model: str,
-    encoder: Literal["prism", "titan", "chief", "madeleine", "gigapath-slide-encoder"],
+    encoder: str,
     output_dir: Optional[Path] = None,
     device: str = "cuda",
+    write_h5ad: bool = True,
 ) -> pd.DataFrame:
     """Aggregate features using neural slide encoders.
 
@@ -599,7 +745,8 @@ def aggregate_neural_encoders(
     encoder_requirements = {
         "prism": ["virchow", "virchow2"],
         "titan": ["conch_v1.5"],
-        "chief": ["chief"],
+        "conch_v1.5": ["conch_v1.5"],
+        "chief-slide-encoder": ["chief"],
         "madeleine": ["conch"],
     }
 
@@ -627,9 +774,7 @@ def aggregate_neural_encoders(
             # Use the svs-path + store=parent pattern. Opening the zarr
             # directly KeyErrors on readers (e.g. `fastslide`) that aren't
             # installed locally but are recorded in the zarr metadata.
-            wsi = open_wsi(
-                str(svs_path), store=str(svs_path.parent), attach_thumbnail=False
-            )
+            wsi = open_wsi(str(svs_path), store=str(svs_path.parent), attach_thumbnail=False)
             feature_key = f"{model}_tiles"
 
             if feature_key not in wsi.tables:
@@ -687,7 +832,7 @@ def aggregate_neural_encoders(
     df_result = pd.DataFrame(embeddings)
 
     if len(df_result) > 0:
-        _save_embeddings(df_result, model, encoder, output_dir)
+        _save_embeddings(df_result, model, encoder, output_dir, write_h5ad=write_h5ad)
     else:
         logger.warning("No embeddings generated")
 
@@ -759,6 +904,7 @@ def aggregate_features(
     method: str = "mean",
     output_dir: Optional[Path] = None,
     device: str = "cuda",
+    write_h5ad: bool = True,
 ) -> Dict[str, pd.DataFrame]:
     """Unified aggregation interface supporting both simple pooling and neural encoders.
 
@@ -778,13 +924,7 @@ def aggregate_features(
     simple_methods = ["mean", "max", "median", "sum"]
 
     # Neural encoder methods
-    neural_encoders = [
-        "prism",
-        "titan",
-        "chief",
-        "madeleine",
-        "gigapath-slide-encoder",
-    ]
+    neural_encoders = [name for name in SLIDE_ENCODERS if name not in simple_methods]
 
     if method in simple_methods:
         # Use agg_wsi() for simple pooling
@@ -793,6 +933,7 @@ def aggregate_features(
             models=models,
             method=method,
             output_dir=output_dir,
+            write_h5ad=write_h5ad,
         )
 
     elif method in neural_encoders:
@@ -813,6 +954,7 @@ def aggregate_features(
             encoder=method,
             output_dir=output_dir,
             device=device,
+            write_h5ad=write_h5ad,
         )
 
         return {model: df}

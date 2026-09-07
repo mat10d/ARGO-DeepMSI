@@ -44,9 +44,10 @@ M_FEW, EPOCHS_FEW, TOPK_FEW, REPEAT_FEW = 2, 10, 1, 2
 HIDDEN, PROJ, LR, DROPOUT = 128, 192, 1e-3, 0.25
 
 
-def _torch():
+def _torch(seed: int = SEED):
     import torch
-    torch.manual_seed(SEED)
+
+    torch.manual_seed(seed)
     # Tiny per-bag matmuls: over-subscribing intra-op threads (e.g. os.cpu_count()
     # on a 128-core shared node) makes every op pathologically slow. Cap small.
     try:
@@ -56,36 +57,70 @@ def _torch():
     return torch
 
 
-def _load_bags(clean_slide_ids: set[str] | None):
-    if not (BAG_DIR / "bags_concat.npy").exists() or not (BAG_DIR / "bags_index.csv").exists():
+def _load_bags(
+    clean_slide_ids: set[str] | None,
+    bag_file: str | Path | None = None,
+    index_file: str | Path | None = None,
+):
+    if bag_file is None:
+        bag_file = BAG_DIR / "bags_concat.npy"
+        index_file = BAG_DIR / "bags_index.csv"
+    bag_file = Path(bag_file)
+    index_file = (
+        Path(index_file)
+        if index_file is not None
+        else bag_file.with_name(bag_file.name.replace("_bags.npz", "_index.csv"))
+    )
+    if not bag_file.exists() or not index_file.exists():
         return None
-    bags = np.load(BAG_DIR / "bags_concat.npy").astype(np.float32)
-    idx = pd.read_csv(BAG_DIR / "bags_index.csv")
-    cl = pd.read_csv(CLINICAL_CSV)[["PATIENT", "isMSIH"]]
-    cl["y"] = (cl["isMSIH"] == "MSI-H").astype(int)
-    idx = idx.merge(cl[["PATIENT", "y"]], left_on="patient_id", right_on="PATIENT", how="inner")
+    idx = pd.read_csv(index_file).reset_index(drop=True)
+    if bag_file.suffix == ".npz":
+        archive = np.load(bag_file)
+        concatenated = np.asarray(archive["concat"], dtype=np.float32)
+        lengths = np.asarray(archive["lengths"], dtype=int)
+        starts = np.r_[0, np.cumsum(lengths)[:-1]]
+    else:
+        concatenated = np.load(bag_file).astype(np.float32)
+        starts = idx["start"].to_numpy(dtype=int)
+        lengths = idx["length"].to_numpy(dtype=int)
+    if len(idx) != len(lengths):
+        raise ValueError(f"Bag/index row mismatch: {bag_file} vs {index_file}")
+    bag_list = [concatenated[start : start + length] for start, length in zip(starts, lengths)]
+    idx["_bag_row"] = np.arange(len(idx))
+    if "y" not in idx:
+        cl = pd.read_csv(CLINICAL_CSV)[["PATIENT", "isMSIH"]]
+        cl["y"] = (cl["isMSIH"] == "MSI-H").astype(int)
+        idx = idx.merge(cl[["PATIENT", "y"]], left_on="patient_id", right_on="PATIENT", how="inner")
     if clean_slide_ids is not None:
         idx = idx[idx["slide_id"].isin(clean_slide_ids)]
     idx = idx.drop_duplicates("slide_id").reset_index(drop=True)
     if len(idx) == 0:
         return None
-    bag_list = [bags[int(r.start):int(r.start) + int(r.length)] for r in idx.itertuples()]
-    return bag_list, idx
+    selected_bags = [bag_list[row] for row in idx.pop("_bag_row").to_numpy(dtype=int)]
+    return selected_bags, idx
 
 
-def _make_model(dim: int, seed: int):
-    torch = _torch()
+def _make_model(
+    dim: int,
+    seed: int,
+    *,
+    hidden: int = HIDDEN,
+    projection: int = PROJ,
+    dropout: float = DROPOUT,
+):
+    torch = _torch(seed)
     import torch.nn as nn
+
     torch.manual_seed(seed)
 
     class ABMIL(nn.Module):
         def __init__(self):
             super().__init__()
-            self.proj = nn.Sequential(nn.Linear(dim, PROJ), nn.ReLU(), nn.Dropout(DROPOUT))
-            self.attn_V = nn.Linear(PROJ, HIDDEN)
-            self.attn_U = nn.Linear(PROJ, HIDDEN)
-            self.attn_w = nn.Linear(HIDDEN, 1)
-            self.head = nn.Linear(PROJ, 1)
+            self.proj = nn.Sequential(nn.Linear(dim, projection), nn.ReLU(), nn.Dropout(dropout))
+            self.attn_V = nn.Linear(projection, hidden)
+            self.attn_U = nn.Linear(projection, hidden)
+            self.attn_w = nn.Linear(hidden, 1)
+            self.head = nn.Linear(projection, 1)
 
         def forward(self, H):  # H: (n_tiles, dim)
             h = self.proj(H)
@@ -97,12 +132,33 @@ def _make_model(dim: int, seed: int):
     return ABMIL()
 
 
-def _train_one(bag_list, y, tr_idx, dim, seed, epochs, pos_weight):
-    torch = _torch()
+def _train_one(
+    bag_list,
+    y,
+    tr_idx,
+    dim,
+    seed,
+    epochs,
+    pos_weight,
+    *,
+    learning_rate: float = LR,
+    weight_decay: float = 1e-4,
+    hidden: int = HIDDEN,
+    projection: int = PROJ,
+    dropout: float = DROPOUT,
+):
+    torch = _torch(seed)
     import torch.nn as nn
+
     torch.manual_seed(seed)
-    model = _make_model(dim, seed)
-    opt = torch.optim.Adam(model.parameters(), lr=LR, weight_decay=1e-4)
+    model = _make_model(
+        dim,
+        seed,
+        hidden=hidden,
+        projection=projection,
+        dropout=dropout,
+    )
+    opt = torch.optim.Adam(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
     lossf = nn.BCEWithLogitsLoss(pos_weight=torch.tensor([pos_weight], dtype=torch.float32))
     order = list(tr_idx)
     rng = np.random.default_rng(seed)
@@ -132,8 +188,15 @@ def _predict(model, bag_list, idxs) -> np.ndarray:
 def _patient_max_sqrtn(df: pd.DataFrame, score_col: str = "p_msih") -> pd.DataFrame:
     rows = []
     for pid, g in df.groupby("patient_id"):
-        rows.append({"patient_id": pid, "y": int(g["y"].iloc[0]), "site": g["site"].iloc[0],
-                     "n_slides": int(len(g)), "score": float(g[score_col].max() / np.sqrt(len(g)))})
+        rows.append(
+            {
+                "patient_id": pid,
+                "y": int(g["y"].iloc[0]),
+                "site": g["site"].iloc[0],
+                "n_slides": int(len(g)),
+                "score": float(g[score_col].max() / np.sqrt(len(g))),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -145,21 +208,39 @@ def _patient_auroc_from_scores(idx: pd.DataFrame, scores: np.ndarray, rows) -> f
     return float(roc_auc_score(pat["y"], pat["score"]))
 
 
-def _fused_oof(bag_list, idx, support_fn, m, epochs, topk) -> np.ndarray:
+def _fused_oof(
+    bag_list,
+    idx,
+    support_fn,
+    m,
+    epochs,
+    topk,
+    *,
+    seed: int = SEED,
+    n_splits: int = N_SPLITS,
+    learning_rate: float = LR,
+    weight_decay: float = 1e-4,
+    hidden: int = HIDDEN,
+    projection: int = PROJ,
+    dropout: float = DROPOUT,
+) -> np.ndarray:
     """Multi-fidelity fused OOF over patient-grouped folds."""
     y = idx["y"].to_numpy()
     groups = idx["patient_id"].to_numpy()
     dim = bag_list[0].shape[1]
     pos_weight = float((y == 0).sum() / max(1, (y == 1).sum()))
     oof = np.full(len(y), np.nan, dtype=np.float32)
-    cv = StratifiedGroupKFold(n_splits=N_SPLITS, shuffle=True, random_state=SEED)
+    cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=seed)
     for fold, (tr, te) in enumerate(cv.split(np.zeros(len(y)), y, groups=groups)):
         sup = tr if support_fn is None else support_fn(tr)
         if sup is None or len(np.unique(y[sup])) < 2:
             continue
         # inner train/val split (patient-grouped) on the support set
-        inner = StratifiedGroupKFold(n_splits=min(4, max(2, len(np.unique(groups[sup])) // 2)),
-                                     shuffle=True, random_state=SEED)
+        inner = StratifiedGroupKFold(
+            n_splits=min(4, max(2, len(np.unique(groups[sup])) // 2)),
+            shuffle=True,
+            random_state=seed + fold,
+        )
         gi = groups[sup]
         try:
             itr_rel, ival_rel = next(inner.split(np.zeros(len(sup)), y[sup], groups=gi))
@@ -170,7 +251,20 @@ def _fused_oof(bag_list, idx, support_fn, m, epochs, topk) -> np.ndarray:
             itr = sup
         cands = []
         for mm in range(m):
-            model = _train_one(bag_list, y, itr, dim, SEED + 100 * fold + mm, epochs, pos_weight)
+            model = _train_one(
+                bag_list,
+                y,
+                itr,
+                dim,
+                seed + 100 * fold + mm,
+                epochs,
+                pos_weight,
+                learning_rate=learning_rate,
+                weight_decay=weight_decay,
+                hidden=hidden,
+                projection=projection,
+                dropout=dropout,
+            )
             val_scores = _predict(model, bag_list, ival)
             val_auroc = _patient_auroc_from_scores(idx, val_scores, ival)
             cands.append((val_auroc if not np.isnan(val_auroc) else -1.0, model))
@@ -183,16 +277,23 @@ def _fused_oof(bag_list, idx, support_fn, m, epochs, topk) -> np.ndarray:
 
 def _fewshot_curve(bag_list, idx) -> list[dict]:
     y = idx["y"].to_numpy()
-    groups = idx["patient_id"].to_numpy()
     curve = []
     for k in FEWSHOT_K:
         if k == "all":
             oof = _fused_oof(bag_list, idx, None, M_FULL, EPOCHS_FULL, TOPK_FULL)
             sd = idx.assign(p_msih=oof).dropna(subset=["p_msih"])
             pat = _patient_max_sqrtn(sd)
-            curve.append({"K": "all", "n_train_per_class": int(min((y == 1).sum(), (y == 0).sum())),
-                          "patient_auroc": float(roc_auc_score(pat["y"], pat["score"]))
-                          if pat["y"].nunique() == 2 else float("nan")})
+            curve.append(
+                {
+                    "K": "all",
+                    "n_train_per_class": int(min((y == 1).sum(), (y == 0).sum())),
+                    "patient_auroc": (
+                        float(roc_auc_score(pat["y"], pat["score"]))
+                        if pat["y"].nunique() == 2
+                        else float("nan")
+                    ),
+                }
+            )
         else:
             aurocs = []
             for rep in range(REPEAT_FEW):
@@ -204,7 +305,9 @@ def _fewshot_curve(bag_list, idx) -> list[dict]:
                     neg = tr_pat[tr_pat["y"] == 0]["patient_id"].to_numpy()
                     if len(pos) < _k or len(neg) < _k:
                         return None
-                    keep = set(_rng.choice(pos, _k, replace=False)) | set(_rng.choice(neg, _k, replace=False))
+                    keep = set(_rng.choice(pos, _k, replace=False)) | set(
+                        _rng.choice(neg, _k, replace=False)
+                    )
                     return tr[idx.iloc[tr]["patient_id"].isin(keep).to_numpy()]
 
                 oof = _fused_oof(bag_list, idx, pick, M_FEW, EPOCHS_FEW, TOPK_FEW)
@@ -212,8 +315,13 @@ def _fewshot_curve(bag_list, idx) -> list[dict]:
                 pat = _patient_max_sqrtn(sd)
                 if pat["y"].nunique() == 2:
                     aurocs.append(float(roc_auc_score(pat["y"], pat["score"])))
-            curve.append({"K": int(k), "n_train_per_class": int(k),
-                          "patient_auroc": float(np.nanmean(aurocs)) if aurocs else float("nan")})
+            curve.append(
+                {
+                    "K": int(k),
+                    "n_train_per_class": int(k),
+                    "patient_auroc": float(np.nanmean(aurocs)) if aurocs else float("nan"),
+                }
+            )
     return curve
 
 
@@ -239,29 +347,69 @@ class CLAMTileMIL(Scorer):
         full_curve: bool = False,
         write_outputs: bool = True,
         retrain: bool = False,
+        bag_file: str | Path | None = None,
+        index_file: str | Path | None = None,
+        ensemble_size: int = M_FULL,
+        epochs: int = EPOCHS_FULL,
+        top_k: int = TOPK_FULL,
+        seed: int = SEED,
+        n_splits: int = N_SPLITS,
+        learning_rate: float = LR,
+        weight_decay: float = 1e-4,
+        hidden: int = HIDDEN,
+        projection: int = PROJ,
+        dropout: float = DROPOUT,
         **_,
     ) -> pd.DataFrame:
         # Cache-first: training the fused ABMIL is expensive (~15 min), so the
         # leaderboard re-race reads the cached OOF (like vl_text_cosine) rather than
         # retraining twice per pass. Only the runner (retrain=True) trains.
-        if not retrain and self.score_path is not None and self.score_path.exists():
+        if (
+            bag_file is None
+            and not retrain
+            and self.score_path is not None
+            and self.score_path.exists()
+        ):
             df = pd.read_csv(self.score_path)
             if clean_slide_ids is not None:
                 df = df[df["slide_id"].isin(clean_slide_ids)].reset_index(drop=True)
             return df
 
-        loaded = _load_bags(clean_slide_ids)
+        loaded = _load_bags(clean_slide_ids, bag_file=bag_file, index_file=index_file)
         if loaded is None:
             raise RuntimeError(
                 f"{self.name}: tile bags missing under {BAG_DIR} — "
                 "run scripts/build_tilemil_bags.py first"
             )
         bag_list, idx = loaded
-        oof = _fused_oof(bag_list, idx, None, M_FULL, EPOCHS_FULL, TOPK_FULL)
-        slide_df = pd.DataFrame({
-            "slide_id": idx["slide_id"], "patient_id": idx["patient_id"],
-            "site": idx["site"], "y": idx["y"], "p_msih": oof,
-        }).dropna(subset=["p_msih"]).reset_index(drop=True)
+        oof = _fused_oof(
+            bag_list,
+            idx,
+            None,
+            ensemble_size,
+            epochs,
+            top_k,
+            seed=seed,
+            n_splits=n_splits,
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            hidden=hidden,
+            projection=projection,
+            dropout=dropout,
+        )
+        slide_df = (
+            pd.DataFrame(
+                {
+                    "slide_id": idx["slide_id"],
+                    "patient_id": idx["patient_id"],
+                    "site": idx["site"],
+                    "y": idx["y"],
+                    "p_msih": oof,
+                }
+            )
+            .dropna(subset=["p_msih"])
+            .reset_index(drop=True)
+        )
         self._last = {}
         if full_curve:
             self._last["curve"] = _fewshot_curve(bag_list, idx)
@@ -271,8 +419,13 @@ class CLAMTileMIL(Scorer):
             slide_df.to_csv(self.score_path, index=False)
             if full_curve:
                 pd.DataFrame(self._last["curve"]).to_csv(
-                    self.score_path.parent / "few_shot_curve.csv", index=False)
+                    self.score_path.parent / "few_shot_curve.csv", index=False
+                )
         return slide_df
+
+    def write_run_artifacts(self, outdir: Path) -> None:
+        if getattr(self, "_last", {}).get("curve"):
+            pd.DataFrame(self._last["curve"]).to_csv(outdir / "few_shot_curve.csv", index=False)
 
 
 register("clam_tilemil", CLAMTileMIL)
@@ -291,31 +444,51 @@ def _write_metrics(scorer: "CLAMTileMIL", slide_df: pd.DataFrame) -> dict:
     for site, sub in pat.groupby("site"):
         yy, ss = sub["y"].to_numpy(), sub["score"].to_numpy()
         by_site[str(site)] = {
-            "n": int(len(sub)), "prevalence": float(sub["y"].mean()),
+            "n": int(len(sub)),
+            "prevalence": float(sub["y"].mean()),
             "auroc": _safe_auroc(yy, ss),
-            "spec_at_sens95": screening_block(yy, ss, (0.95,))["spec_at_sens95"]
-            if sub["y"].nunique() == 2 else float("nan"),
+            "spec_at_sens95": (
+                screening_block(yy, ss, (0.95,))["spec_at_sens95"]
+                if sub["y"].nunique() == 2
+                else float("nan")
+            ),
         }
 
-    pat = pat.assign(_bucket=pd.cut(pat["n_slides"], [0, 1, 2, 4, np.inf], labels=["1", "2", "3-4", "5+"]))
-    by_bagsize = {str(b): {"n": int(len(sub)), "auroc": _safe_auroc(sub["y"].to_numpy(), sub["score"].to_numpy())}
-                  for b, sub in pat.groupby("_bucket", observed=True)}
+    pat = pat.assign(
+        _bucket=pd.cut(pat["n_slides"], [0, 1, 2, 4, np.inf], labels=["1", "2", "3-4", "5+"])
+    )
+    by_bagsize = {
+        str(b): {
+            "n": int(len(sub)),
+            "auroc": _safe_auroc(sub["y"].to_numpy(), sub["score"].to_numpy()),
+        }
+        for b, sub in pat.groupby("_bucket", observed=True)
+    }
 
-    info = json.loads((BAG_DIR / "bags_info.json").read_text()) if (BAG_DIR / "bags_info.json").exists() else {}
+    info = (
+        json.loads((BAG_DIR / "bags_info.json").read_text())
+        if (BAG_DIR / "bags_info.json").exists()
+        else {}
+    )
     metrics = {
-        "scorer": scorer.name, "backbone": "ABMIL+multifidelity-fusion",
-        "tile_model": info.get("model"), "max_tiles": info.get("max_tiles"),
+        "scorer": scorer.name,
+        "backbone": "ABMIL+multifidelity-fusion",
+        "tile_model": info.get("model"),
+        "max_tiles": info.get("max_tiles"),
         "fusion": {"m_full": M_FULL, "epochs_full": EPOCHS_FULL, "topk_full": TOPK_FULL},
-        "n_slides": int(len(slide_df)), "n_patients": int(len(pat)),
+        "n_slides": int(len(slide_df)),
+        "n_patients": int(len(pat)),
         "prevalence_patient": float(pat["y"].mean()),
-        "auroc": _safe_auroc(y, s), "auprc": _safe_auprc(y, s),
+        "auroc": _safe_auroc(y, s),
+        "auprc": _safe_auprc(y, s),
         "sensitivity": block["op_sens95"]["sensitivity"],
         "spec_at_sens90": block["spec_at_sens90"],
         "spec_at_sens95": block["spec_at_sens95"],
         "spec_at_sens96": block["spec_at_sens96"],
         "npv_at_sens95": block["npv_at_sens95"],
         "operating_threshold": block["op_sens95"]["threshold"],
-        "by_site": by_site, "by_bagsize": by_bagsize,
+        "by_site": by_site,
+        "by_bagsize": by_bagsize,
         "few_shot_curve": scorer._last.get("curve", []),
         "screening_clean": block,
     }

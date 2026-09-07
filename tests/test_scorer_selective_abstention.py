@@ -60,6 +60,7 @@ def test_split_conformal_bounds_risk():
     assert "per_site_coverage" in out and set(out["per_site_coverage"]) == {"A", "B"}
 
 
+@pytest.mark.integration
 @pytest.mark.skipif(
     not WAGNER_CSV.exists() or not CLEAN_CSV.exists(),
     reason="Wagner scores / cohort_clean.csv not present",

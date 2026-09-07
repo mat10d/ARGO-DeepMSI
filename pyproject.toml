@@ -7,8 +7,8 @@ name = "argo-deepmsi"
 version = "0.2.0"
 description = "MSI prediction from whole slide images using LazySlide"
 readme = "README.md"
-requires-python = ">=3.11"
-license = {text = "MIT"}
+requires-python = ">=3.11,<3.13"
+license = "MIT"
 authors = [
     {name = "ARGO-DeepMSI Team"},
 ]
@@ -18,17 +18,18 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
 
 dependencies = [
     # Core
-    "lazyslide>=0.9.0",
-    "wsidata>=0.7.0",  # agg_wsi, open_wsi
+    "lazyslide[models]>=0.12.0,<0.13.0",
+    "lazyslide-models>=0.0.4,<0.1.0",
+    "wsidata>=0.10.0,<0.12.0",  # LazySlide 0.12-compatible data layer
     "pandas>=2.0.0,<3.0.0",  # <3.0 to avoid ArrowStringArray serialization issues
     "numpy>=1.24.0",
+    "packaging>=23.0",
 
     # Fix for lazyslide dependency issues with Python 3.11
     "llvmlite>=0.46.0",
@@ -58,7 +59,8 @@ dependencies = [
     "einops-exts>=0.0.4",  # Extensions for einops
     "fairscale>=0.4.13",  # Required by MUSK
     "sentencepiece>=0.1.99",  # MUSK uses XLMRobertaTokenizer which requires it
-    "musk @ git+https://github.com/lilab-stanford/MUSK",  # MUSK pathology foundation model
+    # Commit-pinned because this repository has no stable package release.
+    "musk @ git+https://github.com/lilab-stanford/MUSK@714b666969c1911e5efe70d991140a21030f4ef3",
 
     # Utilities
     "tqdm>=4.65.0",
@@ -72,6 +74,7 @@ dev = [
     "pytest-xdist>=3.5.0",  # parallel test execution (`pytest -n <N>`)
     "black>=23.7.0",
     "ruff>=0.1.0",
+    "jsonschema>=4.20.0",
 ]
 # Elastic SLURM extraction via scripts/extract_dask.py
 dask = [
@@ -84,7 +87,7 @@ dask = [
 #   pip install -e ".[conch]"     # for mahmoodlab/CONCH
 #   pip install -e ".[omiclip]"   # for OmiCLIP
 conch = [
-    "conch @ git+https://github.com/mahmoodlab/CONCH.git",
+    "conch @ git+https://github.com/mahmoodlab/CONCH.git@141cc09c7d4ff33d8eda562bd75169b457f71a62",
 ]
 omiclip = [
     "open_clip_torch>=2.24.0",
@@ -103,8 +106,8 @@ argo = "argo_deepmsi.cli:app"
 Homepage = "https://github.com/mat10d/ARGO-DeepMSI"
 Repository = "https://github.com/mat10d/ARGO-DeepMSI"
 
-[tool.setuptools]
-packages = ["argo_deepmsi"]
+[tool.setuptools.packages.find]
+include = ["argo_deepmsi*"]
 
 [tool.black]
 line-length = 100
@@ -115,8 +118,11 @@ line-length = 100
 target-version = "py311"
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 markers = [
     "gpu: tests that require a CUDA device",
+    "integration: tests that use staged checkpoints or repository result data",
     "model_download: tests that download model weights from HuggingFace",
+    "network: integration tests that download public slide data",
     "requires_hf_token: tests that need $HF_TOKEN set (gated models)",
 ]

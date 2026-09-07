@@ -1,17 +1,27 @@
-"""Shared evaluation primitives: cohort prep, metrics, plotting."""
+"""Shared evaluation primitives, loaded only when requested."""
 
-from .cohort import build_cohort, load_clinical, load_qc_exclusion, patient_folds
-from .metrics import (
-    PATIENT_AGG,
-    aggregate_to_patient,
-    canonical_patient_site,
-    evaluate_scorer,
-    paired_bootstrap_auroc_delta,
-    per_site_breakdown,
-    stratified_patient_bootstrap,
-)
-from .plotting import apply_style, auroc_bar, per_site_grid, roc_overlay
-from .validation import nested_grouped_oof
+from __future__ import annotations
+
+from importlib import import_module
+
+_EXPORTS = {
+    "build_cohort": "cohort",
+    "load_clinical": "cohort",
+    "load_qc_exclusion": "cohort",
+    "patient_folds": "cohort",
+    "PATIENT_AGG": "metrics",
+    "aggregate_to_patient": "metrics",
+    "canonical_patient_site": "metrics",
+    "evaluate_scorer": "metrics",
+    "paired_bootstrap_auroc_delta": "metrics",
+    "per_site_breakdown": "metrics",
+    "stratified_patient_bootstrap": "metrics",
+    "apply_style": "plotting",
+    "auroc_bar": "plotting",
+    "per_site_grid": "plotting",
+    "roc_overlay": "plotting",
+    "nested_grouped_oof": "validation",
+}
 
 __all__ = [
     "build_cohort",
@@ -31,3 +41,11 @@ __all__ = [
     "roc_overlay",
     "nested_grouped_oof",
 ]
+
+
+def __getattr__(name: str):
+    if name not in _EXPORTS:
+        raise AttributeError(name)
+    value = getattr(import_module(f".{_EXPORTS[name]}", __name__), name)
+    globals()[name] = value
+    return value

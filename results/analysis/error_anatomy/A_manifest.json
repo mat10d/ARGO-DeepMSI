@@ -1,0 +1,10 @@
+{
+  "threshold": 0.13745258981791145,
+  "msi_cutoff": 10.0,
+  "tumor_floor": 0.01,
+  "artifact_ceiling": 0.5,
+  "cmo_score_band": 0.1,
+  "confident_margin": 0.15,
+  "n_patients": 217,
+  "n_errors": 148
+}
