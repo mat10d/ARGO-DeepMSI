@@ -58,12 +58,22 @@ def _write_fixture(workspace: Path, seed: int) -> Path:
 
             [run.budget]
             max_models = 1
-            max_stages = 6
+            max_stages = 9
             max_trainable_stages = 2
             max_epochs = 1
             max_repeats = 1
             allow_network = false
             allow_model_downloads = false
+
+            [ingest]
+            enabled = true
+            expected_patients = 24
+            expected_slides = 24
+
+            [pyramidal]
+            enabled = true
+            slide_table = "results/data/slide_table.csv"
+            output = "results/data/slide_table.csv"
 
             [extract]
             enabled = true
@@ -77,6 +87,12 @@ def _write_fixture(workspace: Path, seed: int) -> Path:
             models = ["synthetic"]
             method = "mean"
             write_h5ad = false
+
+            [cohort]
+            enabled = true
+            embeddings_dir = "results/embeddings"
+            expected_patients = 24
+            expected_positive_patients = 12
 
             [[bag]]
             id = "tiles"
@@ -113,9 +129,10 @@ def run_synthetic_acceptance(
 ) -> dict:
     """Exercise every orchestration stage without slide I/O or model downloads.
 
-    The extraction call is replaced only at the external WSI/model boundary;
-    aggregation, bagging, training, nested scoring, comparison, provenance,
-    budgeting, and resume machinery are the production implementations.
+    REDCap, pyramid conversion, and extraction are replaced at their external
+    network/WSI/model boundaries. Cohort construction, aggregation, bagging,
+    training, nested scoring, comparison, provenance, budgeting, and resume
+    machinery are the production implementations.
     """
     workspace = workspace.resolve()
     if workspace.exists() and any(workspace.iterdir()):
@@ -148,6 +165,14 @@ def run_synthetic_acceptance(
 
     with (
         patch(
+            "argo_deepmsi.experiment._run_ingest",
+            return_value={"n_patients": 24, "n_slides": 24},
+        ),
+        patch(
+            "argo_deepmsi.experiment._run_pyramidal",
+            return_value={"counts": {"ok": 24}},
+        ),
+        patch(
             "argo_deepmsi.feature_extraction.extract_features_batch",
             side_effect=synthetic_extract,
         ),
@@ -159,8 +184,11 @@ def run_synthetic_acceptance(
     ):
         manifest = run_experiment(config, resume=False, on_stage=on_stage)
     expected = {
+        "ingest",
+        "pyramidal",
         "extract",
         "aggregate:mean",
+        "cohort",
         "bag:tiles",
         "train:linear",
         "scorer:nested",

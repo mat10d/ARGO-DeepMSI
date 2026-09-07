@@ -1,7 +1,7 @@
 """
 Data ingestion module for ARGO-DeepMSI pipeline.
 
-Handles REDCap data fetching, Halo Link data loading, and clinical/slide table creation.
+Handles REDCap data fetching, PathPresenter metadata, and clinical/slide table creation.
 """
 
 import os
@@ -225,75 +225,103 @@ def create_clinical_table(redcap_data: pd.DataFrame) -> Tuple[pd.DataFrame, dict
     return clinical_table, record_id_mapping
 
 
-def load_halo_link_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
-    """Load all Halo Link CSV export files from site directories.
-
-    Args:
-        base_dir: Base directory to search for halo_link_*.csv files
-                 (if None, searches data/*/halo_link_*.csv in all site directories)
-
-    Returns:
-        Combined DataFrame from all Halo Link files with standardized columns.
-    """
-    if base_dir is None:
-        # Search in all site directories: data/*/halo_link_*.csv
-        base_dir = get_project_root() / "data"
-    else:
-        base_dir = Path(base_dir)
-
-    # Search recursively for halo_link_*.csv in site subdirectories
-    halo_files = list(base_dir.glob("*/halo_link_*.csv"))
-
-    if not halo_files:
-        logger.warning(f"No Halo Link files found in {base_dir}")
-        return pd.DataFrame()
-
-    halo_dfs = []
-
-    for file in halo_files:
-        site_name = file.stem.replace("halo_link_", "").replace("_export", "")
-        try:
-            df = pd.read_csv(file)
-            df["site"] = site_name
-            halo_dfs.append(df)
-            logger.info(f"Loaded Halo data for {site_name} ({len(df)} records)")
-        except Exception as e:
-            logger.error(f"Error loading {file}: {e}")
-
-    if not halo_dfs:
-        return pd.DataFrame()
-
-    combined_halo = pd.concat(halo_dfs, ignore_index=True)
-
-    # Standardize column names
-    standard_col_map = {
-        "Slide ID": "slide_id",
-        "Study Image ID": "image_id",
-        "Name": "filename",
-        "Image Location": "image_location",
-        "Pathology REDCap ID": "redcap_id",
-        "Cut location": "cut_location",
-        "Stain location": "stain_location",
+def _standardize_pathpresenter_columns(frame: pd.DataFrame) -> pd.DataFrame:
+    """Normalize the stable PathPresenter spreadsheet column contract."""
+    aliases = {
+        "slide id": "slide_id",
+        "study image id": "image_id",
+        "name": "filename",
+        "image location": "image_location",
+        "pathology redcap id": "redcap_id",
+        "cut location": "cut_location",
+        "stain location": "stain_location",
+        "site": "site",
     }
-
-    combined_halo.rename(
-        columns={k: v for k, v in standard_col_map.items() if k in combined_halo.columns},
+    result = frame.copy()
+    normalized = {str(column).lstrip("\ufeff").strip().lower(): column for column in result}
+    result.rename(
+        columns={source: aliases[name] for name, source in normalized.items() if name in aliases},
         inplace=True,
     )
+    return result
 
-    logger.info(f"Combined {len(halo_dfs)} Halo Link files, total {len(combined_halo)} records")
-    return combined_halo
+
+def load_pathpresenter_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
+    """Load compatible PathPresenter CSV or Excel exports.
+
+    Files may be grouped into site directories or stored as a multi-sheet Excel
+    workbook. Tables without the unchanged ``Name`` and ``Pathology REDCap ID``
+    columns are ignored, which lets the protected data root contain other files.
+    Legacy ``halo_link_*.csv`` exports remain compatible because their columns
+    are identical.
+    """
+    base_dir = Path(base_dir) if base_dir is not None else get_project_root() / "data"
+    files = sorted(
+        {
+            path
+            for pattern in (
+                "*.csv",
+                "*.xlsx",
+                "*.xls",
+                "*/*.csv",
+                "*/*.xlsx",
+                "*/*.xls",
+            )
+            for path in base_dir.glob(pattern)
+            if not path.name.startswith("~$")
+        }
+    )
+    if not files:
+        logger.warning("No PathPresenter metadata files found in %s", base_dir)
+        return pd.DataFrame()
+
+    frames: list[pd.DataFrame] = []
+    for path in files:
+        try:
+            if path.suffix.lower() == ".csv":
+                tables = {path.stem: pd.read_csv(path)}
+            else:
+                tables = pd.read_excel(path, sheet_name=None)
+        except (ImportError, OSError, ValueError) as error:
+            logger.warning("Could not read metadata file %s: %s", path, error)
+            continue
+        for sheet_name, raw in tables.items():
+            frame = _standardize_pathpresenter_columns(raw)
+            if not {"filename", "redcap_id"} <= set(frame):
+                continue
+            if "site" not in frame:
+                site = path.parent.name if path.parent != base_dir else str(sheet_name)
+                frame["site"] = site
+            frames.append(frame)
+            logger.info(
+                "Loaded PathPresenter metadata %s[%s] (%d records)",
+                path.name,
+                sheet_name,
+                len(frame),
+            )
+
+    if not frames:
+        logger.warning("No compatible PathPresenter tables found in %s", base_dir)
+        return pd.DataFrame()
+    combined = pd.concat(frames, ignore_index=True)
+    logger.info("Combined %d PathPresenter tables, total %d records", len(frames), len(combined))
+    return combined
+
+
+def load_halo_link_data(base_dir: Optional[Path] = None) -> pd.DataFrame:
+    """Backward-compatible alias for historical callers."""
+    return load_pathpresenter_data(base_dir)
 
 
 def create_slide_table(
-    halo_data: pd.DataFrame, record_id_mapping: Optional[dict] = None
+    metadata: pd.DataFrame, record_id_mapping: Optional[dict] = None
 ) -> pd.DataFrame:
     """Create slide table relating patients to their slide files.
 
-    Uses record_id_mapping to convert Halo's record_ids to sequential PATIENT IDs.
+    Uses record_id_mapping to convert PathPresenter record IDs to patient IDs.
 
     Args:
-        halo_data: DataFrame with Halo Link data
+        metadata: DataFrame with normalized PathPresenter metadata
         record_id_mapping: dict mapping record_ids to PATIENT IDs (from create_clinical_table)
 
     Returns:
@@ -315,27 +343,27 @@ def create_slide_table(
     # Check if we have the necessary columns
     required_cols = ["redcap_id", "filename", "site"]
 
-    if not all(col in halo_data.columns for col in required_cols):
-        logger.warning("Missing required columns in Halo data for slide table")
+    if not all(col in metadata.columns for col in required_cols):
+        logger.warning("Missing required columns in PathPresenter data for slide table")
 
-        if "redcap_id" not in halo_data.columns:
+        if "redcap_id" not in metadata.columns:
             logger.warning("- Missing 'redcap_id' column (Pathology REDCap ID)")
-        if "filename" not in halo_data.columns:
+        if "filename" not in metadata.columns:
             logger.warning("- Missing 'filename' column (Name)")
-        if "site" not in halo_data.columns:
+        if "site" not in metadata.columns:
             logger.warning("- Missing 'site' column")
 
         # Try to find alternative columns
         patient_id_cols = [
-            col for col in halo_data.columns if "id" in col.lower() and "redcap" in col.lower()
+            col for col in metadata.columns if "id" in col.lower() and "redcap" in col.lower()
         ]
         filename_cols = [
-            col for col in halo_data.columns if "name" in col.lower() or "file" in col.lower()
+            col for col in metadata.columns if "name" in col.lower() or "file" in col.lower()
         ]
 
         if patient_id_cols and filename_cols:
             logger.info(f"Using alternative columns: {patient_id_cols[0]} and {filename_cols[0]}")
-            temp_df = halo_data[[patient_id_cols[0], filename_cols[0]]].copy()
+            temp_df = metadata[[patient_id_cols[0], filename_cols[0]]].copy()
             temp_df.columns = ["record_id", "FILENAME"]
             temp_df["PATIENT"] = "Unknown"
             # Fill missing columns with defaults
@@ -351,12 +379,12 @@ def create_slide_table(
         extract_cols = ["redcap_id", "filename", "site"]
 
         # Add processing columns if available
-        if "cut_location" in halo_data.columns:
+        if "cut_location" in metadata.columns:
             extract_cols.append("cut_location")
-        if "stain_location" in halo_data.columns:
+        if "stain_location" in metadata.columns:
             extract_cols.append("stain_location")
 
-        temp_df = halo_data[extract_cols].copy()
+        temp_df = metadata[extract_cols].copy()
 
         # Rename columns to match slide table schema
         temp_df.rename(
@@ -816,7 +844,7 @@ The cleaning step removes patients without MSI status and slides that don't exis
 - **Final (ready for ML):** {n_patients} patients
 
 ### Slides
-- **Initial (from Halo Link):** {n_slides_full} slides
+- **Initial (from PathPresenter):** {n_slides_full} slides
 - **Missing (not found on disk):** {n_slides_missing} slides
 - **Removed (patients without MSI):** {n_slides_found - n_slides} slides
 - **Final (ready for feature extraction):** {n_slides} slides
@@ -909,6 +937,7 @@ def process_redcap_data(
     output_dir: Optional[Path] = None,
     api_url: Optional[str] = None,
     api_token: Optional[str] = None,
+    metadata_dir: Optional[Path] = None,
     halo_base_dir: Optional[Path] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """Complete data ingestion pipeline: REDCap → clinical/slide tables.
@@ -919,7 +948,8 @@ def process_redcap_data(
         output_dir: Directory to save output tables (default: results/stage1_data_ingestion/)
         api_url: REDCap API URL (if None, loads from environment)
         api_token: REDCap API token (if None, loads from environment)
-        halo_base_dir: Directory with Halo Link CSV files (if None, uses data/metadata/)
+        metadata_dir: Directory with PathPresenter CSV/Excel exports and slides
+        halo_base_dir: Deprecated alias for ``metadata_dir``
 
     Returns:
         Tuple of (clinical_table, slide_table) DataFrames
@@ -946,13 +976,17 @@ def process_redcap_data(
     clinical_table.to_csv(output_dir / "clinical_table_full.csv", index=False)
     logger.info(f"Saved clinical table with {len(clinical_table)} patients")
 
-    # Step 3: Load Halo Link data
-    logger.info("Loading Halo Link data...")
-    halo_data = load_halo_link_data(halo_base_dir)
+    if metadata_dir is not None and halo_base_dir is not None:
+        raise ValueError("Use metadata_dir, not both metadata_dir and halo_base_dir")
+    metadata_dir = metadata_dir or halo_base_dir
+
+    # Step 3: Load PathPresenter data
+    logger.info("Loading PathPresenter metadata...")
+    metadata = load_pathpresenter_data(metadata_dir)
 
     # Step 4: Create slide table
     logger.info("Creating slide table...")
-    slide_table = create_slide_table(halo_data, record_id_mapping)
+    slide_table = create_slide_table(metadata, record_id_mapping)
 
     # Step 5: Verify slides exist
     logger.info("Verifying slides exist...")

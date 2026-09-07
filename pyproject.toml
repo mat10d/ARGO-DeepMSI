@@ -38,6 +38,8 @@ dependencies = [
     # Data ingestion
     "requests>=2.31.0",
     "python-dotenv>=1.0.0",
+    "openpyxl>=3.1.0,<4.0.0",  # PathPresenter Excel workbook exports
+    "xlrd>=2.0.0,<3.0.0",  # Legacy .xls PathPresenter exports
 
     # Visualization
     "matplotlib>=3.7.0",

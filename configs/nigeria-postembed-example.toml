@@ -1,0 +1,38 @@
+# Copy this file for one post-embedding hypothesis. Change [run].name and one
+# interpretable modeling choice; tile embeddings come from nigeria-v2.
+
+[run]
+name = "nigeria-postembed-example"
+workspace = ".."
+results_dir = "results/runs"
+slide_table = "results/data/slide_table_pyramidal.csv"
+clinical_table = "results/data/clinical_table.csv"
+cohort = "results/data/cohort_clean.csv"
+seed = 42
+device = "cuda"
+strategy = "frozen_foundation_trained_head"
+
+[run.budget]
+max_models = 2
+max_stages = 3
+max_trainable_stages = 1
+max_epochs = 25
+max_repeats = 1
+allow_network = false
+allow_model_downloads = false
+
+# The bag is rebuilt inside this run from versioned LazySlide tile embeddings.
+[[bag]]
+id = "phaet"
+models = ["phaet"]
+max_tiles = 500
+seed = 42
+
+[[scorer]]
+id = "transformer_phaet"
+strategy = "frozen_foundation_trained_head"
+name = "bag_transformer"
+parameters = { bag_file = "$RUN_DIR/bags/phaet/phaet_bags.npz", index_file = "$RUN_DIR/bags/phaet/phaet_index.csv", tile_cap = 500, epochs = 20, device = "cuda", outer_splits = 5, inner_splits = 5, depth = 2, heads = 8, dim = 512, dim_head = 64, capture_attention = true, seed = 42 }
+
+[comparison]
+enabled = true

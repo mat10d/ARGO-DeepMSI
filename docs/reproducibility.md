@@ -19,9 +19,12 @@ uv run pytest tests/test_package_boundaries.py tests/test_reproducible_workflows
 ```
 
 `uv.lock` is the source of truth. Do not start a new machine from `pip install`
-without the lock unless you are deliberately updating dependencies. Model weights
-and slide data are not committed; restore the data paths in the slide table and set
-`HF_TOKEN` for gated encoders.
+without the lock unless you are deliberately updating dependencies. Model weights,
+slide data, and protected metadata are not committed. Acquire fresh slides and the
+PathPresenter CSV/Excel exports into `data/<site>/`; the configured ingestion stage then
+fetches REDCap, verifies the expected 808-slide/217-patient inventory, and creates
+the tables consumed by later stages. Set `HF_TOKEN`, `REDCAP_API_URL`, and
+`REDCAP_API_TOKEN` in `.env` or the job environment.
 
 The two bootstrap tests are offline. Once network access is available, validate
 the real LazySlide integration against its public sample slide:
@@ -51,7 +54,7 @@ baseline and makes the 0.12 extraction an explicit new experiment.
 
 ## Run the Nigeria-only sweep
 
-Review the shipped configuration first:
+Review the shipped end-to-end configuration first:
 
 ```bash
 uv run argo doctor --strict --config configs/nigeria-v2.toml
@@ -69,6 +72,12 @@ the retained SLURM fields (`partition`, cluster worker bounds, cores, memory,
 walltime, and `conda_env`) and records their names in the extraction-stage
 manifest. `batch_size`, `num_workers`, `device`, and model selection still apply.
 
+On a cluster, `--until-stage extract` creates the current LazySlide tile-feature
+checkpoint and marks the run `paused`; resume with
+`--from-stage aggregate:mean_pool`. The latter is allowed only after every earlier
+stage is complete. The checked-in `nigeria-postembed-example.toml` is the small
+template for subsequent hypotheses that reuse those tile embeddings.
+
 The run is stage-resumable. Repeating the command skips completed stages. Changing
 the TOML after a run starts is rejected; give a changed hypothesis a new run name.
 Outputs live under `results/runs/<name>/`:
@@ -84,8 +93,9 @@ Outputs live under `results/runs/<name>/`:
 
 The example replaces the recent Waiv one-offs with parameterized stages: base-vs-
 Waiv nested probes, Phaet/Mascaret/concatenated ABMIL, and from-scratch Wagner-style
-transformers. To try another embedder, add it to `[extract].models`, aggregation,
-and a bag variant; no Python edit is required.
+transformers. Their bags and indices are generated in the run rather than restored
+from the old machine. To try another embedder, add it to `[extract].models`,
+aggregation, and a bag variant; no Python edit is required.
 
 Extraction is all-or-nothing by default at the experiment boundary: every slide
 is attempted and the failure report is saved, then the stage fails rather than

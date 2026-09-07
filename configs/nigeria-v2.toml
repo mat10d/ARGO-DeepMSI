@@ -15,12 +15,33 @@ strategy = "frozen_foundation_trained_head"
 
 [run.budget]
 max_models = 8
-max_stages = 16
+max_stages = 20
 max_trainable_stages = 12
 max_epochs = 25
 max_repeats = 5
 allow_network = true
 allow_model_downloads = true
+
+# Protected slides and the PathPresenter spreadsheets are acquired from institutional
+# systems before this command starts. This stage fetches fresh REDCap labels,
+# matches them to the local slides, and refuses an incomplete acquisition.
+[ingest]
+enabled = true
+output_dir = "results/data"
+metadata_dir = "data"
+api_url_env = "REDCAP_API_URL"
+api_token_env = "REDCAP_API_TOKEN"
+expected_patients = 217
+expected_slides = 808
+
+[pyramidal]
+enabled = true
+slide_table = "results/data/slide_table.csv"
+output = "results/data/slide_table_pyramidal.csv"
+slide_column = "FILENAME"
+tile_size = 256
+quality = 90
+allow_failures = false
 
 # On a single workstation, change only this to engine="local"; scheduler fields
 # below are ignored and recorded. The default requires tile stores created
@@ -51,13 +72,26 @@ id = "mean_pool"
 models = ["conch_v1.5", "ctranspath", "uni2", "virchow2", "phaet", "mascaret"]
 method = "mean"
 
-# The same bag builder handles one encoder or aligned concatenations. Omit
-# tumor_tiles_dir to use every tissue tile.
+# Rebuild the fixed patient-level Nigeria estimand from the source labels and
+# fresh feature-complete slides. Count guards prevent a partial download or
+# changed label population from silently becoming a new experiment.
+[cohort]
+enabled = true
+embeddings_dir = "results/embeddings"
+output = "results/data/cohort_clean.csv"
+manifest = "results/data/cohort_manifest.json"
+label_column = "isMSIH"
+positive_label = "MSI-H"
+expected_patients = 217
+expected_positive_patients = 47
+
+# The same bag builder handles one encoder or aligned concatenations. This
+# canonical bootstrap uses every tissue tile, so no historical tumor mask is
+# required on a fresh machine.
 [[bag]]
 id = "robust_encoders"
 models = ["phaet", "mascaret"]
 variants = { phaet = ["phaet"], mascaret = ["mascaret"], waiv_concat = ["phaet", "mascaret"] }
-tumor_tiles_dir = "results/data/tumor_tiles"
 max_tiles = 500
 seed = 42
 
@@ -118,18 +152,19 @@ strategy = "frozen_foundation_trained_head"
 name = "clam_tilemil"
 parameters = { bag_file = "$RUN_DIR/bags/robust_encoders/waiv_concat_bags.npz", index_file = "$RUN_DIR/bags/robust_encoders/waiv_concat_index.csv", ensemble_size = 3, epochs = 12, top_k = 2, n_splits = 5, seed = 42 }
 
-# The from-scratch Wagner-style experiment is now encoder-agnostic too.
+# The from-scratch Wagner-style experiment consumes bags generated above; it
+# no longer depends on a one-off W1 slide index from the old machine.
 [[scorer]]
 id = "transformer_phaet"
 strategy = "frozen_foundation_trained_head"
 name = "bag_transformer"
-parameters = { index_file = "$WORKSPACE/results/experiments/w1_ctranspath/slide_index.csv", feature_key = "phaet", zarr_column = "ctranspath_zarr", tile_cap = 2048, fold_column = "outer_fold", epochs = 20, device = "cuda", inner_splits = 5, depth = 2, heads = 8, dim = 512, dim_head = 64, capture_attention = true, seed = 42 }
+parameters = { bag_file = "$RUN_DIR/bags/robust_encoders/phaet_bags.npz", index_file = "$RUN_DIR/bags/robust_encoders/phaet_index.csv", tile_cap = 500, epochs = 20, device = "cuda", outer_splits = 5, inner_splits = 5, depth = 2, heads = 8, dim = 512, dim_head = 64, capture_attention = true, seed = 42 }
 
 [[scorer]]
 id = "transformer_mascaret"
 strategy = "frozen_foundation_trained_head"
 name = "bag_transformer"
-parameters = { index_file = "$WORKSPACE/results/experiments/w1_ctranspath/slide_index.csv", feature_key = "mascaret", zarr_column = "ctranspath_zarr", tile_cap = 2048, fold_column = "outer_fold", epochs = 20, device = "cuda", inner_splits = 5, depth = 2, heads = 8, dim = 512, dim_head = 64, capture_attention = true, seed = 42 }
+parameters = { bag_file = "$RUN_DIR/bags/robust_encoders/mascaret_bags.npz", index_file = "$RUN_DIR/bags/robust_encoders/mascaret_index.csv", tile_cap = 500, epochs = 20, device = "cuda", outer_splits = 5, inner_splits = 5, depth = 2, heads = 8, dim = 512, dim_head = 64, capture_attention = true, seed = 42 }
 
 [comparison]
 enabled = true

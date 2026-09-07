@@ -23,7 +23,18 @@ STRATEGIES = {
     "mixed": "Compare explicitly labelled stages from more than one strategy family.",
 }
 
-TOP_LEVEL_KEYS = {"run", "extract", "aggregate", "bag", "train", "scorer", "comparison"}
+TOP_LEVEL_KEYS = {
+    "run",
+    "ingest",
+    "pyramidal",
+    "extract",
+    "aggregate",
+    "cohort",
+    "bag",
+    "train",
+    "scorer",
+    "comparison",
+}
 SECTION_KEYS = {
     "run": {
         "name",
@@ -36,6 +47,25 @@ SECTION_KEYS = {
         "device",
         "strategy",
         "budget",
+    },
+    "ingest": {
+        "enabled",
+        "output_dir",
+        "metadata_dir",
+        "halo_base_dir",
+        "api_url_env",
+        "api_token_env",
+        "expected_patients",
+        "expected_slides",
+    },
+    "pyramidal": {
+        "enabled",
+        "slide_table",
+        "output",
+        "slide_column",
+        "tile_size",
+        "quality",
+        "allow_failures",
     },
     "extract": {
         "enabled",
@@ -70,6 +100,18 @@ SECTION_KEYS = {
         "output_dir",
         "device",
         "write_h5ad",
+    },
+    "cohort": {
+        "enabled",
+        "slide_table",
+        "clinical_table",
+        "embeddings_dir",
+        "output",
+        "manifest",
+        "label_column",
+        "positive_label",
+        "expected_patients",
+        "expected_positive_patients",
     },
     "bag": {
         "id",
@@ -193,6 +235,38 @@ def validate_experiment_config(config: Mapping[str, Any]) -> None:
                 f"[run].budget.max_models={budget['max_models']}"
             )
 
+    ingest = _require_mapping(config.get("ingest", {}), "[ingest]")
+    _unknown_keys(ingest, SECTION_KEYS["ingest"], "[ingest]")
+    if ingest.get("enabled", False):
+        if "metadata_dir" in ingest and "halo_base_dir" in ingest:
+            raise ValueError("[ingest] cannot set both metadata_dir and legacy halo_base_dir")
+        for key in ("expected_patients", "expected_slides"):
+            if key in ingest:
+                _positive_int(ingest[key], f"[ingest].{key}")
+
+    pyramidal = _require_mapping(config.get("pyramidal", {}), "[pyramidal]")
+    _unknown_keys(pyramidal, SECTION_KEYS["pyramidal"], "[pyramidal]")
+    if pyramidal.get("enabled", False):
+        if "slide_table" not in pyramidal:
+            raise ValueError("Enabled [pyramidal] needs slide_table")
+        if "output" not in pyramidal and "slide_table" not in run:
+            raise ValueError("Enabled [pyramidal] needs output or [run].slide_table")
+
+    cohort = _require_mapping(config.get("cohort", {}), "[cohort]")
+    _unknown_keys(cohort, SECTION_KEYS["cohort"], "[cohort]")
+    if cohort.get("enabled", False):
+        if "slide_table" not in cohort and "slide_table" not in run:
+            raise ValueError("Enabled [cohort] needs [run].slide_table or [cohort].slide_table")
+        if "clinical_table" not in cohort and "clinical_table" not in run:
+            raise ValueError(
+                "Enabled [cohort] needs [run].clinical_table or [cohort].clinical_table"
+            )
+        if "output" not in cohort and "cohort" not in run:
+            raise ValueError("Enabled [cohort] needs output or [run].cohort")
+        for key in ("expected_patients", "expected_positive_patients"):
+            if key in cohort:
+                _positive_int(cohort[key], f"[cohort].{key}")
+
     jobs_by_section: dict[str, Sequence[Mapping[str, Any]]] = {}
     for section in ("aggregate", "bag", "train", "scorer"):
         jobs = _require_job_list(config.get(section, []), f"[[{section}]]")
@@ -260,8 +334,11 @@ def validate_experiment_config(config: Mapping[str, Any]) -> None:
             )
 
     n_stages = (
-        int(bool(extract.get("enabled", False)))
+        int(bool(ingest.get("enabled", False)))
+        + int(bool(pyramidal.get("enabled", False)))
+        + int(bool(extract.get("enabled", False)))
         + sum(job.get("enabled", True) for jobs in jobs_by_section.values() for job in jobs)
+        + int(bool(cohort.get("enabled", False)))
         + int(bool(comparison.get("enabled", False)))
     )
     if "max_stages" in budget and n_stages > budget["max_stages"]:
@@ -346,10 +423,13 @@ def experiment_json_schema() -> dict[str, Any]:
                 }
                 for section in ("aggregate", "bag", "train", "scorer")
             },
-            "extract": {
-                "type": "object",
-                "additionalProperties": False,
-                "properties": {key: {} for key in sorted(SECTION_KEYS["extract"])},
+            **{
+                section: {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {key: {} for key in sorted(SECTION_KEYS[section])},
+                }
+                for section in ("ingest", "pyramidal", "extract", "cohort")
             },
             "comparison": {
                 "type": "object",

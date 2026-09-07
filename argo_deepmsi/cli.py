@@ -38,10 +38,15 @@ console = Console()
 @app.command()
 def ingest(
     output_dir: Optional[Path] = typer.Option(None, "--output", "-o", help="Output directory"),
+    metadata_dir: Optional[Path] = typer.Option(
+        None,
+        "--metadata-dir",
+        help="Directory containing PathPresenter CSV/Excel exports and downloaded slides",
+    ),
     api_url: Optional[str] = typer.Option(None, "--api-url", help="REDCap API URL"),
     api_token: Optional[str] = typer.Option(None, "--api-token", help="REDCap API token"),
 ):
-    """Ingest data from REDCap and Halo Link exports."""
+    """Ingest data from REDCap and PathPresenter spreadsheet exports."""
     from .io_utils import get_results_dir, ensure_dir
     from .data_ingestion import process_redcap_data
 
@@ -56,6 +61,7 @@ def ingest(
         output_dir=output_dir,
         api_url=api_url,
         api_token=api_token,
+        metadata_dir=metadata_dir,
     )
 
     console.print(f"[green]Done![/green] {len(clinical_table)} patients, {len(slide_table)} slides")
@@ -740,8 +746,14 @@ def experiment_command(
     config: Path = typer.Argument(..., help="Experiment TOML file"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Validate and print the stage plan"),
     resume: bool = typer.Option(True, "--resume/--fresh"),
+    from_stage: Optional[str] = typer.Option(
+        None, "--from-stage", help="Resume at this stage ID after completed prerequisites"
+    ),
+    until_stage: Optional[str] = typer.Option(
+        None, "--until-stage", help="Stop cleanly after this stage ID"
+    ),
 ):
-    """Run or resume a configuration-driven extraction/training/scorer experiment."""
+    """Run or resume the configuration-driven end-to-end experiment graph."""
     from .experiment import run_experiment
 
     def report(stage: str, status: str) -> None:
@@ -749,7 +761,14 @@ def experiment_command(
         console.print(f"[{color}]{status:9s}[/{color}] {stage}")
 
     try:
-        result = run_experiment(config, dry_run=dry_run, resume=resume, on_stage=report)
+        result = run_experiment(
+            config,
+            dry_run=dry_run,
+            resume=resume,
+            from_stage=from_stage,
+            until_stage=until_stage,
+            on_stage=report,
+        )
     except (KeyError, ValueError, OSError) as error:
         console.print(f"[red]{error}[/red]")
         raise typer.Exit(1) from error
@@ -759,7 +778,11 @@ def experiment_command(
         for stage in result["plan"]:
             console.print(f"  {stage['id']}")
     else:
-        console.print(f"[bold green]Experiment complete[/bold green]: {result['name']}")
+        status = result["status"]
+        color = "green" if status == "completed" else "yellow"
+        console.print(f"[bold {color}]Experiment {status}[/bold {color}]: {result['name']}")
+        if status == "paused":
+            console.print(f"Resume from: {result['resume_from']}")
 
 
 @app.command("experiment-schema")
@@ -948,13 +971,24 @@ def doctor(
         False, "--json", help="Emit a machine-readable report instead of a table"
     ),
     strict: bool = typer.Option(False, "--strict", help="Treat warnings as a failed preflight"),
+    from_stage: Optional[str] = typer.Option(
+        None, "--from-stage", help="Preflight this stage and its successors"
+    ),
+    until_stage: Optional[str] = typer.Option(
+        None, "--until-stage", help="Preflight only through this stage"
+    ),
 ):
     """Check environment, inputs, models, GPU, tiling provenance, and budgets."""
     import json
 
     from .doctor import run_doctor
 
-    report = run_doctor(workspace=workspace, config_path=config)
+    report = run_doctor(
+        workspace=workspace,
+        config_path=config,
+        from_stage=from_stage,
+        until_stage=until_stage,
+    )
     if json_output:
         typer.echo(json.dumps(report, indent=2))
     else:

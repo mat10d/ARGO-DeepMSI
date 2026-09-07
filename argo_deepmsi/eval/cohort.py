@@ -221,6 +221,60 @@ def build_cohort(
     return df
 
 
+def build_feature_complete_cohort(
+    slide_table_csv: Path,
+    clinical_csv: Path,
+    embeddings_dir: Path,
+    *,
+    label_col: str = "isMSIH",
+    positive: str = "MSI-H",
+) -> tuple[pd.DataFrame, dict]:
+    """Build the Nigeria primary cohort from source tables and fresh embeddings.
+
+    This is the reproducible v2 bootstrap path.  It does not inherit any
+    historical QC filtering: every slide with at least one successfully
+    aggregated tile is primary, while patients remain the validation unit.
+    """
+    cohort = build_cohort(
+        slide_table_csv,
+        clinical_csv,
+        qc_csv=None,
+        label_col=label_col,
+        positive=positive,
+    )
+    tiles = load_tile_counts(embeddings_dir)
+    cohort = cohort.merge(tiles, on="slide_id", how="left", validate="one_to_one")
+    cohort["n_tiles"] = cohort["n_tiles"].astype("Int64")
+    cohort["has_features"] = cohort["n_tiles"].fillna(0).gt(0)
+    cohort["in_primary_set"] = cohort["has_features"].astype(int)
+    cohort["in_clean_set"] = cohort["in_primary_set"]  # legacy scorer API alias
+    cohort["processing_site"] = cohort["site"].astype(str)
+    patient_cohorts = cohort.groupby("patient_id")["site"].apply(_patient_cohort)
+    cohort["patient_cohort"] = cohort["patient_id"].map(patient_cohorts)
+
+    primary = cohort[cohort["in_primary_set"] == 1]
+    patient_labels = primary.drop_duplicates("patient_id")[["patient_id", "y"]]
+    by_patient_cohort = {}
+    for name, subset in primary.groupby("patient_cohort"):
+        by_patient_cohort[str(name)] = {
+            "n_slides": int(len(subset)),
+            "n_patients": int(subset["patient_id"].nunique()),
+            "n_positive_patients": int(subset.drop_duplicates("patient_id")["y"].sum()),
+        }
+    manifest = {
+        "cohort_version": "v2-feature-complete-primary",
+        "primary_rule": "fresh embedding has n_tiles > 0",
+        "label_column": label_col,
+        "positive_label": positive,
+        "n_slides_total": int(len(cohort)),
+        "n_slides_primary": int(len(primary)),
+        "n_patients_primary": int(patient_labels["patient_id"].nunique()),
+        "n_positive_patients": int(patient_labels["y"].sum()),
+        "by_patient_cohort": by_patient_cohort,
+    }
+    return cohort.sort_values(["site", "slide_id"]).reset_index(drop=True), manifest
+
+
 def load_tile_counts(embeddings_dir: Path | None = None) -> pd.DataFrame:
     """Return ``[slide_id, n_tiles]`` from a cached embeddings metadata.csv.
 

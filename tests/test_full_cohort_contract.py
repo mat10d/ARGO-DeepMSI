@@ -4,7 +4,11 @@ import json
 
 import pandas as pd
 
-from argo_deepmsi.eval.cohort import freeze_manifest, rebuild_full_feature_cohort
+from argo_deepmsi.eval.cohort import (
+    build_feature_complete_cohort,
+    freeze_manifest,
+    rebuild_full_feature_cohort,
+)
 from argo_deepmsi.eval.metrics import aggregate_to_patient, stratified_patient_bootstrap
 from argo_deepmsi.eval.qc_comparison import _cache_matches_estimand
 
@@ -39,6 +43,34 @@ def test_rebuild_full_cohort_preserves_qc_as_sensitivity(tmp_path):
     assert cohort.loc[cohort.patient_id == "p1", "patient_cohort"].eq("retrospective").all()
     assert manifest["primary_estimand"]["n_patients"] == 2
     assert manifest["qc_sensitivity_estimand"]["n_patients"] == 1
+
+
+def test_feature_complete_cohort_is_rebuilt_from_fresh_embeddings(tmp_path):
+    slide_table = tmp_path / "slides.csv"
+    clinical = tmp_path / "clinical.csv"
+    embeddings = tmp_path / "embeddings" / "encoder_mean"
+    embeddings.mkdir(parents=True)
+    pd.DataFrame(
+        {
+            "PATIENT": ["p1", "p1", "p2"],
+            "FILENAME": ["/slides/a.svs", "/slides/b.svs", "/slides/c.svs"],
+            "SITE": ["retrospective_msk", "retrospective_oau", "OAUTHC"],
+        }
+    ).to_csv(slide_table, index=False)
+    pd.DataFrame(
+        {"PATIENT": ["p1", "p2"], "isMSIH": ["MSS", "MSI-H"]}
+    ).to_csv(clinical, index=False)
+    pd.DataFrame(
+        {"slide_id": ["a", "b", "c"], "n_tiles": [10, 0, 5]}
+    ).to_csv(embeddings / "metadata.csv", index=False)
+
+    cohort, manifest = build_feature_complete_cohort(slide_table, clinical, tmp_path / "embeddings")
+
+    assert cohort["in_primary_set"].tolist() == [1, 1, 0]
+    assert cohort.loc[cohort.patient_id == "p1", "patient_cohort"].eq("retrospective").all()
+    assert manifest["n_slides_primary"] == 2
+    assert manifest["n_patients_primary"] == 2
+    assert manifest["n_positive_patients"] == 1
 
 
 def test_patient_aggregation_uses_stable_retrospective_cohort():

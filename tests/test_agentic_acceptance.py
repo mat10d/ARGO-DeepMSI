@@ -122,8 +122,11 @@ def test_synthetic_acceptance_exercises_every_experiment_stage(tmp_path: Path):
 
     assert report["status"] == "completed"
     assert [stage["kind"] for stage in report["stages"]] == [
+        "ingest",
+        "pyramidal",
         "extract",
         "aggregate",
+        "cohort",
         "bag",
         "train",
         "scorer",

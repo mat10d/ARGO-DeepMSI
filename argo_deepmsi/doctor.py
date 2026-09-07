@@ -16,7 +16,7 @@ from typing import Any
 import pandas as pd
 from packaging.specifiers import SpecifierSet
 
-from .experiment import experiment_plan, load_experiment
+from .experiment import experiment_plan, load_experiment, select_experiment_plan
 
 REQUIRED_PACKAGES = {
     "lazyslide": ">=0.12,<0.13",
@@ -222,6 +222,41 @@ def _check_slide_files(
         )
 
 
+def _check_feature_coverage(
+    checks: _Checks,
+    table: pd.DataFrame,
+    workspace: Path,
+    models: set[str],
+) -> None:
+    if not models:
+        return
+    slide_paths = [
+        _resolve(workspace, str(value)) for value in table["FILENAME"].dropna().drop_duplicates()
+    ]
+    missing: dict[str, list[str]] = {}
+    for model in sorted(models):
+        absent = [
+            str(path)
+            for path in slide_paths
+            if not (path.with_suffix(".zarr") / "tables" / f"{model}_tiles").is_dir()
+        ]
+        if absent:
+            missing[model] = absent[:5]
+    if missing:
+        checks.add(
+            "embedding_coverage",
+            "error",
+            f"Tile embeddings are incomplete for {len(missing)}/{len(models)} requested models",
+            {"missing_examples": missing},
+        )
+    else:
+        checks.add(
+            "embedding_coverage",
+            "ok",
+            f"All {len(slide_paths)} slides have tile embeddings for {sorted(models)}",
+        )
+
+
 def _check_models(checks: _Checks, config: dict[str, Any]) -> None:
     requested = list(config.get("extract", {}).get("models", []))
     if not requested:
@@ -250,20 +285,104 @@ def _check_models(checks: _Checks, config: dict[str, Any]) -> None:
         checks.add("models", "ok", message, {"requested": requested, "gated": gated})
 
 
+def _check_ingest_sources(checks: _Checks, config: dict[str, Any], workspace: Path) -> None:
+    from dotenv import load_dotenv
+
+    ingest = config.get("ingest", {})
+    if not ingest.get("enabled", False):
+        return
+    url_env = str(ingest.get("api_url_env", "REDCAP_API_URL"))
+    token_env = str(ingest.get("api_token_env", "REDCAP_API_TOKEN"))
+    load_dotenv(workspace / ".env", override=False)
+    missing_env = [name for name in (url_env, token_env) if not os.environ.get(name)]
+    if missing_env:
+        checks.add("ingest_credentials", "error", f"Missing environment variables: {missing_env}")
+    else:
+        checks.add("ingest_credentials", "ok", "REDCap credentials are set")
+    metadata_dir = _resolve(
+        workspace,
+        ingest.get("metadata_dir", ingest.get("halo_base_dir", "data")),
+    )
+    exports = sorted(
+        {
+            path
+            for pattern in (
+                "*.csv",
+                "*.xlsx",
+                "*.xls",
+                "*/*.csv",
+                "*/*.xlsx",
+                "*/*.xls",
+            )
+            for path in metadata_dir.glob(pattern)
+            if not path.name.startswith("~$")
+        }
+    )
+    if exports:
+        checks.add(
+            "pathpresenter_exports",
+            "ok",
+            f"Found {len(exports)} candidate PathPresenter metadata files",
+        )
+    else:
+        checks.add(
+            "pathpresenter_exports",
+            "error",
+            f"No PathPresenter CSV/Excel exports found under {metadata_dir}",
+        )
+
+
+def _driver_device(config: dict[str, Any], plan: list[dict[str, Any]]) -> str:
+    """Return the strongest accelerator requested in the selected driver stages."""
+    stage_ids = {stage["id"] for stage in plan}
+    run_device = str(config.get("run", {}).get("device", "cpu"))
+    extract = config.get("extract", {})
+    if "extract" in stage_ids and extract.get("engine", "local") == "local":
+        if str(extract.get("device", run_device)).startswith("cuda"):
+            return "cuda"
+    for section in ("aggregate", "scorer"):
+        for index, job in enumerate(config.get(section, []), 1):
+            default = str(job.get("name", index))
+            stage_id = f"{section}:{job.get('id', default)}"
+            if stage_id not in stage_ids:
+                continue
+            if section == "aggregate" and job.get("method", "mean") in {
+                "mean",
+                "max",
+                "median",
+                "sum",
+            }:
+                continue
+            device = str(job.get("device", job.get("parameters", {}).get("device", run_device)))
+            if device.startswith("cuda"):
+                return "cuda"
+    return "cpu"
+
+
 def run_doctor(
     *,
     workspace: Path | None = None,
     config_path: Path | None = None,
+    from_stage: str | None = None,
+    until_stage: str | None = None,
 ) -> dict[str, Any]:
     """Run non-mutating checks and return a stable machine-readable report."""
     checks = _Checks()
     config: dict[str, Any] | None = None
+    selected_plan: list[dict[str, Any]] = []
     if config_path is not None:
         config_path = config_path.resolve()
         try:
             config = load_experiment(config_path)
             plan = experiment_plan(config)
-            checks.add("config", "ok", f"Valid experiment with {len(plan)} stages")
+            selected_plan = select_experiment_plan(
+                plan, from_stage=from_stage, until_stage=until_stage
+            )
+            checks.add(
+                "config",
+                "ok",
+                f"Valid experiment; preflighting {len(selected_plan)}/{len(plan)} stages",
+            )
         except (OSError, ValueError) as error:
             checks.add("config", "error", str(error))
     if workspace is None and config is not None and config_path is not None:
@@ -320,16 +439,29 @@ def run_doctor(
             ),
             {"budget": budget},
         )
-        requested_device = str(config.get("extract", {}).get("device", run.get("device", "cpu")))
+        requested_device = _driver_device(config, selected_plan)
+        selected_kinds = {stage["kind"] for stage in selected_plan}
+        if "ingest" in selected_kinds:
+            _check_ingest_sources(checks, config, workspace)
         input_specs = {
             "slide_table": ({"FILENAME"}, run.get("slide_table")),
             "clinical_table": (set(), run.get("clinical_table")),
             "cohort": ({"slide_id", "patient_id", "site", "y"}, run.get("cohort")),
         }
         loaded: dict[str, pd.DataFrame] = {}
+        generated_by = {
+            "slide_table": "pyramidal" if config.get("pyramidal", {}).get("enabled") else None,
+            "clinical_table": "ingest" if config.get("ingest", {}).get("enabled") else None,
+            "cohort": "cohort" if config.get("cohort", {}).get("enabled") else None,
+        }
         for name, (required, value) in input_specs.items():
             if value is not None:
-                table = _read_table(checks, name, _resolve(workspace, value), required)
+                path = _resolve(workspace, value)
+                producer = generated_by[name]
+                if not path.is_file() and producer is not None:
+                    checks.add(name, "ok", f"Will be generated by stage {producer}: {path}")
+                    continue
+                table = _read_table(checks, name, path, required)
                 if table is not None:
                     loaded[name] = table
         if "slide_table" in loaded:
@@ -343,7 +475,23 @@ def run_doctor(
                 require_current=extract.get("tiling_policy", "require-current")
                 == "require-current",
             )
-        _check_models(checks, config)
+            post_embedding_models = {
+                str(model)
+                for section in ("aggregate", "bag")
+                for index, job in enumerate(config.get(section, []), 1)
+                if job.get("enabled", True)
+                and f"{section}:{job.get('id', index)}"
+                in {stage["id"] for stage in selected_plan}
+                for model in job.get("models", [])
+            }
+            _check_feature_coverage(
+                checks,
+                loaded["slide_table"],
+                workspace,
+                post_embedding_models,
+            )
+        if "extract" in selected_kinds:
+            _check_models(checks, config)
     _check_device(checks, requested_device)
 
     counts = {

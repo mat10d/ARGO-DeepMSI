@@ -60,6 +60,10 @@ def experiment_plan(config: dict[str, Any]) -> list[dict[str, Any]]:
     """Return the validated ordered plan without importing ML dependencies."""
     plan: list[dict[str, Any]] = []
     run_strategy = config.get("run", {}).get("strategy")
+    if config.get("ingest", {}).get("enabled", False):
+        plan.append({"id": "ingest", "kind": "ingest"})
+    if config.get("pyramidal", {}).get("enabled", False):
+        plan.append({"id": "pyramidal", "kind": "pyramidal"})
     extraction = config.get("extract", {})
     if extraction.get("enabled", False):
         models = extraction.get("models", [])
@@ -76,6 +80,8 @@ def experiment_plan(config: dict[str, Any]) -> list[dict[str, Any]]:
                     "method": job.get("method", "mean"),
                 }
             )
+    if config.get("cohort", {}).get("enabled", False):
+        plan.append({"id": "cohort", "kind": "cohort"})
     for index, job in enumerate(config.get("bag", []), 1):
         if job.get("enabled", True):
             models = job.get("models", [])
@@ -124,6 +130,44 @@ def experiment_plan(config: dict[str, Any]) -> list[dict[str, Any]]:
     return plan
 
 
+def select_experiment_plan(
+    plan: list[dict[str, Any]],
+    *,
+    from_stage: str | None = None,
+    until_stage: str | None = None,
+) -> list[dict[str, Any]]:
+    """Select an inclusive stage range using stable manifest stage IDs."""
+    ids = [stage["id"] for stage in plan]
+    if from_stage is not None and from_stage not in ids:
+        raise ValueError(f"Unknown --from-stage {from_stage!r}; choose one of {ids}")
+    if until_stage is not None and until_stage not in ids:
+        raise ValueError(f"Unknown --until-stage {until_stage!r}; choose one of {ids}")
+    if not plan:
+        return []
+    start = ids.index(from_stage) if from_stage is not None else 0
+    stop = ids.index(until_stage) + 1 if until_stage is not None else len(plan)
+    if start >= stop:
+        raise ValueError("--from-stage must not come after --until-stage")
+    return plan[start:stop]
+
+
+def _stage_jobs(config: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Map stable stage IDs to job tables without relying on iterator order."""
+    result: dict[str, dict[str, Any]] = {}
+    for kind in ("aggregate", "bag", "train", "scorer"):
+        for index, job in enumerate(config.get(kind, []), 1):
+            if not job.get("enabled", True):
+                continue
+            if kind == "train":
+                default = Path(str(job["embedding"])).name
+            elif kind == "scorer":
+                default = str(job["name"])
+            else:
+                default = str(index)
+            result[f"{kind}:{_job_id(job, default)}"] = job
+    return result
+
+
 @contextmanager
 def _working_directory(path: Path) -> Iterator[None]:
     previous = Path.cwd()
@@ -159,6 +203,72 @@ def _run_policy(config: dict[str, Any]) -> Iterator[None]:
                 os.environ.pop(name, None)
             else:
                 os.environ[name] = value
+
+
+def _run_ingest(config: dict[str, Any], workspace: Path) -> dict[str, Any]:
+    """Create source tables after protected slides have been acquired locally."""
+    from .data_ingestion import process_redcap_data
+    from dotenv import load_dotenv
+
+    options = dict(config["ingest"])
+    options.pop("enabled", None)
+    expected_patients = options.pop("expected_patients", None)
+    expected_slides = options.pop("expected_slides", None)
+    api_url_env = str(options.pop("api_url_env", "REDCAP_API_URL"))
+    api_token_env = str(options.pop("api_token_env", "REDCAP_API_TOKEN"))
+    output_dir = _resolve(workspace, options.pop("output_dir", "results/data"))
+    metadata_value = options.pop("metadata_dir", options.pop("halo_base_dir", "data"))
+    metadata_dir = _resolve(workspace, metadata_value)
+    if options:
+        raise ValueError(f"Unsupported [ingest] options: {sorted(options)}")
+    load_dotenv(workspace / ".env", override=False)
+    api_url = os.environ.get(api_url_env)
+    api_token = os.environ.get(api_token_env)
+    if not api_url or not api_token:
+        raise ValueError(
+            f"Ingestion needs environment variables {api_url_env} and {api_token_env}"
+        )
+    clinical, slides = process_redcap_data(
+        output_dir=output_dir,
+        api_url=api_url,
+        api_token=api_token,
+        metadata_dir=metadata_dir,
+    )
+    if expected_patients is not None and len(clinical) != int(expected_patients):
+        raise RuntimeError(
+            f"Ingestion produced {len(clinical)} patients; expected {expected_patients}"
+        )
+    if expected_slides is not None and len(slides) != int(expected_slides):
+        raise RuntimeError(f"Ingestion found {len(slides)} slides; expected {expected_slides}")
+    return {
+        "clinical_table": output_dir / "clinical_table.csv",
+        "clinical_table_sha256": file_sha256(output_dir / "clinical_table.csv"),
+        "slide_table": output_dir / "slide_table.csv",
+        "slide_table_sha256": file_sha256(output_dir / "slide_table.csv"),
+        "n_patients": len(clinical),
+        "n_slides": len(slides),
+    }
+
+
+def _run_pyramidal(config: dict[str, Any], workspace: Path) -> dict[str, Any]:
+    from .slide_prep import convert_non_pyramidal_slides, summarize
+
+    run = config["run"]
+    options = dict(config["pyramidal"])
+    options.pop("enabled", None)
+    allow_failures = bool(options.pop("allow_failures", False))
+    slide_table = _resolve(workspace, options.pop("slide_table"))
+    output = _resolve(workspace, options.pop("output", run["slide_table"]))
+    results = convert_non_pyramidal_slides(
+        slide_table=slide_table,
+        output_table=output,
+        **options,
+    )
+    counts = summarize(results)
+    failures = counts.get("failed", 0) + counts.get("unreadable", 0)
+    if failures and not allow_failures:
+        raise RuntimeError(f"Pyramidal preparation failed for {failures} slides")
+    return {"slide_table": output, "slide_table_sha256": file_sha256(output), "counts": counts}
 
 
 def _run_extract(config: dict[str, Any], workspace: Path, run_dir: Path) -> dict[str, Any]:
@@ -217,6 +327,61 @@ def _run_aggregate(config: dict[str, Any], job: dict[str, Any], workspace: Path)
     options.setdefault("device", run.get("device", "cuda"))
     result = aggregate_features(slide_table=slide_table, **options)
     return {"slide_table": slide_table, "n_embeddings": {k: len(v) for k, v in result.items()}}
+
+
+def _run_cohort(config: dict[str, Any], workspace: Path) -> dict[str, Any]:
+    from .eval.cohort import build_feature_complete_cohort
+
+    run = config["run"]
+    options = dict(config["cohort"])
+    options.pop("enabled", None)
+    slide_table = _resolve(workspace, options.pop("slide_table", run["slide_table"]))
+    clinical_table = _resolve(
+        workspace, options.pop("clinical_table", run["clinical_table"])
+    )
+    embeddings_dir = _resolve(workspace, options.pop("embeddings_dir", "results/embeddings"))
+    output = _resolve(workspace, options.pop("output", run["cohort"]))
+    manifest_path = _resolve(
+        workspace,
+        options.pop("manifest", output.with_name("cohort_manifest.json")),
+    )
+    expected_patients = options.pop("expected_patients", None)
+    expected_positive = options.pop("expected_positive_patients", None)
+    cohort, cohort_manifest = build_feature_complete_cohort(
+        slide_table,
+        clinical_table,
+        embeddings_dir,
+        label_col=options.pop("label_column", "isMSIH"),
+        positive=options.pop("positive_label", "MSI-H"),
+    )
+    if options:
+        raise ValueError(f"Unsupported [cohort] options: {sorted(options)}")
+    if expected_patients is not None and cohort_manifest["n_patients_primary"] != int(
+        expected_patients
+    ):
+        raise RuntimeError(
+            f"Primary cohort has {cohort_manifest['n_patients_primary']} patients; "
+            f"expected {expected_patients}"
+        )
+    if expected_positive is not None and cohort_manifest["n_positive_patients"] != int(
+        expected_positive
+    ):
+        raise RuntimeError(
+            f"Primary cohort has {cohort_manifest['n_positive_patients']} positive patients; "
+            f"expected {expected_positive}"
+        )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    cohort.to_csv(output, index=False)
+    write_json(manifest_path, cohort_manifest)
+    return {
+        "cohort": output,
+        "cohort_sha256": file_sha256(output),
+        "manifest": manifest_path,
+        "manifest_sha256": file_sha256(manifest_path),
+        "n_slides": cohort_manifest["n_slides_primary"],
+        "n_patients": cohort_manifest["n_patients_primary"],
+        "n_positive_patients": cohort_manifest["n_positive_patients"],
+    }
 
 
 def _run_train(
@@ -353,12 +518,19 @@ def run_experiment(
     *,
     dry_run: bool = False,
     resume: bool = True,
+    from_stage: str | None = None,
+    until_stage: str | None = None,
     on_stage: Callable[[str, str], None] | None = None,
 ) -> dict[str, Any]:
     """Run a TOML experiment, atomically checkpointing after every stage."""
     config_path = config_path.resolve()
     config = load_experiment(config_path)
-    plan = experiment_plan(config)
+    full_plan = experiment_plan(config)
+    plan = select_experiment_plan(
+        full_plan,
+        from_stage=from_stage,
+        until_stage=until_stage,
+    )
     run = config["run"]
     workspace = _resolve(config_path.parent, run.get("workspace", "."))
     if not workspace.is_dir():
@@ -366,7 +538,13 @@ def run_experiment(
     results_root = _resolve(workspace, run.get("results_dir", "results/runs"))
     run_dir = results_root / run["name"]
     if dry_run:
-        return {"config": config_path, "workspace": workspace, "run_dir": run_dir, "plan": plan}
+        return {
+            "config": config_path,
+            "workspace": workspace,
+            "run_dir": run_dir,
+            "plan": plan,
+            "full_plan": full_plan,
+        }
 
     manifest_path = run_dir / "manifest.json"
     config_digest = file_sha256(config_path)
@@ -413,23 +591,23 @@ def run_experiment(
         write_json(manifest_path, manifest)
 
     completed = {stage["id"] for stage in manifest["stages"] if stage["status"] == "completed"}
-    scorer_jobs = iter(config.get("scorer", []))
-    aggregate_jobs = iter(config.get("aggregate", []))
-    train_jobs = iter(config.get("train", []))
-    bag_jobs = iter(config.get("bag", []))
-    jobs: dict[str, Iterator[dict[str, Any]]] = {
-        "aggregate": aggregate_jobs,
-        "bag": bag_jobs,
-        "train": train_jobs,
-        "scorer": scorer_jobs,
-    }
+    if from_stage is not None:
+        start = next(i for i, item in enumerate(full_plan) if item["id"] == from_stage)
+        unfinished = [item["id"] for item in full_plan[:start] if item["id"] not in completed]
+        if unfinished:
+            raise ValueError(
+                f"Cannot start at {from_stage!r}; prerequisite stages are incomplete: {unfinished}"
+            )
+    jobs = _stage_jobs(config)
+    manifest.pop("paused_at", None)
+    manifest.pop("resume_from", None)
+    manifest.update(status="running")
+    write_json(manifest_path, manifest)
 
     with _working_directory(workspace), _run_policy(config):
         for item in plan:
             stage_id, kind = item["id"], item["kind"]
-            job = None
-            if kind in jobs:
-                job = next(job for job in jobs[kind] if job.get("enabled", True))
+            job = jobs.get(stage_id)
             if stage_id in completed:
                 if on_stage:
                     on_stage(stage_id, "skipped")
@@ -446,11 +624,17 @@ def run_experiment(
             if on_stage:
                 on_stage(stage_id, "running")
             try:
-                if kind == "extract":
+                if kind == "ingest":
+                    outputs = _run_ingest(config, workspace)
+                elif kind == "pyramidal":
+                    outputs = _run_pyramidal(config, workspace)
+                elif kind == "extract":
                     outputs = _run_extract(config, workspace, run_dir)
                 elif kind == "aggregate":
                     assert job is not None
                     outputs = _run_aggregate(config, job, workspace)
+                elif kind == "cohort":
+                    outputs = _run_cohort(config, workspace)
                 elif kind == "train":
                     assert job is not None
                     outputs = _run_train(config, job, workspace, run_dir)
@@ -465,6 +649,7 @@ def run_experiment(
                     scorer_stages = [s for s in manifest["stages"] if s["kind"] == "scorer"]
                     outputs = _run_comparison(run_dir, scorer_stages)
                 stage.update(status="completed", finished_at=utc_now(), outputs=outputs)
+                completed.add(stage_id)
                 write_json(manifest_path, manifest)
                 if on_stage:
                     on_stage(stage_id, "completed")
@@ -481,6 +666,11 @@ def run_experiment(
                     on_stage(stage_id, "failed")
                 raise
 
-    manifest.update(status="completed", finished_at=utc_now())
+    remaining = [item["id"] for item in full_plan if item["id"] not in completed]
+    if remaining:
+        manifest.update(status="paused", paused_at=utc_now(), resume_from=remaining[0])
+        manifest.pop("finished_at", None)
+    else:
+        manifest.update(status="completed", finished_at=utc_now())
     write_json(manifest_path, manifest)
     return manifest

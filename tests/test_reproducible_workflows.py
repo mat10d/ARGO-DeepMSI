@@ -9,7 +9,7 @@ import pytest
 
 from argo_deepmsi.bags import build_tile_bags
 from argo_deepmsi.dask_extraction import process_slide
-from argo_deepmsi.experiment import _run_extract, run_experiment
+from argo_deepmsi.experiment import _run_extract, experiment_plan, run_experiment
 from argo_deepmsi.reproducibility import write_json
 from argo_deepmsi.scorer_runner import parse_parameters, run_scorer
 from argo_deepmsi.scorers.base import Scorer, ScoreColumn
@@ -72,6 +72,112 @@ enabled = true
     config.write_text(config.read_text().replace("enabled = true", "enabled = false"))
     with pytest.raises(ValueError, match="config changed"):
         run_experiment(config)
+
+
+def test_experiment_can_checkpoint_at_embeddings_and_resume_post_embedding(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    pd.DataFrame({"FILENAME": ["slide.svs"]}).to_csv(workspace / "slides.csv", index=False)
+    (workspace / "clinical.csv").write_text("PATIENT,isMSIH\np1,MSI-H\n")
+    (workspace / "cohort.csv").write_text(
+        "slide_id,patient_id,site,y,in_primary_set\ns1,p1,a,1,1\n"
+    )
+    config = tmp_path / "checkpoint.toml"
+    config.write_text("""
+[run]
+name = "checkpoint"
+workspace = "workspace"
+slide_table = "slides.csv"
+clinical_table = "clinical.csv"
+cohort = "cohort.csv"
+device = "cpu"
+
+[extract]
+enabled = true
+models = ["synthetic"]
+device = "cpu"
+
+[[aggregate]]
+id = "mean"
+models = ["synthetic"]
+method = "mean"
+
+[comparison]
+enabled = true
+""")
+    monkeypatch.setattr(
+        "argo_deepmsi.experiment._run_extract", lambda *_args: {"n_success": 1}
+    )
+    monkeypatch.setattr(
+        "argo_deepmsi.experiment._run_aggregate", lambda *_args: {"n_embeddings": 1}
+    )
+
+    embedded = run_experiment(config, until_stage="extract")
+    assert embedded["status"] == "paused"
+    assert embedded["resume_from"] == "aggregate:mean"
+    assert [stage["id"] for stage in embedded["stages"]] == ["extract"]
+
+    resumed = run_experiment(config, from_stage="aggregate:mean")
+    assert resumed["status"] == "completed"
+    assert [stage["id"] for stage in resumed["stages"]] == [
+        "extract",
+        "aggregate:mean",
+        "comparison",
+    ]
+
+
+def test_experiment_rejects_skipping_unfinished_prerequisites(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    pd.DataFrame({"FILENAME": ["slide.svs"]}).to_csv(workspace / "slides.csv", index=False)
+    config = tmp_path / "skip.toml"
+    config.write_text("""
+[run]
+name = "skip"
+workspace = "workspace"
+slide_table = "slides.csv"
+
+[extract]
+enabled = true
+models = ["synthetic"]
+device = "cpu"
+
+[[aggregate]]
+id = "mean"
+models = ["synthetic"]
+method = "mean"
+""")
+    monkeypatch.setattr(
+        "argo_deepmsi.experiment._run_extract", lambda *_args: {"n_success": 1}
+    )
+    with pytest.raises(ValueError, match="prerequisite stages are incomplete"):
+        run_experiment(config, from_stage="aggregate:mean")
+
+
+def test_plan_covers_fresh_machine_preprocessing_before_modeling():
+    plan = experiment_plan(
+        {
+            "run": {},
+            "ingest": {"enabled": True},
+            "pyramidal": {"enabled": True},
+            "extract": {"enabled": True, "models": ["a"]},
+            "aggregate": [{"id": "mean", "models": ["a"]}],
+            "cohort": {"enabled": True},
+            "bag": [{"id": "bags", "models": ["a"]}],
+        }
+    )
+    assert [stage["id"] for stage in plan] == [
+        "ingest",
+        "pyramidal",
+        "extract",
+        "aggregate:mean",
+        "cohort",
+        "bag:bags",
+    ]
 
 
 def test_local_extraction_ignores_dask_scheduler_options(tmp_path: Path, monkeypatch):
