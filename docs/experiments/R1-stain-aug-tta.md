@@ -9,7 +9,7 @@ site-uniform) under test-time augmentation.
 pixels and re-extracts the foundation model; on this cohort that is ~55 h of GPU
 re-extraction (428 slides × conditions × an 11 h CONCH pass) — infeasible in the autorun
 loop, and the pipeline retains only frozen CONCH tile features. So R1 augments in feature
-space (`scripts/run_stainaug_tta.py`):
+space (`scripts/domain_shift/run_stainaug_tta.py`):
 
 - **5-crop** → 5 tile-subset views per slide (each a 70 % bootstrap of the slide's tumor
   tiles) — spatial crop / field-of-view variation.

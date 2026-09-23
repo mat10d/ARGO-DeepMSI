@@ -27,7 +27,7 @@ description, so the described-morphology→MSI readout A4 proposed cannot be bui
 checkpoint without an external captioner (which the no-external-data regime forbids as a
 new fitted/pretrained text model on top).
 
-## Provenance note (per AGENT.md rule)
+## Provenance note (per the autorun `ralph/AGENT.md` rule, now on the archive branch `archive/pre-iris-2026-09`)
 - Model identity verified from source this run: Hugging Face repo `MahmoodLab/TITAN`
   (cached remote code above). 
 - TITAN paper author/year/journal were **not retrieved from source in this run** — flagged,
@@ -36,7 +36,7 @@ new fitted/pretrained text model on top).
 ## Disposition
 - **Status: blocked** (capability gate failed). This is a documented dead-end, not an
   implementation failure: the zero-shot/contrastive text path is already covered by the
-  S3 `tip_adapter` / `vl_text_cosine` scorers (both underperformed), so there is no
+  S3 `tip_adapter` (archive branch) / `vl_text_cosine` scorers (both underperformed), so there is no
   untried language lever left on this checkpoint.
 - **For A6 synthesis:** treat A4 as a resolved null — the vision-language *generation* angle
   is unavailable on the fry TITAN checkpoint; the A-phase OAUTHC story rests on A0 (Harmony,

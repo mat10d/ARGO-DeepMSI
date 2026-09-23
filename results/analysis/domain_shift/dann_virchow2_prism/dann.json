@@ -1,0 +1,8 @@
+{
+  "step": "dann",
+  "encoders": [
+    "virchow2_prism"
+  ],
+  "out_dir": "results/analysis/domain_shift/dann_virchow2_prism",
+  "n_perm": 200
+}

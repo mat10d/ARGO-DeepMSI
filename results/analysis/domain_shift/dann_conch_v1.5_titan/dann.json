@@ -1,0 +1,8 @@
+{
+  "step": "dann",
+  "encoders": [
+    "conch_v1.5_titan"
+  ],
+  "out_dir": "results/analysis/domain_shift/dann_conch_v1.5_titan",
+  "n_perm": 200
+}

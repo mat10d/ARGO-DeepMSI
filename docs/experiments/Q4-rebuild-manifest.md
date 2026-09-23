@@ -16,8 +16,9 @@ cohort:
 3. **Freeze** `cohort_manifest.json` (`cohort.py --freeze`): bump `cohort_version` to
    `v1-ecrf+artifact+tumor`, record the final layer counts + per-site clean composition,
    and set `no_regression_floor` = best clean patient AUROC read from the fresh board.
-   `ralph/no_regression.py` already reads this key, so the gate now ratchets from the true
-   clean-cohort champion.
+   `ralph/no_regression.py` already read this key, so the gate ratcheted from the true
+   clean-cohort champion. (The `ralph/` loop is now on the archive branch
+   `archive/pre-iris-2026-09`.)
 
 **Headline vs MSIntuit** (target sens 0.96–0.98 @ spec 0.46–0.47, κ 0.82). Champion
 `calibrated_pool` (max/√n, zero params) on the frozen clean cohort (428 slides / 181

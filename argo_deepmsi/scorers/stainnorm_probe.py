@@ -2,7 +2,7 @@
 
 Image-level counterpart to A1's feature-space batch correction. The OAUTHC-prospective
 slides are re-extracted through CONCH v1.5 -> TITAN after Macenko normalization to a
-retro-OAU reference (scripts/stain_norm_oauthc.py); every other site keeps its original
+retro-OAU reference (scripts/domain_shift/stain_norm_oauthc.py); every other site keeps its original
 `conch_v1.5_titan` vector. The probe (class-balanced logistic regression, 5-fold
 patient-grouped, max/√n patient aggregation) then runs on the merged matrix.
 
@@ -79,7 +79,7 @@ class StainNormProbe(Scorer):
         if sn is None:
             raise RuntimeError(
                 f"{self.name}: stain-norm embedding missing under {STAINNORM_DIR} — "
-                "run scripts/stain_norm_oauthc.sh then scripts/stain_norm_oauthc_merge.py"
+                "run scripts/domain_shift/stain_norm_oauthc.sh then scripts/domain_shift/stain_norm_oauthc_merge.py"
             )
         sn_X, sn_meta = sn
         sn_row = {str(s): i for i, s in enumerate(sn_meta["slide_id"])}

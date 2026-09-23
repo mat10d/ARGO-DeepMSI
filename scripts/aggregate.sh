@@ -61,8 +61,6 @@ echo "Discovered ${#MODELS[@]} models: ${MODELS[*]}"
 echo "========================================="
 
 # Load conda environment
-source $(conda info --base)/etc/profile.d/conda.sh
-conda activate argo
 
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
@@ -70,7 +68,7 @@ cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 for model in "${MODELS[@]}"; do
     echo ""
     echo "Aggregating $model with $METHOD..."
-    python -m argo_deepmsi.cli aggregate \
+    uv run --frozen python -m argo_deepmsi.cli aggregate \
         "$model" \
         --slide-table "$SLIDE_TABLE" \
         --method "$METHOD"

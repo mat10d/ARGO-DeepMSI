@@ -10,7 +10,7 @@ pixels, upstream of the frozen encoder. Every non-OAUTHC site keeps its original
 clean cohort with OAUTHC included.
 
 Implementation: a transform hook composes Macenko in front of CONCH's own tile transform
-(`scripts/stain_norm_oauthc.py`), writing a separate `conch_v1.5_stainnorm_tiles` table,
+(`scripts/domain_shift/stain_norm_oauthc.py`), writing a separate `conch_v1.5_stainnorm_tiles` table,
 then `feature_aggregation(encoder="titan")`. Ran as a 3-shard GPU array (job 10306692) —
 **182/182 slides re-extracted, zero failures** (~6 min/slide). Frozen FM weights; Macenko
 fit on OUR retro-OAU tile. No external data.

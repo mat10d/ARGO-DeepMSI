@@ -165,3 +165,8 @@ Thumbs.db
 
 # S4: large rebuildable tumor-tile bag matrix (rebuild via scripts/build_tilemil_bags.py)
 results/scorers/clam_tilemil/bags_concat.npy
+
+# Collaboration correspondence (local only; repository is public)
+docs/collaboration/
+*.docx
+.pytest_tmp/

@@ -7,7 +7,7 @@ embedding `conch_v1.5_titan_harmony` (50-d), 5-fold patient-grouped OOF, aggrega
 patient by **max/√n**. Evaluated on the full Q4 clean cohort **with OAUTHC included**
 (428 slides / 181 patients, `in_clean_set=1`). Frozen features only — Harmony was fit on
 OUR cohort's features (no external data); the FM weights are frozen extractors. The 6 FMs'
-Harmony variants were also added to the `simple_grid` sweep so the board reflects them.
+Harmony variants were also added to the `simple_grid` sweep (scorer now on the archive branch `archive/pre-iris-2026-09`) so the board reflects them.
 
 Root cause (D0): OAUTHC-prospective vs retrospective_oau is a **processing-pipeline batch
 effect** (tissue cut at OAUTHC vs MSKCC), not biology. Raw `conch_v1.5_titan` separates the

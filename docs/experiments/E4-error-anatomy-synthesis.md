@@ -57,4 +57,4 @@ help (consistent with D2).
    on frozen CTransPath.
 4. Re-run this anatomy after the Waiv encoders land to see whether the hard core shrinks.
 
-Reproduce: `python -m argo_deepmsi.eval.error_anatomy` (A+B), `sbatch scripts/error_anatomy_c.sh` (C).
+Reproduce: `python -m argo_deepmsi.eval.error_anatomy` (A+B), `sbatch scripts/qc/error_anatomy_c.sh` (C).

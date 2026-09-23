@@ -1,7 +1,7 @@
 # Q2 — GrandQC artifact-QC layer
 
 **Method.** Ran GrandQC artifact segmentation (`grandqc-artifact`, 7x variant) over the
-509-slide clean cohort via a 3-way SLURM GPU array (`scripts/artifact_qc.sh`, job 10300717,
+509-slide clean cohort via a 3-way SLURM GPU array (`scripts/qc/artifact_qc.sh`, job 10300717,
 3×~3h on nvidia-A6000). Each shard writes `artifact_qc.part{0,1,2}.csv` with per-slide
 `artifact_fraction` = polygon area of artifact masks / tissue area. Reduced with
 `python -m argo_deepmsi.eval.cohort --artifact-qc-dir results/data/artifact_qc`, which merges

@@ -45,8 +45,6 @@ done
 echo "========================================="
 
 # Load conda environment
-source $(conda info --base)/etc/profile.d/conda.sh
-conda activate argo
 
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
@@ -55,7 +53,7 @@ for emb_dir in "${EMBEDDINGS[@]}"; do
     emb_name=$(basename "$emb_dir")
     echo ""
     echo "Training on $emb_name..."
-    python -m argo_deepmsi.cli train \
+    uv run --frozen python -m argo_deepmsi.cli train \
         "$emb_dir" \
         --clinical "$CLINICAL_TABLE"
 done

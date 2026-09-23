@@ -840,7 +840,8 @@ def self_test(
             f"{len(result['stages'])} stages → {result['acceptance_workspace']}"
         )
         return
-    with tempfile.TemporaryDirectory(prefix="argo-acceptance-") as directory:
+    # Shared HPC: keep scratch under the working directory, never the system /tmp.
+    with tempfile.TemporaryDirectory(prefix=".argo-acceptance-", dir=Path.cwd()) as directory:
         result = run_synthetic_acceptance(Path(directory), on_stage=report)
         console.print(
             f"[bold green]Synthetic acceptance passed[/bold green]: {len(result['stages'])} stages"

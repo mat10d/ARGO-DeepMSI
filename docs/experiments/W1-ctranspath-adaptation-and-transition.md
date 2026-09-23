@@ -10,14 +10,18 @@ data, engineering, and validation program is defined in [`docs/future-roadmap.md
 
 ## Implementation status — 2026-08-03
 
-The W1 runtime has been implemented outside the archived code tree:
+W1 is closed. Only the reusable model code remains on `iris`:
 
 - Canonical Wagner model: `argo_deepmsi.models.wagner`
 - Trainable current CTransPath adapter: `argo_deepmsi.models.ctranspath`
-- Cached-feature heads: `argo_deepmsi.models.w1_heads`
-- Immutable data/fold contract: `argo_deepmsi.w1`
-- Cached outer-fold runner: `argo_deepmsi.w1_training`
-- Raw-tile PEFT path: `argo_deepmsi.w1_peft` and `argo_deepmsi.w1_peft_training`
+
+The W1-specific runtime and results are on the archive branch `archive/pre-iris-2026-09`:
+
+- Cached-feature heads: `argo_deepmsi/models/w1_heads.py`
+- Immutable data/fold contract: `argo_deepmsi/w1.py`
+- Cached outer-fold runner: `argo_deepmsi/w1_training.py`
+- Raw-tile PEFT path: `argo_deepmsi/w1_peft.py` and `argo_deepmsi/w1_peft_training.py`
+- Drivers: `scripts/w1_*.py`, `scripts/w1_*.sh`
 - Results root: `results/experiments/w1_ctranspath`
 
 The historical `old/HistoBistro` checkout is not imported or read at runtime. The published
@@ -85,7 +89,7 @@ for deeper CTransPath unfreezing on this development cohort. Do not run W1-10 th
 
 The complete machine-readable comparison is in
 `results/experiments/w1_ctranspath/comparison.csv`; the rendered table is in
-`results/experiments/w1_ctranspath/comparison.md`.
+`results/experiments/w1_ctranspath/comparison.md` (both on the archive branch `archive/pre-iris-2026-09`).
 
 ## Decision
 

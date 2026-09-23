@@ -4,7 +4,7 @@
 **Status:** extraction complete (803/803 readable slides); honest nested race done.
 **Encoders:** Phaet (fine-tuned Phikon-v2, 1024-d), Mascaret (fine-tuned Midnight-12k, 1536-d),
 from Waiv (arXiv:2607.22861). Frozen pretrained weights, mean-pooled per slide.
-**Reproduce:** `sbatch scripts/agg_waiv.sh` (aggregate) → `sbatch scripts/waiv_race.sh` (nested race).
+**Reproduce:** `sbatch scripts/domain_shift/agg_waiv.sh` (aggregate) → `sbatch scripts/domain_shift/waiv_race.sh` (nested race).
 
 ## Result — the first frozen encoder to beat the base-4 nested baseline
 
@@ -64,14 +64,14 @@ same basis as the S4 CONCH-ABMIL 0.607.
 
 **Confounds vs Wagner (not yet a final head-to-head):** tumor-only ≤500 tiles (Wagner uses all),
 `in_clean_set` 487/195 (not the 803/217 primary), and a from-scratch ABMIL (not Wagner's
-pretrained-then-adapted transformer). Reproduce: `scripts/waiv_mil.py build` then
+pretrained-then-adapted transformer). Reproduce (script on the archive branch `archive/pre-iris-2026-09`): `scripts/waiv_mil.py build` then
 `eval <phaet|mascaret|waiv_concat>`; results in `results/analysis/error_anatomy/waiv_mil/`.
 
 ## From-scratch Wagner-style aggregator on Waiv (2026-08-06) — the decisive test
 
 Trained a Wagner-style slide transformer (same architecture) FROM SCRATCH on Waiv all-tile bags
 (2048-tile cap, 20 epochs, inner early-stopping), frozen W1 fold contract (803/217).
-`scripts/waiv_wagner.py`; results in `results/analysis/error_anatomy/waiv_wagner/`.
+`scripts/waiv_wagner.py` (on the archive branch `archive/pre-iris-2026-09`); results in `results/analysis/error_anatomy/waiv_wagner/`.
 
 | Waiv aggregator | overall AUROC | OAUTHC |
 |---|---:|---:|

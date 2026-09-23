@@ -25,10 +25,7 @@ echo "Node:   $SLURM_NODELIST"
 echo "Input:  $SLIDE_TABLE"
 echo "Start:  $(date)"
 
-source /lab/barcheese01/mdiberna/miniconda3/etc/profile.d/conda.sh
-conda activate argo
-cd /lab/barcheese01/mdiberna/ARGO-DeepMSI
-
-argo pyramidal "$SLIDE_TABLE"
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
+uv run --frozen argo pyramidal "$SLIDE_TABLE"
 
 echo "End: $(date)"

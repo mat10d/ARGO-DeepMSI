@@ -19,12 +19,10 @@ echo "Job ID:  $SLURM_JOB_ID"
 echo "Node:    $SLURM_NODELIST"
 echo "Start:   $(date)"
 
-source /lab/barcheese01/mdiberna/miniconda3/etc/profile.d/conda.sh
-conda activate argo
 
-cd "${SLURM_SUBMIT_DIR:-/lab/barcheese01/mdiberna/ARGO-DeepMSI}"
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 mkdir -p scripts/logs
 
-python -u scripts/wagner_zeroshot.py
+uv run --frozen python -u scripts/wagner_zeroshot.py
 
 echo "End: $(date)"

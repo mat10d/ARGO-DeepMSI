@@ -1,15 +1,16 @@
 # Q3 — tumor-area filter (CTransPath NCT-CRC TUM head)
 
 **Method.** Smoke-off of two tumor-area filters on a fixed 20-slide / 6-site probe
-(`scripts/tumor_filter_smokeoff.py`, GPU job 10302126):
+(`scripts/tumor_filter_smokeoff.py`, GPU job 10302126; script now on the archive branch
+`archive/pre-iris-2026-09`):
 
 - **(a) GrandQC** `zs.seg.tissue(model='grandqc')` — tissue-vs-background only; **no
   tumor class**, so it scores 0 tumor-localization recall. Rejected.
 - **(b) CTransPath NCT-CRC-HE 9-class LR head** (`results/analysis/c5_phase1c/tissue_head_ctranspath_nonorm.joblib`,
-  holdout TUM recall 0.91) — a real `TUM` class; 0.95 tumor-localization recall on the
+  holdout TUM recall 0.91, tracked on `iris`) — a real `TUM` class; 0.95 tumor-localization recall on the
   probe. **Winner.**
 
-Applied the winner to every in-clean-set slide (`scripts/tumor_tiles_apply.py`, CPU,
+Applied the winner to every in-clean-set slide (`scripts/qc/tumor_tiles_apply.py`, CPU,
 reads cached `ctranspath_tiles` from each zarr — no GPU, no re-extraction): per-tile
 `argmax==TUM` → `results/data/tumor_tiles/<slide>.npy` + `tumor_fraction.csv`
 (509/509 slides, median tumor_fraction 0.109). Reduced into `cohort_clean.csv` via

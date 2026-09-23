@@ -23,23 +23,55 @@ argo_deepmsi/
 ├── training.py         # sklearn classifiers + MLP; StratifiedGroupKFold on patient_id
 ├── experiment.py       # TOML experiment orchestration + resumable manifests
 ├── scorer_runner.py    # parameterized execution for the lazy scorer registry
+├── experiment_schema.py # strategy vocabulary + strict TOML validation + JSON Schema
+├── doctor.py           # read-only environment/data preflight (`argo doctor`)
+├── synthetic.py        # deterministic synthetic acceptance run (`argo self-test`)
+├── reproducibility.py  # run provenance helpers
 ├── bags.py             # deterministic arbitrary-encoder MIL bag builder
 ├── dask_extraction.py  # SLURM/Dask front-end to the canonical extractor
-└── io_utils.py         # Path management
+├── io_utils.py         # Path management
+├── models/             # wagner.py (canonical Wagner), ctranspath.py (trainable adapter), waiv.py
+├── scorers/            # one lazily discovered module per scoring method (`argo scorers list`)
+└── eval/               # cohort, nested validation, metrics, screening, OOD, fairness,
+                        # per-site calibration, domain shift, error anatomy, qc_comparison board
 
-scripts/
+scripts/                # core pipeline
 ├── pyramidal.sh        # SLURM wrapper for `argo pyramidal` (CPU, one-shot)
-├── extract_dask.py     # elastic SLURM via dask-jobqueue (GPU, per-slide)
+├── extract_dask.py     # compatibility wrapper for `argo extract-dask`
 ├── extract_dask.sh     # SLURM wrapper so the dask driver isn't on the head node
 ├── aggregate.sh        # auto-discovers models from zarrs; loops argo aggregate
-└── train.sh            # auto-discovers embeddings dirs; loops argo train
+├── train.sh            # auto-discovers embeddings dirs; loops argo train
+├── wagner_zeroshot.py/.sh              # reference Wagner scores
+├── build_tilemil_bags.py, run_clam_tilemil.py
+├── build_full_cohort_report.py         # frozen v2 baseline + uncertainty/sensitivity
+├── audit_redcap_freshness.py, build_jhu_crc_pathology_crosswalk.py
+├── domain_shift/       # paired staining, site holdout, Harmony, stain-norm, stain-aug TTA,
+│                       # batch-correction/Harmony/stain-norm/fmMAP/FLEX probes, per-site
+│                       # calibration, abstention, OAUTHC synthesis, UMAPs, Waiv race,
+│                       # vl_text_cosine, image_stats
+└── qc/                 # GrandQC artifact QC, CTransPath tumor-tile classifier, error anatomy stage C
 
 tests/
 ├── conftest.py                    # opt-in markers + anonymous GTEx fixture
 ├── test_lazyslide_api.py          # real-slide LazySlide API contract
 ├── test_argo_pipeline.py          # end-to-end project wiring
-└── test_reproducible_workflows.py # manifests, bags, scorer runner, attention
+├── test_reproducible_workflows.py # manifests, bags, scorer runner, attention
+└── test_*.py                      # one file per scorer / eval module
 ```
+
+## Experiment Record and Archive
+
+- **`docs/negative-results-ledger.md`**: one row per experiment ever run, with cohort,
+  validation design, verdict, and code location. Read it before proposing a new experiment.
+- **`docs/summary.md`**: current state. `docs/experiments/`: detailed write-ups for work
+  whose code is still here or that is domain-shift/cohort/validation evidence.
+- **Archive branch `archive/pre-iris-2026-09`** (pushed to origin) freezes the pre-cleanup
+  tree. It holds the `ralph/` autorun loop, the W1 CTransPath-adaptation runtime
+  (`argo_deepmsi/w1*.py`, `models/w1_heads.py`, `scripts/w1_*`), removed scorers
+  (simple_grid, score_fusion, fusion_top3, slide_attention_mil, transductive_smoothing,
+  nuclear_morphology, protonet_cluster, tip_adapter, setencoder_agg), `eval/reliability_weight.py`,
+  `scripts/archive/`, `docs/archive/`, and the removed results. Read it with
+  `git show archive/pre-iris-2026-09:<path>`.
 
 ## Essential Commands
 
@@ -62,8 +94,16 @@ argo experiment <config>     # resumable, versioned experiment sweep
 argo scorers list/show/run   # inspect or execute any scorer without a wrapper
 argo extract-dask <table>    # multi-GPU extraction through the same core path
 
-# Tests (bare pytest skips network/GPU/model-download/local-data integrations)
-pytest -q
+argo doctor --strict --config configs/nigeria-v2.toml   # preflight before any expensive run
+
+# Acceptance sequence before handing work off (AGENTS.md)
+uv run ruff check argo_deepmsi tests scripts/extract_dask.py
+uv run pytest -q                 # skips network/GPU/model-download/local-data integrations
+uv run argo self-test
+uv lock --check
+git diff --check
+
+# Opt-in markers
 pytest -m network -v             # public GTEx integration
 pytest -m gpu -v                 # GPU extraction checks
 ```
@@ -184,6 +224,30 @@ combinations.
 - **`scripts/extract_dask.sh`** — SLURM wrapper so the dask driver itself doesn't sit on the head node.
 - **`scripts/aggregate.sh` / `scripts/train.sh`** — auto-discovery (no hardcoded model list). `aggregate.sh` scans the first zarr's `tables/*_tiles` dirs; `train.sh` scans `results/embeddings/*/` for anything with `embeddings.npy`/`embeddings.h5ad`. Works with 3 models or 30 — no edits between Phase 1 and Phase 2.
 
+## Porting to IRIS
+
+The final, larger Nigerian cohort will run on MSK's IRIS HPC (`ssh islogin01` for jobs,
+`ssh isxfer01` for transfers, lab storage `/data1/sanchezf/`). Every sbatch wrapper is now
+cluster-neutral: it `cd`s to `$SLURM_SUBMIT_DIR`, runs through `uv run --frozen`, and defaults
+`HF_HOME` to `./.huggingface_cache`. Submit from the repo root. What remains cluster-specific:
+
+- **Partitions:** `#SBATCH --partition` lines use Whitehead names (`nvidia-A6000-20` for GPU,
+  `20` for CPU). Override at submission (`sbatch -p <iris-partition> ...`) or edit once IRIS
+  queue names are known. The Dask extraction default partition lives in
+  `configs/nigeria-v2.toml` (`[extract.dask].partition`), `argo extract-dask --partition`,
+  `argo_deepmsi/dask_extraction.py`, and `scripts/extract_dask.py`.
+- **Slide paths:** `results/data/slide_table*.csv` and embedding `metadata.csv` files store
+  absolute `/lab/barcheese01/...` paths; regenerate them with `argo ingest` on IRIS rather
+  than rewriting.
+- **Tracked model artifact:** `scripts/qc/tumor_tiles_apply.py` reads the tumor-tile head
+  `results/analysis/c5_phase1c/tissue_head_ctranspath_nonorm.joblib` (kept on `iris`).
+- **CUDA driver vs locked torch:** the lock pins `torch==2.14.0` (PyPI, CUDA 13 build). On
+  Whitehead's CUDA 12.6 driver it fails at `.cuda()`; GPU work here still runs through the old
+  `argo` conda env (torch 2.10+cu128). Check the IRIS driver first (see `docs/iris-runbook.md` P0).
+- **Dependency pins in `pyproject.toml`:** `setuptools>=61,<81` is required because
+  spatialdata → xarray_schema still imports `pkg_resources`. Without it, a fresh install silently
+  loses LazySlide. Ruff lint selection is pinned to `E4`, `E7`, `E9`, `F`.
+
 ## Canonical Experiment Plan
 
 Use `configs/nigeria-v2.toml` instead of composing phase-specific wrappers:
@@ -240,10 +304,10 @@ The Python process itself gets `Killed` by the OOM killer, so the exception hand
 These are LazySlide capabilities we don't yet exploit. They're net-new features, not refactors of existing code:
 
 - **Spatial analysis** — `zs.pp.tile_graph`, `zs.tl.spatial_domain`, `zs.tl.spatial_features`. Potentially useful for tumor-stroma interface and immune-infiltrate distribution in MSI prediction.
-- **Vision-language queries** — `zs.tl.text_embedding` + `zs.tl.text_image_similarity` on CONCH/PLIP for zero-shot tissue characterization and interpretable features.
+- **Vision-language queries** — `zs.tl.text_embedding` + `zs.tl.text_image_similarity` on CONCH/PLIP for zero-shot tissue characterization and interpretable features. Zero-shot MSI prompting is already a replicated negative (see the ledger); only non-MSI tissue characterization remains open.
 - **Multimodal fusion** — combining image embeddings with clinical text (pathology reports, demographics).
 
-See `docs/lazyslide_gap_analysis.md` for the gap against the full ecosystem, `docs/lazyslide_reference_guide.md` for the verified API recipes, and `docs/refactor_status.md` for the full cross-reference of every Operon-review recommendation against what landed.
+The older LazySlide gap analysis, reference guide, and refactor-status notes were removed in commit `38aae93`; recover them from git history if needed.
 
 ## Notes on Specific Models
 

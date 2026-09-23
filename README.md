@@ -91,6 +91,26 @@ Changing a config after its run starts is rejected.
 For details on dependency upgrades, model families, and manifests, see
 [docs/reproducibility.md](docs/reproducibility.md).
 
+## Results so far
+
+[docs/summary.md](docs/summary.md) gives the current state: frozen Wagner/CTransPath
+max/√n is AUROC 0.717 (0.631–0.799) on the 217-patient estimand, and a nested
+cohort-trained probe is 0.530. [docs/negative-results-ledger.md](docs/negative-results-ledger.md)
+lists every experiment run, with its cohort, validation design, and verdict.
+
+## Repository layout
+
+- `argo_deepmsi/`: package (runner, extraction, `models/`, `scorers/`, `eval/`).
+- `configs/`: checked-in experiment TOMLs.
+- `scripts/`: SLURM wrappers for the core pipeline; `scripts/domain_shift/` holds
+  domain-shift evidence jobs and `scripts/qc/` holds QC and error-anatomy jobs. The
+  wrappers still carry Whitehead paths, the `argo` conda env, and WI partitions; see
+  "Porting to IRIS" in [CLAUDE.md](CLAUDE.md).
+- `docs/experiments/`: detailed write-ups for retained evidence.
+
+The pre-cleanup tree (autorun loop, W1 adaptation code, retired scorers, one-off
+scripts, and their results) is frozen on branch `archive/pre-iris-2026-09`.
+
 ## Development check
 
 ```bash
@@ -102,3 +122,7 @@ git diff --check
 ```
 
 GPU, network, gated-model, and large integration tests are opt-in markers.
+
+`pyproject.toml` pins `setuptools<81` because spatialdata → xarray_schema still
+imports `pkg_resources`; without it a fresh install silently loses LazySlide. Ruff
+lint selection is pinned to `E4`, `E7`, `E9`, `F`.

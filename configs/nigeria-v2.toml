@@ -112,7 +112,7 @@ embedding = "mascaret_mean"
 classifiers = ["logistic", "random_forest", "svm"]
 n_splits = 5
 
-# This encodes scripts/waiv_race.py as three auditable runs. Encoder selection,
+# This encodes scripts/domain_shift/waiv_race.py as three auditable runs. Encoder selection,
 # scaling, and fitting all occur inside patient-grouped nested CV.
 [[scorer]]
 id = "nested_base4"

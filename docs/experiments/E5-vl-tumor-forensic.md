@@ -5,7 +5,7 @@
 (CONCH v1.5 / TITAN text) *also* read the tumor region as MSI-H-like (genuine morphology mimicry),
 or not (Wagner-specific)?
 **Method:** per-tile cosine of cached `conch_v1.5_tiles` to curated MSI-H vs MSS prompts,
-restricted to tumor tiles, aggregated per patient. Reproduce: `sbatch scripts/vl_tumor_forensic.sh`
+restricted to tumor tiles, aggregated per patient. Reproduce (scripts on the archive branch `archive/pre-iris-2026-09`): `sbatch scripts/vl_tumor_forensic.sh`
 → `results/analysis/error_anatomy/vl_tumor/`.
 
 ## Result — the instrument is invalid on this cohort
@@ -49,6 +49,6 @@ divide-by-noise artifact, not evidence that false positives look MSI-H.
 
 ## Note for reuse
 
-`scripts/vl_tumor_forensic.py` guards nothing about instrument validity — always read the
+`scripts/vl_tumor_forensic.py` (archive branch) guards nothing about instrument validity — always read the
 `tumor_vl_msi_auroc_true_labels` field first; if it is ~0.5, the placement metrics below it are
 meaningless by construction.

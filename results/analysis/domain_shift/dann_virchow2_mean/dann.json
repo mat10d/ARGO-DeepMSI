@@ -1,0 +1,8 @@
+{
+  "step": "dann",
+  "encoders": [
+    "virchow2_mean"
+  ],
+  "out_dir": "results/analysis/domain_shift/dann_virchow2_mean",
+  "n_perm": 200
+}

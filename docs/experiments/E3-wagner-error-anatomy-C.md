@@ -8,7 +8,7 @@ records the last block's CLS→tile attention (only the CLS row is computed — 
 OOM on large slides). Wagner runs on **cached CTransPath features**, so Stage C is CPU-only and
 does not contend with GPU extraction. Attention mass on tumor tiles uses the existing
 `results/data/tumor_tiles/<slide>.npy` masks.
-**Reproduce:** `sbatch scripts/error_anatomy_c.sh` → `results/analysis/error_anatomy/C_*`.
+**Reproduce:** `sbatch scripts/qc/error_anatomy_c.sh` → `results/analysis/error_anatomy/C_*`.
 
 ## Result
 

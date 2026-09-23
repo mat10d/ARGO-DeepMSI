@@ -363,7 +363,7 @@ def add_artifact_qc(
     """Merge GrandQC artifact-QC shard CSVs into cohort_clean.csv (Q2 layer).
 
     Reads every ``artifact_qc.part*.csv`` under ``artifact_qc_dir`` (written by
-    ``scripts/artifact_qc.py``), attaches ``artifact_fraction`` per slide, and
+    ``scripts/qc/artifact_qc.py``), attaches ``artifact_fraction`` per slide, and
     flags ``passes_artifact_qc = artifact_fraction <= floor`` (a slide whose seg
     failed → NaN fraction → flagged False). This layer is FLAG-only:
     ``in_clean_set`` is left untouched (dropping is deferred to Q3/Q4).
@@ -425,7 +425,7 @@ def add_tumor_filter(
 ) -> tuple[pd.DataFrame, dict]:
     """Merge the Q3 tumor-tile filter into cohort_clean.csv and DROP by floor.
 
-    Reads ``tumor_fraction.csv`` (written by ``scripts/tumor_tiles_apply.py``),
+    Reads ``tumor_fraction.csv`` (written by ``scripts/qc/tumor_tiles_apply.py``),
     attaches ``n_tumor_tiles`` and ``tumor_fraction`` per slide, and removes
     slides from the clean set whose ``tumor_fraction < floor`` (a slide with no
     tumor tiles carries no MSI signal). Unlike the artifact layer, this layer

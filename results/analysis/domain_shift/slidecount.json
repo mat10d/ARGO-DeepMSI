@@ -1,0 +1,14 @@
+{
+  "step": "slidecount",
+  "encoders": [
+    "ctranspath_mean",
+    "uni2_mean",
+    "virchow2_mean",
+    "conch_v1.5_titan",
+    "phaet_mean",
+    "mascaret_mean",
+    "virchow2_prism"
+  ],
+  "out_dir": "results/analysis/domain_shift",
+  "n_perm": 200
+}

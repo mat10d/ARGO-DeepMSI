@@ -5,7 +5,7 @@ Per slide: compute per-tile cosine similarity between L2-normalised
 (``MSI-H ‒ MSS``). Aggregate to slide score via mean / top-k / max.
 Optionally compare the TITAN slide embedding directly.
 
-No model training. Existing prompts in ``scripts/vl_text_cosine.py``.
+No model training. Existing prompts in ``scripts/domain_shift/vl_text_cosine.py``.
 """
 
 from __future__ import annotations

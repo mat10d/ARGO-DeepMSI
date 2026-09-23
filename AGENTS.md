@@ -71,8 +71,9 @@ uv run argo experiment-schema --output /tmp/argo-experiment.schema.json
 
 ## Autonomous experiment loop
 
-1. Read the last run manifest, fold audit, comparison table, and relevant
-   experiment note. State the unresolved hypothesis.
+1. Read the last run manifest, fold audit, comparison table, relevant experiment
+   note, and `docs/negative-results-ledger.md`. Do not rerun a ledger row without a
+   stated reason it would now differ. State the unresolved hypothesis.
 2. Classify the proposed method using the strategy families above.
 3. Copy an existing TOML, give it a new run name, change one interpretable
    hypothesis at a time, and keep the resource budget finite.
@@ -81,8 +82,9 @@ uv run argo experiment-schema --output /tmp/argo-experiment.schema.json
    use a new run name if any scientific parameter changes.
 6. Inspect patient-level metrics, per-site results, fold audits, failures, and
    attention artifacts. Check for leakage and missing-cohort rows before ranking.
-7. Record the result, including null/negative outcomes. Propose the next run only
-   from completed, comparable evidence.
+7. Record the result, including null/negative outcomes, as a new ledger row and,
+   when warranted, a `docs/experiments/` note. Propose the next run only from
+   completed, comparable evidence.
 
 Stop and request human direction when the next step would change the cohort,
 labels, held-out-site policy, external training-data allowance, or consume more
@@ -122,9 +124,19 @@ scoring, comparison, provenance, and budget code are the production paths.
 - `argo_deepmsi/bags.py`: deterministic arbitrary-encoder tile bags.
 - `argo_deepmsi/scorer_runner.py`: uniform scorer execution and evaluation.
 - `argo_deepmsi/scorers/`: one discoverable module per scoring method.
+- `argo_deepmsi/eval/`: cohort contract, nested validation, screening metrics,
+  OOD, fairness, per-site calibration, domain shift, error anatomy.
+- `argo_deepmsi/models/`: canonical Wagner, trainable CTransPath, Waiv registration.
 - `configs/`: checked-in experiment definitions; one hypothesis per run name.
 - `results/runs/<name>/manifest.json`: source of truth for run state and provenance.
+- `scripts/`: SLURM wrappers for the core pipeline; `scripts/domain_shift/` and
+  `scripts/qc/` hold the evidence-generating analyses kept for the new cohort.
+- `docs/negative-results-ledger.md`: every experiment run so far, with verdicts.
 
 Historical scripts and notes are evidence, not the preferred execution API.
 When a useful one-off behavior is found, encode its choices as validated CLI/TOML
 parameters and add a regression test.
+
+The pre-cleanup tree, including the retired `ralph/` autorun loop, the W1
+CTransPath-adaptation runtime, and removed scorers, is frozen on the archive
+branch `archive/pre-iris-2026-09`. Read from it; do not restore it wholesale.

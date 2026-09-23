@@ -1,0 +1,5 @@
+slide_id,site,patient_id,cut_location,stain_location,mpp,tissue_fraction,n_tiles,mean_r,mean_g,mean_b,h_r,h_g,h_b,e_r,e_g,e_b,h_max,e_max,error
+H-503-23-A8,,,,,,,,,,,,,,,,,,,OpenSlideUnsupportedFormatError('Unsupported or missing image file')
+H82-23-11,,,,,,,,,,,,,,,,,,,OpenSlideUnsupportedFormatError('Unsupported or missing image file')
+H800-23-B3,,,,,,,,,,,,,,,,,,,OpenSlideUnsupportedFormatError('Unsupported or missing image file')
+H-503-23-A9,,,,,,,,,,,,,,,,,,,OpenSlideUnsupportedFormatError('Unsupported or missing image file')

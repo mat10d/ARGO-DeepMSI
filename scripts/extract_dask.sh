@@ -37,12 +37,10 @@ echo "Slide table: $SLIDE_TABLE"
 echo "Extra args:  $*"
 echo "Start:       $(date)"
 
-source /lab/barcheese01/mdiberna/miniconda3/etc/profile.d/conda.sh
-conda activate argo
 
-cd /lab/barcheese01/mdiberna/ARGO-DeepMSI
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 mkdir -p scripts/logs/dask
 
-python scripts/extract_dask.py --slide-table "$SLIDE_TABLE" "$@"
+uv run --frozen python scripts/extract_dask.py --slide-table "$SLIDE_TABLE" "$@"
 
 echo "End: $(date)"
