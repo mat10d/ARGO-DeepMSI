@@ -1,4 +1,7 @@
-# IRIS runbook — handoff ledger for the final-cohort run
+# MSK-cluster runbook — handoff ledger for the final-cohort run
+
+> File name kept as `iris-runbook.md`; the target is whichever MSK cluster (CDSI or IRIS)
+> hosts the Mosaic embeddings and code — to be confirmed by the collaborators.
 
 Give this file (plus `AGENTS.md` and `CLAUDE.md`) to the Claude Code session on IRIS. It
 states what to run, in what order, with which encoders, what is blocked on collaborators,
@@ -9,7 +12,7 @@ and what "done" means at each step. Evidence behind every choice:
 
 ## Kick-off prompt (paste into the IRIS session)
 
-> Read AGENTS.md, CLAUDE.md and docs/iris-runbook.md. We are on MSK IRIS with the final
+> Read AGENTS.md, CLAUDE.md and docs/iris-runbook.md. We are on the MSK cluster with the final
 > Nigerian cohort. Execute the runbook phase by phase; stop at every gate marked 🔒 and
 > report. Do not change the cohort, labels, or sealed-set membership without asking. Keep
 > docs/iris-runbook.md's status table current as you go.
@@ -18,7 +21,7 @@ and what "done" means at each step. Evidence behind every choice:
 
 | Phase | State | Blocked on |
 |---|---|---|
-| P0 environment + reproduction | not started | data-placement answer (HPC contact) |
+| P0 environment + reproduction | not started | cluster choice (CDSI vs IRIS) + data placement (HPC contact, Mosaic contact) |
 | P1 data freeze v3 | not started | updated REDCap labels (end of September) |
 | P2 extraction | not started | P0; H-optimus version + Mussel settings (PALADIN team); TITAN settings (Mosaic embedding contact) |
 | P3 pretrained evaluation | not started | P2; PALADIN inference path (PALADIN team) |
@@ -29,7 +32,8 @@ and what "done" means at each step. Evidence behind every choice:
 
 | Question | Who | Changes |
 |---|---|---|
-| Data-placement rules and backup for partner-site (Nigerian) slides and clinical tables | IT/HPC contact | where slides live (P0 transfer) |
+| CDSI vs IRIS for this project; data-placement rules and backup for partner-site slides | IT/HPC contact | which cluster; TheSpot request if IRIS; where slides live |
+| Which cluster/path hosts the Mosaic TITAN / H-optimus embeddings and code | Mosaic embedding contact | decides the cluster (co-locate with the MSK-side embeddings) |
 | Where the Mosaic CRC TITAN embeddings are; their exact patching (CONCH v1.5 at 512 px, 20×? Trident or Mussel?); which patients | Mosaic embedding contact | P2 TITAN tiling generation; Aim-2 comparison cohort |
 | PALADIN's encoder (H-optimus-0 vs -1), Mussel tiling (tile µm, mpp, tissue filter), CRC MSI sub-model availability, whether MSK runs inference on our features or shares weights, where the code/configs live internally | PALADIN developer, via the K43 postdoc | P2 H-optimus extraction settings; whether P3 includes PALADIN |
 | Is the collaboration's primary representation TITAN (slide-level, CONCH) or H-optimus/PALADIN (tile-level, task-trained)? | PI + K43 postdoc | Which encoder is P2 priority 1 after CTransPath |

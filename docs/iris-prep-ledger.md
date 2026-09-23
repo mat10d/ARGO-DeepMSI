@@ -8,7 +8,7 @@ status at the top of each section.
 | Area | State |
 |---|---|
 | Archive | `archive/pre-iris-2026-09` pushed to origin (full pre-cleanup tree) |
-| Clean branch | `iris`, uncommitted; ~360 paths changed (mostly deletions/moves) |
+| Clean branch | `iris` committed (49268d0) and pushed to origin |
 | Acceptance | ruff ✅ · pytest 110 passed / 78 opt-in skips ✅ · `argo self-test` ✅ · `uv lock --check` ✅ |
 | Docs | ledger, summary, README/CLAUDE/AGENTS updated; research landscape written |
 | Emails | final drafts saved locally (`docs/collaboration/`, gitignored): HPC contact (data placement only), Mosaic TITAN contact, K43 postdoc (v3, leads with the slide-count finding); awaiting more context from Matteo on the HPC thread |
@@ -157,5 +157,6 @@ TITAN's native 512 px @ 20×**, so they are non-canonical and not comparable to 
 
 1. Acceptance rerun with new tests (site smoothing, slide-count audit); pytest temp dir and
    `argo self-test` scratch now stay inside the repo (shared-HPC rule).
-2. Commit `iris` + push — awaiting Matteo's go-ahead.
-3. On IRIS: follow `docs/iris-runbook.md`.
+2. ~~Commit `iris` + push~~ done (49268d0).
+3. Cluster (CDSI vs IRIS) pending the Mosaic contact's answer on where embeddings/code live;
+   IRIS needs a TheSpot request. Then follow `docs/iris-runbook.md`.

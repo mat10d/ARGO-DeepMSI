@@ -226,8 +226,9 @@ combinations.
 
 ## Porting to IRIS
 
-The final, larger Nigerian cohort will run on MSK's IRIS HPC (`ssh islogin01` for jobs,
-`ssh isxfer01` for transfers, lab storage `/data1/sanchezf/`). Every sbatch wrapper is now
+The final, larger Nigerian cohort will run on an MSK cluster — CDSI (`/gpfs/cdsi_ess/`,
+account exists) or IRIS (`ssh islogin01` / `isxfer01`, `/data1/sanchezf/`, needs a TheSpot
+account request); the choice depends on where the Mosaic embeddings and code live. Every sbatch wrapper is now
 cluster-neutral: it `cd`s to `$SLURM_SUBMIT_DIR`, runs through `uv run --frozen`, and defaults
 `HF_HOME` to `./.huggingface_cache`. Submit from the repo root. What remains cluster-specific:
 
