@@ -25,12 +25,15 @@ import os
 
 import pytest
 
-from argo_deepmsi.feature_extraction import (
+pytest.importorskip("lazyslide_models", reason="LazySlide stack not installed (use envs/lazyslide)")
+pytestmark = pytest.mark.lazyslide
+
+from argo_deepmsi.feature_extraction import (  # noqa: E402
     PATCH_MODELS,
     QC_MODELS,
     SLIDE_ENCODERS,
 )
-from argo_deepmsi.models._lazyslide import MODEL_REGISTRY
+from argo_deepmsi.models._lazyslide import MODEL_REGISTRY  # noqa: E402
 
 REGISTRY = MODEL_REGISTRY
 

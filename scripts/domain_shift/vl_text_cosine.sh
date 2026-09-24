@@ -26,6 +26,6 @@ mkdir -p scripts/logs
 # Source HF_TOKEN from .env so TITAN download works on compute node
 set -a; source .env; set +a
 
-uv run --frozen python -u scripts/domain_shift/vl_text_cosine.py "$@"
+uv run --frozen --project envs/lazyslide python -u scripts/domain_shift/vl_text_cosine.py "$@"
 
 echo "End: $(date)"

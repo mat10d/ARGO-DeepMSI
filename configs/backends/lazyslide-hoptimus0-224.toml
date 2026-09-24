@@ -1,0 +1,19 @@
+# H-optimus-0 via LazySlide on a 224 px grid: a COMPARISON VARIANT, not the default.
+# Matches Mussel's effective OPTIMUS tile (MODEL_PATCH_SIZES: 224 px at 0.5 um/px) so the
+# backend equivalence study (docs/experiments/X1-backend-equivalence.md) can compare
+# features on geometrically matched tiles. Everything else is as lazyslide-hoptimus0.toml
+# (LazySlide 0.12 documented defaults, fp32).
+# A 224 px grid is a new tiling generation: extract with its own --out-root (never into a
+# store holding 256 px tables).
+
+[backend]
+name = "lazyslide"
+model = "hoptimus0"
+
+[params]
+model_key = "h-optimus-0"
+tile_px = 224
+mpp = 0.5
+amp = false
+batch_size = 32
+num_workers = 0

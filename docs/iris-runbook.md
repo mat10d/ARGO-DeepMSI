@@ -28,6 +28,20 @@ and what "done" means at each step. Evidence behind every choice:
 | P4 site smoothing + domain-shift aim | not started | P2 |
 | P5 learning beyond the reference | not started | P3 results |
 
+### Pipeline stages and environments
+
+Built on Whitehead 2026-09-24 (branch `backends`); every stage still has to be brought up on
+the MSK cluster in P0.
+
+| Stage | Env | Whitehead state | MSK cluster |
+|---|---|---|---|
+| 1. setup (`argo setup`, `argo envs`) | core | ✅ core + `envs/lazyslide` + `envs/mussel` synced; GPU smoke passed | not started |
+| 2. slide tasks (ingest, pyramidal, QC, cohort freeze) | core | ✅ 808-slide cohort | not started (P1) |
+| 3a. extract, LazySlide (default) | `envs/lazyslide` | ✅ existing zarrs; `--backend lazyslide` | not started (P2) |
+| 3b. extract, Mussel | `envs/mussel` | ✅ smoke on 2 slides (H-optimus-0, TITAN); default preset, provisional | blocked on MSK engineering params |
+| 4a. analyses | core | ✅ | not started (P3/P4) |
+| 4b. PALADIN | `envs/paladin` | `setup.sh` ready; `argo paladin` is a stub | blocked on MSK weights / inference path |
+
 ## What depends on the email replies
 
 | Question | Who | Changes |
@@ -62,16 +76,20 @@ Evidence from the 217-patient cohort decides the list; extraction is incremental
 0. Read the MSK cluster docs (cluster info, user-data policy, user docs; links in the local
    correspondence notes) for partition names, GPU limits, CUDA driver and HF/internet access.
    A user-level `uv` environment is fine.
-1. `uv sync --frozen --extra dev --extra dask --extra waiv`; accept gated HF licences
-   (CONCH/TITAN, UNI if needed, Waiv, H-optimus) under the IRIS account.
+1. `uv sync --frozen --extra dev` (core), then `uv run argo setup` (syncs `envs/lazyslide`
+   and `envs/mussel` from their locks, reports HF token, `.env` keys, and data paths without
+   printing values) and `uv run argo envs`. Add `--env paladin` only once PALADIN access is
+   settled. Accept gated HF licences (CONCH/TITAN, UNI if needed, Waiv, H-optimus) under the
+   cluster account.
 2. Acceptance: `uv run ruff check argo_deepmsi tests scripts/extract_dask.py`,
-   `uv run pytest -q`, `uv run argo self-test`, `uv lock --check`, **and on a GPU node**
-   `uv run pytest -m gpu -q` plus `uv run python -c "import torch; torch.zeros(1).cuda()"`.
-   The lock pins `torch==2.14.0` from PyPI, which is built for CUDA 13 and fails on older
-   drivers ("NVIDIA driver on your system is too old" on Whitehead's CUDA 12.6 driver; the
-   default CPU test suite does not catch this). If `nvidia-smi` shows a driver below CUDA
-   13, add a `[tool.uv.sources]` torch/torchvision entry pointing at the matching
-   `download.pytorch.org/whl/cu12x` index and re-lock.
+   `uv run pytest -q`, `uv run --frozen --project envs/lazyslide pytest -q`,
+   `uv run argo self-test`, `uv lock --check` for the root and for `--project envs/lazyslide`
+   and `--project envs/mussel`, **and on a GPU node** the GPU smoke in each tool env:
+   `uv run --frozen --project envs/<lazyslide|mussel> python -c "import torch; torch.zeros(1).cuda()"`
+   plus `uv run --frozen --project envs/lazyslide pytest -m gpu -q`. Torch is pinned to the
+   cu128 index (core, `envs/lazyslide`) and cu121 (`envs/mussel`); both need a CUDA ≥ 12.x
+   driver (`nvidia-smi`). Only if that fails, repoint the `[tool.uv.sources]` torch index in
+   the affected env project and re-lock it.
 3. Transfer slides + existing zarrs through the transfer node (`data/` is ~531 GB, 965 image
    files incl. pyramidal conversions, zarrs alongside); write a checksum manifest.
 4. `argo ingest` to regenerate slide tables with IRIS paths (tables store absolute paths).
@@ -86,8 +104,26 @@ Evidence from the 217-patient cohort decides the list; extraction is incremental
    as its own label state. Record in `results/data/cohort_manifest.json`.
 
 ### P2 — Extraction
-`argo extract-dask` (one model per reopen, per-slide isolation) in the priority order above.
-Done when every slide has every priority-1 table and `argo doctor --strict` passes.
+`argo extract-dask` (one model per reopen, per-slide isolation; runs in `envs/lazyslide`) in
+the priority order above. Done when every slide has every priority-1 table and
+`uv run --frozen --project envs/lazyslide argo doctor --strict` passes.
+
+**Mussel / PALADIN path.** H-optimus-0 for PALADIN is extracted with Mussel, not LazySlide:
+`sbatch --array=0-N scripts/extract_mussel.sh <slide_table.csv>` (or
+`argo extract <table> --backend mussel --model hoptimus0 --indices ...`) writes
+`<slide_dir>/<stem>.mussel/OPTIMUS.features.{h5,pt}` + provenance. The config
+`configs/backends/mussel-hoptimus0.toml` holds Mussel's default preset (224 px @ 0.5 mpp for
+H-optimus-0) and is provisional; never use `seg_config=stain` (32 tiles/slide cap). Then
+`argo paladin` in `envs/paladin` once MSK supplies weights or runs inference on our features.
+
+**When MSK engineering sends the Mosaic/PALADIN extraction parameters** (seg preset, mpp,
+patch size, overlap, tissue filter, Mussel version): put them in
+`configs/backends/mussel-hoptimus0.toml` (and `mussel-titan.toml` if they cover TITAN), bump
+the Mussel pin in `envs/mussel` only if they name a different version, re-extract with
+`--overwrite` on the comparison slides, and rerun
+`argo compare-backends --slides <table> --n 8 --model hoptimus0` (the X1 study,
+`docs/experiments/X1-backend-equivalence.md`). Record the new verdict before extracting the
+full cohort with Mussel.
 
 ### P3 — Pretrained evaluation (pre-registered)
 1. Write the analysis plan (estimand, sites, operating point, comparisons) before scoring

@@ -160,3 +160,28 @@ TITAN's native 512 px @ 20×**, so they are non-canonical and not comparable to 
 2. ~~Commit `iris` + push~~ done (49268d0).
 3. Cluster (CDSI vs IRIS) pending the Mosaic contact's answer on where embeddings/code live;
    IRIS needs a TheSpot request. Then follow `docs/iris-runbook.md`.
+
+## 2026-09-24 — Split environments and extraction backends (branch `backends`)
+
+Design: `docs/backends-plan.md`. ARGO stays the orchestrator; slide encoders run in their own
+locked environments, used as documented upstream.
+
+- **Core** (root `pyproject.toml`, `uv sync --frozen --extra dev`): no LazySlide; torch
+  2.11+cu128, anndata, zarr v3, h5py, pyarrow, shapely, openslide. The `dask`, `waiv`,
+  `conch`, `omiclip` extras are gone from core.
+- **`envs/lazyslide`**: argo-deepmsi (editable) + LazySlide 0.12 stack, Waiv deps, dask;
+  `conch`/`omiclip` are its optional extras. Torch 2.11+cu128 runs on Whitehead's CUDA 12.6
+  driver (GPU smoke passed), which retires the old-conda-env workaround for the CUDA-13
+  torch 2.14 lock. LazySlide commands re-exec into it (`ARGO_ENV` guard, `ARGO_NO_DISPATCH=1`).
+- **`envs/mussel`**: Mussel @ `d4cfce9`, torch 2.5.1+cu121, subprocess of
+  `argo extract --backend mussel`. Smoke findings (`results/analysis/backends/mussel_smoke/`):
+  H-optimus-0 is `OPTIMUS`; effective tile 224 px @ 0.5 mpp; `seg_config=stain` caps at 32
+  tiles/slide (unsuitable for PALADIN); `TMPDIR` must be set or Mussel writes to `/tmp`.
+- **`envs/paladin`**: `bash envs/paladin/setup.sh` venv; weights MSK-internal; `argo paladin`
+  is a stub.
+- New commands: `argo setup`, `argo envs`, `argo compare-backends`. SLURM wrappers whose
+  targets import LazySlide/wsidata/transformers/torchstain/torchvision now run through
+  `uv run --frozen --project envs/lazyslide`; `scripts/extract_mussel.sh` added.
+- Equivalence study: `docs/experiments/X1-backend-equivalence.md`. Rerun it when MSK
+  engineering confirms the Mussel parameters (only `configs/backends/mussel-hoptimus0.toml`
+  changes).

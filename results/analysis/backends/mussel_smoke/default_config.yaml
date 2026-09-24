@@ -1,0 +1,88 @@
+slide_path: null
+slide_id: null
+output_h5_path: null
+output_pt_path: null
+slide_paths: null
+slide_ids: null
+wsi_dir: null
+search_nested: false
+output_dir: null
+output_h5_suffix: features.h5
+output_pt_suffix: features.pt
+slide_batch_size: 8
+max_slide_patches: null
+classifier_pkl: null
+classifier_threshold: 0.75
+prefilter_model_type: null
+prefilter_model_path: null
+model_type: null
+model_kwargs: {}
+slide_model_kwargs: {}
+model_dir: null
+pre_download_models: false
+output_png_dir: null
+output_mask_path: null
+output_grid_mask_path: null
+output_thumbnail_path: null
+output_png_dir_suffix: null
+output_mask_suffix: null
+output_grid_mask_suffix: null
+output_thumbnail_suffix: null
+thumbnail_size:
+- 1024
+- 1024
+num_workers: 4
+batch_size: 64
+model_batch_sizes: {}
+use_gpu: true
+gpu_device_id: null
+gpu_device_ids: null
+keep_intermediate_files: false
+save_features_to_h5: true
+seg_config:
+  patch_size: 256
+  step_size: null
+  mpp: 0.5
+  seg_level: -1
+  segment_threshold: 20
+  segment_max_value: 255
+  median_blur_ksize: 7
+  morphology_ex_kernel: 0
+  ref_patch_size: 512
+  use_otsu: false
+  tissue_area_threshold: 100
+  hole_area_threshold: 16
+  max_num_holes: 8
+  keep_ids: []
+  exclude_ids: []
+  overlap: 0
+  min_tissue_proportion: 0.0
+  remove_artifacts: false
+  remove_penmarks: false
+  artifact_exclude_classes: null
+  seg_model: classic
+  slide_mpp_override: null
+  max_tiles: null
+  max_tiles_strategy: random
+  max_tiles_seed: 42
+  selection_mode: full_mask
+  max_candidate_tiles: null
+neural_config:
+  weights_path: null
+  device: auto
+  batch_size: 8
+  confidence_thresh: 0.5
+  max_inference_tiles: null
+vis_config:
+  vis_level: -1
+  custom_downsample: null
+png_config:
+  filter_black_white: true
+  white_threshold: 15
+  black_threshold: 50
+intermediate_h5_path: null
+aggregation_method: identity
+slide_model_type: null
+ssl_verify: true
+embedding_precision: float32
+model_embedding_precision: null

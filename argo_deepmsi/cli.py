@@ -2,14 +2,19 @@
 CLI entry point for ARGO-DeepMSI.
 
 Single command interface for the entire pipeline:
+    argo setup       - Create/sync the core, LazySlide, and Mussel environments
+    argo envs        - Show environment status
     argo ingest      - Data ingestion from REDCap
     argo pyramidal   - Convert non-pyramidal WSIs to tiled pyramidal TIFFs
-    argo extract     - Feature extraction with LazySlide
+    argo extract     - Feature extraction with LazySlide or Mussel
     argo qc          - Filter slides by QC scores
     argo aggregate   - Aggregate patch features to slide embeddings
     argo visualize   - Generate visualizations
     argo train       - Train classifiers on embeddings
     argo run         - Run full pipeline
+
+Commands that need LazySlide re-execute themselves in ``envs/lazyslide`` when the
+current environment lacks it (see ``argo_deepmsi.envs.ensure_env``).
 """
 
 import typer
@@ -28,6 +33,145 @@ app = typer.Typer(
 scorers_app = typer.Typer(help="Inspect and run registered MSI scoring methods.")
 app.add_typer(scorers_app, name="scorers")
 console = Console()
+
+
+def _require_env(name: str) -> None:
+    """Run the current command in environment ``name`` or exit with guidance."""
+    from .envs import EnvDispatchError, ensure_env
+
+    try:
+        ensure_env(name)
+    except EnvDispatchError as error:
+        console.print(f"[red]{error}[/red]")
+        raise typer.Exit(1) from error
+
+
+# ============================================================================
+# Environments and setup
+# ============================================================================
+
+
+def _flag(value: Optional[bool]) -> str:
+    return {True: "[green]yes[/green]", False: "[red]no[/red]", None: "-"}[value]
+
+
+@app.command("envs")
+def envs_command(
+    probe: bool = typer.Option(
+        True, "--probe/--no-probe", help="Import each env's probe module in its interpreter"
+    ),
+    lock_check: bool = typer.Option(
+        False, "--lock-check", help="Also run `uv lock --check` per uv env"
+    ),
+):
+    """Show the status of the core, LazySlide, Mussel, and PALADIN environments."""
+    from .envs import ENVS, env_status
+
+    table = Table(title="ARGO environments")
+    table.add_column("Env", style="cyan")
+    table.add_column("Kind")
+    table.add_column("Project")
+    table.add_column("Lock")
+    table.add_column("Synced")
+    if lock_check:
+        table.add_column("Lock check")
+    table.add_column("Probe")
+    table.add_column("Detail", overflow="fold")
+    for name in ENVS:
+        status = env_status(name, probe=probe, lock_check=lock_check)
+        row = [
+            name,
+            status["kind"],
+            _flag(status["exists"]),
+            _flag(status["lock"]),
+            _flag(status["venv"]),
+        ]
+        if lock_check:
+            row.append(_flag(status["lock_check"]))
+        row += [_flag(status["probe"]), status["detail"] or status["description"]]
+        table.add_row(*row)
+    console.print(table)
+
+
+@app.command()
+def setup(
+    envs: Optional[List[str]] = typer.Option(
+        None,
+        "--env",
+        "-e",
+        help="Environment to sync (repeatable; default core, lazyslide, mussel)",
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Print commands without running"),
+    hf_check: bool = typer.Option(
+        True, "--hf-check/--no-hf-check", help="Report whether a Hugging Face token is present"
+    ),
+):
+    """Create or sync every environment and check cache, credentials, and data paths.
+
+    PALADIN is opt-in (``--env paladin``): its setup script needs access to the
+    PALADIN repository and its weights are not public. Token and credential values
+    are never printed, only whether they are present.
+    """
+    import os
+
+    from .envs import DEFAULT_SETUP_ENVS, ENVS, REPO_ROOT, EnvSetupError, dotenv_keys
+    from .envs import hf_token_source, setup_env
+    from .io_utils import get_data_dir, get_results_dir, setup_huggingface_cache
+
+    selected = list(dict.fromkeys(envs or DEFAULT_SETUP_ENVS))
+    unknown = [name for name in selected if name not in ENVS]
+    if unknown:
+        raise typer.BadParameter(f"Unknown env(s) {unknown}; choose from {sorted(ENVS)}")
+
+    console.print("[bold blue]ARGO-DeepMSI: Setup[/bold blue]")
+    failures: list[str] = []
+    for name in selected:
+        try:
+            commands = setup_env(name, dry_run=dry_run)
+        except EnvSetupError as error:
+            console.print(f"[red]fail[/red]  {error}")
+            failures.append(name)
+            continue
+        verb = "would run" if dry_run else "[green]ok[/green]  "
+        for cmd in commands:
+            console.print(f"{verb} {name}: {' '.join(cmd)}")
+
+    table = Table(title="Setup checks")
+    table.add_column("Check", style="cyan")
+    table.add_column("Result", overflow="fold")
+    hf_home = os.environ.get("HF_HOME") or str(REPO_ROOT / ".huggingface_cache")
+    if not dry_run:
+        hf_home = str(setup_huggingface_cache())
+    table.add_row("HF_HOME", f"{hf_home} ({'exists' if Path(hf_home).is_dir() else 'missing'})")
+    if hf_check:
+        source = hf_token_source()
+        table.add_row(
+            "HF token",
+            f"[green]present[/green] via {source}"
+            if source
+            else "[yellow]missing[/yellow] (gated models need `hf auth login` or $HF_TOKEN)",
+        )
+    dotenv = REPO_ROOT / ".env"
+    keys = dotenv_keys(dotenv) | {key for key in os.environ if os.environ[key]}
+    for key in ("REDCAP_API_URL", "REDCAP_API_TOKEN"):
+        table.add_row(
+            key, "[green]set[/green]" if key in keys else f"[yellow]missing[/yellow] ({dotenv})"
+        )
+    results = get_results_dir()
+    for label, path in (
+        ("data dir", get_data_dir()),
+        ("results dir", results),
+        ("slide table", results / "data" / "slide_table.csv"),
+        ("pyramidal slide table", results / "data" / "slide_table_pyramidal.csv"),
+        ("clinical table", results / "data" / "clinical_table.csv"),
+        ("cohort", results / "data" / "cohort_clean.csv"),
+    ):
+        state = "[green]exists[/green]" if path.exists() else "[yellow]missing[/yellow]"
+        table.add_row(label, f"{state} {path}")
+    console.print(table)
+    if failures:
+        console.print(f"[red]Environment setup failed: {', '.join(failures)}[/red]")
+        raise typer.Exit(1)
 
 
 # ============================================================================
@@ -135,16 +279,121 @@ def pyramidal(
 # ============================================================================
 
 
+def _parse_indices(spec: Optional[str]) -> Optional[List[int]]:
+    """Parse ``"0-7"``, ``"1,3,5"``, or ``"0-3,8"`` into sorted unique row indices."""
+    if spec is None or not spec.strip():
+        return None
+    indices: set[int] = set()
+    try:
+        for part in spec.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            if "-" in part:
+                low, high = (int(value) for value in part.split("-", 1))
+                if high < low:
+                    raise ValueError(part)
+                indices.update(range(low, high + 1))
+            else:
+                indices.add(int(part))
+    except ValueError as error:
+        raise typer.BadParameter(
+            f"--indices must look like '0-7' or '1,3,5', got {spec!r}"
+        ) from error
+    if any(index < 0 for index in indices):
+        raise typer.BadParameter("--indices must be non-negative")
+    return sorted(indices)
+
+
+_LAZYSLIDE_DEFAULTS = {
+    "tile_px": 256,
+    "mpp": 0.5,
+    "amp": True,
+    "num_workers": 4,
+    "batch_size": 64,
+    "slide_encoder": None,
+}
+
+
+def _lazyslide_run_config(
+    config: Optional[Path], models: Optional[List[str]], overrides: dict
+) -> tuple[List[str], dict, object]:
+    """Resolve LazySlide extraction params: explicit CLI flag > config ``[params]`` > default.
+
+    Returns:
+        ``(models, params, backend_config)`` where ``backend_config`` records the
+        effective params for provenance and keeps the source TOML path.
+    """
+    from .backends.config import BackendConfig, load_backend_config
+
+    cfg_params: dict = {}
+    cfg = None
+    if config is not None:
+        if not Path(config).is_file():
+            raise typer.BadParameter(f"Backend config not found: {config}")
+        cfg = load_backend_config(config)
+        if cfg.backend != "lazyslide":
+            raise typer.BadParameter(f"{config} is a {cfg.backend} config, not lazyslide")
+        cfg_params = dict(cfg.params)
+    model_key = cfg_params.pop("model_key", None)
+    if models and model_key and list(models) != [model_key]:
+        raise typer.BadParameter(
+            f"--model {models} conflicts with model_key={model_key!r} in {config}"
+        )
+    models = list(models) if models else ([model_key] if model_key else ["uni2"])
+    params = {
+        key: overrides[key] if overrides.get(key) is not None else cfg_params.get(key, default)
+        for key, default in _LAZYSLIDE_DEFAULTS.items()
+    }
+    effective = {"model_key": models[0] if len(models) == 1 else list(models), **params}
+    backend_config = BackendConfig(
+        backend="lazyslide",
+        model=cfg.model if cfg is not None else models[0],
+        params={key: value for key, value in effective.items() if value is not None},
+        source=cfg.source if cfg is not None else None,
+    )
+    return models, params, backend_config
+
+
 @app.command()
 def extract(
     slide_table: Path = typer.Argument(..., help="Path to slide table CSV"),
-    models: List[str] = typer.Option(["uni2"], "--model", "-m", help="Models to use"),
-    tile_px: int = typer.Option(256, "--tile-px", help="Tile size in pixels"),
-    mpp: float = typer.Option(0.5, "--mpp", help="Microns per pixel"),
+    models: Optional[List[str]] = typer.Option(
+        None, "--model", "-m", help="Models to use (default: config model_key, else uni2)"
+    ),
+    backend: str = typer.Option(
+        "lazyslide", "--backend", "-b", help="Extraction backend: lazyslide or mussel"
+    ),
+    config: Optional[Path] = typer.Option(
+        None,
+        "--config",
+        help=(
+            "Backend TOML (configs/backends/<backend>-<model>.toml). Mussel defaults to "
+            "mussel-<model>.toml; for LazySlide its [params] fill any flag not given"
+        ),
+    ),
+    indices: Optional[str] = typer.Option(
+        None, "--indices", help="Slide-table rows to process, e.g. 0-7 or 1,3,5 (SLURM arrays)"
+    ),
+    out_root: Optional[Path] = typer.Option(
+        None,
+        "--out-root",
+        help=(
+            "Write outputs under this root (slide directory mirrored) instead of next to "
+            "each slide; use one root per LazySlide tiling (tile_px/mpp)"
+        ),
+    ),
+    tile_px: Optional[int] = typer.Option(None, "--tile-px", help="Tile size in pixels [256]"),
+    mpp: Optional[float] = typer.Option(None, "--mpp", help="Microns per pixel [0.5]"),
     device: str = typer.Option("cuda", "--device", "-d", help="Device (cuda/cpu)"),
-    amp: bool = typer.Option(True, "--amp/--no-amp", help="Use automatic mixed precision"),
-    num_workers: int = typer.Option(4, "--workers", "-j", min=0),
-    batch_size: int = typer.Option(64, "--batch-size", min=1),
+    amp: Optional[bool] = typer.Option(
+        None, "--amp/--no-amp", help="Use automatic mixed precision [amp]"
+    ),
+    num_workers: Optional[int] = typer.Option(None, "--workers", "-j", min=0, help="[4]"),
+    batch_size: Optional[int] = typer.Option(None, "--batch-size", min=1, help="[64]"),
+    slide_encoder: Optional[str] = typer.Option(
+        None, "--slide-encoder", help="LazySlide slide encoder applied after extraction (titan)"
+    ),
     tiling_policy: str = typer.Option(
         "require-current",
         "--tiling-policy",
@@ -157,11 +406,34 @@ def extract(
         help="Re-extract requested features; does not regenerate an existing tile grid",
     ),
 ):
-    """Extract features from slides using LazySlide.
+    """Extract features from slides with LazySlide (default) or Mussel.
 
     Example:
         argo extract slide_table.csv --model uni2 --model virchow2
+        argo extract slide_table.csv --config configs/backends/lazyslide-hoptimus0.toml \
+            --out-root results/analysis/backends/stores/lazyslide_256 --indices 0-7
+        argo extract slide_table.csv --backend mussel --model hoptimus0 --indices 0-7
     """
+    row_indices = _parse_indices(indices)
+    if backend == "mussel":
+        _extract_mussel(slide_table, models, config, row_indices, out_root, max_slides, overwrite)
+        return
+    if backend != "lazyslide":
+        raise typer.BadParameter("--backend must be 'lazyslide' or 'mussel'")
+    models, params, backend_config = _lazyslide_run_config(
+        config,
+        models,
+        {
+            "tile_px": tile_px,
+            "mpp": mpp,
+            "amp": amp,
+            "num_workers": num_workers,
+            "batch_size": batch_size,
+            "slide_encoder": slide_encoder,
+        },
+    )
+    _require_env("lazyslide")
+
     import pandas as pd
     from .feature_extraction import list_available_models
 
@@ -169,6 +441,11 @@ def extract(
     console.print(f"Slide table: {slide_table}")
     console.print(f"Models: {', '.join(models)}")
     console.print(f"Device: {device}")
+    console.print(f"Params: {params}")
+    if config is not None:
+        console.print(f"Config: {config}")
+    if out_root is not None:
+        console.print(f"Out root: {out_root}")
 
     # Validate models
     available = list_available_models()
@@ -180,6 +457,10 @@ def extract(
 
     # Load slide table
     df = pd.read_csv(slide_table)
+    if row_indices is not None:
+        if row_indices[-1] >= len(df):
+            raise typer.BadParameter(f"--indices out of range for {len(df)} rows")
+        df = df.iloc[row_indices]
     console.print(f"Loaded {len(df)} slides")
 
     # Extract features (all models in one pass per slide)
@@ -188,15 +469,18 @@ def extract(
     results = extract_features_batch(
         slide_table=df,
         models=models,
-        tile_px=tile_px,
-        mpp=mpp,
-        amp=amp,
+        tile_px=params["tile_px"],
+        mpp=params["mpp"],
+        amp=params["amp"],
         device=device,
         overwrite=overwrite,
         max_slides=max_slides,
-        num_workers=num_workers,
-        batch_size=batch_size,
+        num_workers=params["num_workers"],
+        batch_size=params["batch_size"],
         tiling_policy=tiling_policy,  # type: ignore[arg-type]
+        out_root=out_root,
+        slide_encoder=params["slide_encoder"],
+        backend_config=backend_config,
     )
 
     # Summary
@@ -204,6 +488,67 @@ def extract(
     total = len(results)
     console.print(f"[green]Complete![/green] {success}/{total} slides processed")
     console.print(f"Each slide contains features from: {', '.join(models)}")
+    if total and success == 0:
+        raise typer.Exit(1)
+
+
+def _extract_mussel(
+    slide_table: Path,
+    models: Optional[List[str]],
+    config: Optional[Path],
+    row_indices: Optional[List[int]],
+    out_root: Optional[Path],
+    max_slides: Optional[int],
+    overwrite: bool,
+) -> None:
+    """Run Mussel per slide in ``envs/mussel`` as a subprocess (no LazySlide needed)."""
+    from .backends.config import default_config_path, load_backend_config
+    from .backends.mussel import run_table
+    from .envs import env_command
+
+    if models and len(models) != 1:
+        raise typer.BadParameter("--backend mussel takes exactly one --model")
+    if not models and config is None:
+        raise typer.BadParameter("--backend mussel needs --model or --config")
+    config_path = config or default_config_path("mussel", models[0])
+    if not Path(config_path).is_file():
+        console.print(f"[red]Backend config not found: {config_path}[/red]")
+        raise typer.Exit(1)
+    cfg = load_backend_config(config_path)
+
+    if max_slides is not None:
+        if row_indices is None:
+            import pandas as pd
+
+            row_indices = list(range(len(pd.read_csv(slide_table))))
+        row_indices = row_indices[:max_slides]
+
+    console.print("[bold blue]ARGO-DeepMSI: Mussel Extraction[/bold blue]")
+    console.print(f"Slide table: {slide_table}")
+    console.print(f"Config: {config_path}")
+
+    try:
+        results = run_table(
+            cfg,
+            slide_table,
+            command_prefix=env_command("mussel", []),
+            indices=row_indices,
+            out_root=out_root,
+            force=overwrite,
+        )
+    except (IndexError, ValueError, OSError) as error:
+        console.print(f"[red]{error}[/red]")
+        raise typer.Exit(1) from error
+    counts = {str(k): int(v) for k, v in results["status"].value_counts().items()}
+    table = Table(title="Mussel extraction summary")
+    table.add_column("Status")
+    table.add_column("Count", justify="right")
+    for status, count in sorted(counts.items()):
+        table.add_row(status, str(count))
+    console.print(table)
+    if counts and counts.get("failed", 0) == len(results):
+        console.print("[red]Every slide failed[/red]")
+        raise typer.Exit(1)
 
 
 @app.command("extract-dask")
@@ -226,6 +571,7 @@ def extract_dask_command(
     tiling_policy: str = typer.Option("require-current", "--tiling-policy"),
 ):
     """Extract features on an elastic SLURM GPU cluster using the canonical extractor."""
+    _require_env("lazyslide")
     from .dask_extraction import DEFAULT_MODELS, run_dask_extraction
 
     report = run_dask_extraction(
@@ -254,6 +600,263 @@ def extract_dask_command(
     )
 
 
+# ============================================================================
+# Backend comparison and PALADIN
+# ============================================================================
+
+
+def _select_slides(df, n: int, select: str, seed: int):
+    """Pick ``n`` rows deterministically, round-robin across ``SITE`` when requested."""
+    if select == "first":
+        return df.head(n)
+    if select == "random":
+        return df.sample(n=min(n, len(df)), random_state=seed)
+    if select != "sites":
+        raise typer.BadParameter("--select must be sites, random, or first")
+    if "SITE" not in df.columns:
+        raise typer.BadParameter("--select sites needs a SITE column in the slide table")
+    groups = [
+        group.sample(frac=1.0, random_state=seed)
+        for _, group in df.groupby(df["SITE"].astype(str), sort=True)
+    ]
+    chosen = []
+    depth = 0
+    while len(chosen) < n and any(depth < len(group) for group in groups):
+        for group in groups:
+            if depth < len(group) and len(chosen) < n:
+                chosen.append(group.index[depth])
+        depth += 1
+    return df.loc[chosen]
+
+
+def _parse_side(spec: str, default_roots: dict) -> tuple[str, Optional[Path]]:
+    """Parse ``backend`` or ``backend=out_root`` into ``(backend, out_root)``."""
+    backend, _, root = spec.partition("=")
+    backend = backend.strip()
+    if backend not in ("lazyslide", "mussel"):
+        raise typer.BadParameter(f"--a/--b backend must be lazyslide or mussel, got {spec!r}")
+    return backend, Path(root) if root else default_roots.get(backend)
+
+
+def _side_label(backend: str, root: Optional[Path]) -> str:
+    return f"{backend}:{root.name}" if root else backend
+
+
+@app.command("compare-backends")
+def compare_backends(
+    slides: Path = typer.Option(..., "--slides", help="Slide table CSV with FILENAME and SITE"),
+    n: int = typer.Option(8, "--n", min=1, help="Number of slides to compare"),
+    model: str = typer.Option("hoptimus0", "--model", "-m", help="Backend model name"),
+    lazyslide_model_key: Optional[str] = typer.Option(
+        None,
+        "--lazyslide-model-key",
+        help="LazySlide table key (default: the readers' mapping, e.g. h-optimus-0)",
+    ),
+    out_root: Optional[Path] = typer.Option(
+        None, "--out-root", help="Mussel output root used at extraction (default: next to slide)"
+    ),
+    lazyslide_out_root: Optional[Path] = typer.Option(
+        None,
+        "--lazyslide-out-root",
+        help="LazySlide store root used at extraction (default: next to slide)",
+    ),
+    side_a: str = typer.Option(
+        "lazyslide", "--a", help="First side: backend or backend=out_root (e.g. lazyslide=stores/x)"
+    ),
+    side_b: str = typer.Option("mussel", "--b", help="Second side, same format as --a"),
+    anchor: str = typer.Option(
+        "topleft", "--anchor", help="Match tiles on level-0 topleft or center"
+    ),
+    slide_embedding: bool = typer.Option(
+        False,
+        "--slide-embedding/--no-slide-embedding",
+        help="Also compare slide-encoder outputs (e.g. TITAN) per slide",
+    ),
+    stem: Optional[str] = typer.Option(None, "--stem", help="Report file stem [compare_<model>]"),
+    out: Path = typer.Option(
+        Path("results/analysis/backends"), "--out", "-o", help="Report directory"
+    ),
+    select: str = typer.Option(
+        "sites", "--select", help="sites (spread across SITE), random, first"
+    ),
+    seed: int = typer.Option(0, "--seed"),
+    slide_column: str = typer.Option("FILENAME", "--slide-column"),
+):
+    """Compare existing features from two backends (or two LazySlide runs) on the same slides.
+
+    Runs in core and never extracts: missing outputs are listed together with the
+    commands that would produce them.
+
+    Example:
+        argo compare-backends --slides results/data/slide_table_pyramidal.csv \
+            --a lazyslide=results/analysis/backends/stores/lazyslide_224 \
+            --b mussel=results/analysis/backends/stores/mussel --stem compare_hoptimus0_224
+    """
+    import pandas as pd
+
+    from ._environment import project_root
+    from .backends.compare import compare_slides, verdict, write_report
+    from .backends.readers import LAZYSLIDE_MODEL_KEYS, read_tiles
+
+    if anchor not in ("topleft", "center"):
+        raise typer.BadParameter("--anchor must be topleft or center")
+    roots = {"lazyslide": lazyslide_out_root, "mussel": out_root}
+    sides = [_parse_side(side_a, roots), _parse_side(side_b, roots)]
+    labels = [_side_label(*side) for side in sides]
+    if labels[0] == labels[1]:
+        raise typer.BadParameter("--a and --b point at the same outputs")
+
+    df = pd.read_csv(slides)
+    chosen = _select_slides(df, n, select, seed)
+    lazyslide_key = lazyslide_model_key or LAZYSLIDE_MODEL_KEYS.get(model, model)
+    console.print("[bold blue]ARGO-DeepMSI: Backend Comparison[/bold blue]")
+    console.print(
+        f"{len(chosen)} slides, model {model} (LazySlide key {lazyslide_key}): "
+        f"{labels[0]} vs {labels[1]}"
+    )
+
+    def load(slide_path: Path, backend: str, root: Optional[Path]):
+        if backend == "lazyslide":
+            return read_tiles(slide_path, backend, model, out_root=root, model_key=lazyslide_key)
+        return read_tiles(slide_path, backend, model, out_root=root)
+
+    pairs = []
+    embeddings = []
+    missing: list[tuple[str, str, str]] = []
+    missing_rows: dict[int, list[int]] = {0: [], 1: []}
+    for index, row in chosen.iterrows():
+        slide_path = Path(row[slide_column])
+        loaded = {}
+        for side, (backend, root) in enumerate(sides):
+            try:
+                tiles = load(slide_path, backend, root)
+                if slide_embedding:
+                    tiles = (
+                        tiles,
+                        _slide_embedding(slide_path, backend, root, model, lazyslide_key),
+                    )
+                loaded[side] = tiles
+            except (FileNotFoundError, KeyError) as error:
+                missing.append((slide_path.name, labels[side], str(error)))
+                missing_rows[side].append(int(df.index.get_loc(index)))
+        if len(loaded) == 2:
+            if slide_embedding:
+                (tiles_a, emb_a), (tiles_b, emb_b) = loaded[0], loaded[1]
+                embeddings.append((slide_path.stem, emb_a, emb_b))
+                pairs.append((slide_path.stem, tiles_a, tiles_b))
+            else:
+                pairs.append((slide_path.stem, loaded[0], loaded[1]))
+
+    if missing:
+        table = Table(title="Missing backend outputs")
+        table.add_column("Slide", style="cyan")
+        table.add_column("Backend")
+        table.add_column("Reason", overflow="fold")
+        for slide, label, reason in missing:
+            table.add_row(slide, label, reason)
+        console.print(table)
+        console.print("Produce them with (GPU; submit through SLURM):")
+        for side, (backend, root) in enumerate(sides):
+            if not missing_rows[side]:
+                continue
+            rows = ",".join(map(str, sorted(set(missing_rows[side]))))
+            flag = f" --out-root {root}" if root else ""
+            if backend == "lazyslide":
+                config = Path("configs") / "backends" / f"lazyslide-{model}.toml"
+                source = (
+                    f"--config {config}"
+                    if (project_root() / config).is_file()
+                    else f"--model {lazyslide_key} --no-amp"
+                )
+                console.print(
+                    f"  argo extract {slides} --backend lazyslide {source}{flag} --indices {rows}"
+                )
+            else:
+                console.print(
+                    f"  argo extract {slides} --backend mussel --model {model}{flag} "
+                    f"--indices {rows}"
+                )
+        raise typer.Exit(1)
+
+    kwargs = {"anchor": anchor} if anchor != "topleft" else {}
+    report = compare_slides(pairs, **kwargs)
+    stem = stem or f"compare_{model}"
+    notes = (
+        f"{labels[0]} vs {labels[1]}; LazySlide key `{lazyslide_key}`; tiles matched on "
+        f"level-0 {anchor}; slides selected by `{select}` (seed {seed}) from `{slides}`."
+    )
+    csv_path, md_path = write_report(
+        report, out, f"{labels[0]} vs {labels[1]}: {model}", stem=stem, notes=notes
+    )
+    console.print(f"[bold]Verdict:[/bold] {verdict(report)}")
+    console.print(f"Report: {csv_path} , {md_path}")
+    if slide_embedding:
+        from .backends.compare import compare_slide_embeddings
+
+        emb = pd.DataFrame(
+            [
+                {"slide_id": slide_id, **compare_slide_embeddings(a, b)}
+                for slide_id, a, b in embeddings
+            ]
+        )
+        emb_path = Path(out) / f"{stem}_slide.csv"
+        emb.to_csv(emb_path, index=False)
+        if "cosine" in emb:
+            console.print(
+                f"Slide embeddings: cosine median {emb['cosine'].median():.6f}, "
+                f"min {emb['cosine'].min():.6f}"
+            )
+        console.print(f"Slide-embedding report: {emb_path}")
+
+
+def _slide_embedding(
+    slide_path: Path, backend: str, root: Optional[Path], model: str, lazyslide_key: str
+):
+    """Read one slide-encoder output (LazySlide ``agg_slide`` or Mussel slide h5)."""
+    from .backends import readers
+    from .backends.mussel import output_paths
+
+    if backend == "lazyslide":
+        store = readers.lazyslide_store(slide_path, root)
+        return readers.read_lazyslide_slide_embedding(store, lazyslide_key)
+    outputs = output_paths(slide_path, model, root)
+    if not outputs.h5.is_file():
+        raise FileNotFoundError(f"No slide embedding {outputs.h5}")
+    return readers.read_mussel_slide_embedding(outputs.h5, outputs.pt)
+
+
+@app.command()
+def paladin(
+    features: Optional[Path] = typer.Argument(
+        None, help="Mussel H-optimus-0 feature directory or slide table"
+    ),
+    checkpoint: Optional[Path] = typer.Option(
+        None, "--checkpoint", envvar="PALADIN_CHECKPOINT", help="PALADIN/Aeon checkpoint"
+    ),
+):
+    """PALADIN inference on Mussel features (stub until MSK weights are configured)."""
+    from .envs import ENVS, env_command
+
+    if checkpoint is None:
+        console.print(
+            "[red]PALADIN weights are MSK-internal and not configured.[/red] "
+            "Set PALADIN_CHECKPOINT or pass --checkpoint."
+        )
+        raise typer.Exit(1)
+    if not (ENVS["paladin"].venv_dir / "bin" / "python").exists():
+        console.print(
+            f"[red]PALADIN env missing at {ENVS['paladin'].venv_dir}[/red]; "
+            "run `argo setup --env paladin`."
+        )
+        raise typer.Exit(1)
+    cmd = env_command(
+        "paladin",
+        ["python", "-m", "paladin", "--checkpoint", str(checkpoint), str(features or "")],
+    )
+    console.print("[yellow]PALADIN inference is not wired yet.[/yellow] Would run:")
+    console.print("  " + " ".join(cmd))
+
+
 @app.command()
 def models(
     check: bool = typer.Option(
@@ -270,6 +873,7 @@ def models(
     after) but does not run inference. Gated models are skipped if
     ``HF_TOKEN`` isn't set.
     """
+    _require_env("lazyslide")
     from .feature_extraction import PATCH_MODELS, SLIDE_ENCODERS
 
     if check:
@@ -339,6 +943,7 @@ def aggregate(
         argo aggregate virchow --method prism --device cuda
         argo aggregate conch_v1.5 --method titan --device cuda
     """
+    _require_env("lazyslide")
     from .io_utils import get_results_dir
     from .feature_extraction import aggregate_features
 
@@ -450,6 +1055,7 @@ def qc(
     QC features, then this command to produce a filtered table for downstream
     feature extraction.
     """
+    _require_env("lazyslide")
     from .feature_extraction import filter_slides_by_qc
 
     if output_csv is None:
@@ -491,6 +1097,7 @@ def visualize(
     output_dir: Optional[Path] = typer.Option(None, "--output", "-o", help="Output directory"),
 ):
     """Generate visualizations (slides, embeddings, summaries)."""
+    _require_env("lazyslide")
     import numpy as np
     from .io_utils import get_visualizations_dir, ensure_dir
     from . import visualization as viz
@@ -741,6 +1348,26 @@ def run_registered_scorer(
     console.print(f"[green]Scored {outcome['n_rows']} rows[/green] → {outcome['scores']}")
 
 
+def _experiment_needs_lazyslide(
+    config: Path, from_stage: Optional[str], until_stage: Optional[str]
+) -> bool:
+    """Return whether the selected experiment stages extract or aggregate features.
+
+    An unreadable config returns ``False`` so ``run_experiment`` reports the error itself.
+    """
+    from .experiment import experiment_plan, load_experiment, select_experiment_plan
+
+    try:
+        plan = select_experiment_plan(
+            experiment_plan(load_experiment(config)),
+            from_stage=from_stage,
+            until_stage=until_stage,
+        )
+    except (KeyError, ValueError, OSError):
+        return False
+    return any(stage["kind"] in {"extract", "aggregate"} for stage in plan)
+
+
 @app.command("experiment")
 def experiment_command(
     config: Path = typer.Argument(..., help="Experiment TOML file"),
@@ -753,8 +1380,15 @@ def experiment_command(
         None, "--until-stage", help="Stop cleanly after this stage ID"
     ),
 ):
-    """Run or resume the configuration-driven end-to-end experiment graph."""
+    """Run or resume the configuration-driven end-to-end experiment graph.
+
+    A run whose selected stages include ``extract`` or ``aggregate`` executes in the
+    LazySlide environment; dry runs and post-embedding runs stay in core.
+    """
     from .experiment import run_experiment
+
+    if not dry_run and _experiment_needs_lazyslide(config, from_stage, until_stage):
+        _require_env("lazyslide")
 
     def report(stage: str, status: str) -> None:
         color = {"completed": "green", "failed": "red", "skipped": "yellow"}.get(status, "cyan")
@@ -862,6 +1496,7 @@ def run(
     max_slides: Optional[int] = typer.Option(None, "--max-slides", help="Max slides"),
 ):
     """Run the full pipeline: extract → aggregate → train."""
+    _require_env("lazyslide")
     import pandas as pd
     from .io_utils import get_embeddings_dir, get_models_dir
     from .feature_extraction import extract_features_batch, aggregate_features
@@ -980,6 +1615,8 @@ def doctor(
     ),
 ):
     """Check environment, inputs, models, GPU, tiling provenance, and budgets."""
+    # doctor verifies the LazySlide stack (versions, models, tiling), so it runs there.
+    _require_env("lazyslide")
     import json
 
     from .doctor import run_doctor

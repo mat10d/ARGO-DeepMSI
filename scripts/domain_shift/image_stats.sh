@@ -15,5 +15,5 @@
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")/../..}"
 mkdir -p scripts/logs
-uv run --frozen python -u scripts/domain_shift/image_stats.py \
+uv run --frozen --project envs/lazyslide python -u scripts/domain_shift/image_stats.py \
     --shard "${SLURM_ARRAY_TASK_ID}" --n-shards 8 "$@"

@@ -31,7 +31,7 @@ export HF_HUB_OFFLINE=1
 NSHARDS="${NSHARDS:-3}"
 echo "Job ${SLURM_ARRAY_JOB_ID} shard ${SLURM_ARRAY_TASK_ID}/${NSHARDS} on ${SLURM_NODELIST}  $(date)"
 
-uv run --frozen python scripts/domain_shift/stain_norm_oauthc.py \
+uv run --frozen --project envs/lazyslide python scripts/domain_shift/stain_norm_oauthc.py \
     --shard "${SLURM_ARRAY_TASK_ID}" \
     --nshards "${NSHARDS}"
 

@@ -31,7 +31,7 @@ from pathlib import Path
 
 import pandas as pd
 
-pytestmark = pytest.mark.network
+pytestmark = [pytest.mark.network, pytest.mark.lazyslide]
 
 # ============================================================================
 # Fixtures

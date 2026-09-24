@@ -1,0 +1,22 @@
+# TITAN via Mussel `tessellate_extract_features` (mussel-pathology @ d4cfce9, 2026-08-21).
+# README slide-encoder table: TITAN = slide_model_type TITAN_SLIDE with patch encoder CONCH1_5
+# (MahmoodLab/TITAN). With seg_config.patch_size left at its default (256), Mussel substitutes
+# MODEL_PATCH_SIZES[model_type] (CONCH1_5 -> 512) at seg_config.mpp=0.5.
+# Output h5/pt hold the slide embedding (features only, no coords); CONCH1_5 tile features are
+# intermediate and discarded unless keep_intermediate_files=true.
+# Everything else stays at Mussel's documented defaults (see mussel-hoptimus0.toml).
+#
+# TODO(MSK engineering): put the Mosaic TITAN extraction parameters here once confirmed.
+
+[backend]
+name = "mussel"
+model = "titan"
+
+[params]
+model_type = "CONCH1_5"
+slide_model_type = "TITAN_SLIDE"
+# seg_config = "default"
+# "seg_config.mpp" = 0.5
+# "seg_config.patch_size" = 512
+# keep_intermediate_files = false
+# embedding_precision = "float32"

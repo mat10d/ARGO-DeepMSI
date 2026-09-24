@@ -19,4 +19,4 @@ export OMP_NUM_THREADS=4
 # Variant: nonorm (default, raw H&E — matches our cohort) or norm (Macenko)
 export ARGO_NCT_VARIANT="${ARGO_NCT_VARIANT:-nonorm}"
 
-uv run --frozen python -u scripts/qc/tumor_tile_classifier.py "$@"
+uv run --frozen --project envs/lazyslide python -u scripts/qc/tumor_tile_classifier.py "$@"

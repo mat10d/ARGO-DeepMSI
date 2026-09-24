@@ -66,6 +66,8 @@ __pycache__/
 # Environment Files (keep configs, ignore installs)
 # ============================================
 .venv/
+envs/*/.venv/
+envs/*/.tmp_build/
 venv/
 env/
 .env/
@@ -170,3 +172,10 @@ results/scorers/clam_tilemil/bags_concat.npy
 docs/collaboration/
 *.docx
 .pytest_tmp/
+.pytest_tmp*/
+.tmp_build/
+# Backend equivalence study (X1): rebuildable feature stores and smoke outputs
+results/analysis/backends/stores/
+results/analysis/backends/pixel_probe/
+results/analysis/backends/mussel_smoke/*/
+results/analysis/backends/timings/

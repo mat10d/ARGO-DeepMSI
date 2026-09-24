@@ -1,0 +1,20 @@
+# H-optimus-0 via LazySlide, at LazySlide's documented defaults.
+# Upstream defaults mirrored (lazyslide 0.12 / lazyslide-models):
+#   - model key "h-optimus-0" (lazyslide_models/vision/h_optimus.py); table <slide>.zarr/tables/h-optimus-0_tiles
+#   - zs.pp.tile_tissues(tile_px=256, mpp=0.5): ARGO's tiling. Mussel's effective default for
+#     OPTIMUS is 224 px at 0.5 um/px (MODEL_PATCH_SIZES), so the grids differ in tile size too.
+#   - zs.tl.feature_extraction: amp=False (lazyslide settings default), batch_size=32, num_workers=0
+# ARGO historically ran amp=true (fp16 autocast), batch_size=64, num_workers=4; the equivalence
+# study reruns once with amp=true to quantify that drift.
+
+[backend]
+name = "lazyslide"
+model = "hoptimus0"
+
+[params]
+model_key = "h-optimus-0"
+tile_px = 256
+mpp = 0.5
+amp = false
+batch_size = 32
+num_workers = 0

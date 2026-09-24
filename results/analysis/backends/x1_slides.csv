@@ -1,0 +1,9 @@
+PATIENT,record_id,FILENAME,SITE,cut_location,stain_location,image_location,source_row
+P_0480,144-6,/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/HP1353_21_1.pyramidal.tiff,LASUTH,LASUTH,LASUTH,Nigeria,1
+P_0374,143-23,/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/MSI-B985-22.svs,LUTH,LUTH,LUTH,Nigeria,17
+P_0114,142-269,/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/OAUTHC/H1079-22-9.svs,OAUTHC,OAUTHC,OAUTHC,Nigeria,61
+P_0507,145-3,/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/UITH/H700-22-1.svs,UITH,UITH,UITH,Nigeria,533
+P_0060,142-22,/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/retrospective_msk/T218_1-1.svs,retrospective_msk,MSKCC,MSKCC,Nigeria,565
+P_0006,142-107,/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/retrospective_oau/T207-1-1-USS-2.svs,retrospective_oau,MSKCC,OAUTHC,Nigeria,690
+P_0428,144-12,/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LASUTH/HP2074_21_5.pyramidal.tiff,LASUTH,LASUTH,LASUTH,Nigeria,6
+P_0374,143-23,/lab/barcheese01/mdiberna/ARGO-DeepMSI/data/LUTH/MSI-B985-3-22-.svs,LUTH,LUTH,LUTH,Nigeria,44

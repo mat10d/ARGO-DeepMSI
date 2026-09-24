@@ -10,6 +10,6 @@
 # and does not contend with GPU extraction jobs.
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
-uv run --frozen python -c "from argo_deepmsi.eval.error_anatomy import run_stage_c; \
+uv run --frozen --project envs/lazyslide python -c "from argo_deepmsi.eval.error_anatomy import run_stage_c; \
   run_stage_c('results/analysis/error_anatomy/A_error_ledger.csv', \
               'results/analysis/error_anatomy', device='cpu')"

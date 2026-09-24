@@ -44,8 +44,6 @@ for emb in "${EMBEDDINGS[@]}"; do
 done
 echo "========================================="
 
-# Load conda environment
-
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
 # Train on each embedding set

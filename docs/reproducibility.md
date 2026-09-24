@@ -11,9 +11,10 @@ Install Python 3.11 and [uv](https://docs.astral.sh/uv/), clone this repository,
 then run:
 
 ```bash
-uv sync --frozen --extra dev --extra dask --extra waiv
+uv sync --frozen --extra dev                  # core
+uv sync --frozen --project envs/lazyslide     # LazySlide stack (or: uv run argo setup)
 uv run argo version
-uv run argo models
+uv run argo models                            # re-executes in envs/lazyslide
 uv run argo self-test
 uv run pytest tests/test_package_boundaries.py tests/test_reproducible_workflows.py -q
 ```
@@ -143,9 +144,9 @@ should replace the canonical scorer cache used by the legacy comparison tooling.
 ## Updating the environment intentionally
 
 ```bash
-uv lock --upgrade-package lazyslide --upgrade-package wsidata
-uv sync --extra dev --extra dask --extra waiv
-uv run pytest tests/test_model_registry.py tests/test_lazyslide_api.py \
+uv lock --project envs/lazyslide --upgrade-package lazyslide --upgrade-package wsidata
+uv sync --project envs/lazyslide
+uv run --project envs/lazyslide pytest tests/test_model_registry.py tests/test_lazyslide_api.py \
   -m 'not gpu and not model_download and not requires_hf_token' -v
 ```
 

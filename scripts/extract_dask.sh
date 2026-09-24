@@ -41,6 +41,6 @@ echo "Start:       $(date)"
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 mkdir -p scripts/logs/dask
 
-uv run --frozen python scripts/extract_dask.py --slide-table "$SLIDE_TABLE" "$@"
+uv run --frozen --project envs/lazyslide python scripts/extract_dask.py --slide-table "$SLIDE_TABLE" "$@"
 
 echo "End: $(date)"

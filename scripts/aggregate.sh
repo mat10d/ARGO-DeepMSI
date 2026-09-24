@@ -16,6 +16,8 @@
 #   sbatch scripts/aggregate.sh
 # =============================================================================
 
+cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
+
 METHOD="mean"
 SLIDE_TABLE="results/data/slide_table_pyramidal.csv"
 
@@ -32,7 +34,7 @@ echo "Method: $METHOD"
 echo "Start time: $(date)"
 
 # Auto-discover models by scanning the first zarr's tables/ directory
-FIRST_ZARR=$(python3 -c "
+FIRST_ZARR=$(uv run --frozen python -c "
 import pandas as pd
 from pathlib import Path
 df = pd.read_csv('$SLIDE_TABLE')
@@ -60,15 +62,11 @@ done
 echo "Discovered ${#MODELS[@]} models: ${MODELS[*]}"
 echo "========================================="
 
-# Load conda environment
-
-cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
-
-# Aggregate each model
+# Aggregate each model (`argo aggregate` re-executes itself in envs/lazyslide)
 for model in "${MODELS[@]}"; do
     echo ""
     echo "Aggregating $model with $METHOD..."
-    uv run --frozen python -m argo_deepmsi.cli aggregate \
+    uv run --frozen argo aggregate \
         "$model" \
         --slide-table "$SLIDE_TABLE" \
         --method "$METHOD"

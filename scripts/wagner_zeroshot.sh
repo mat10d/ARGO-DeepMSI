@@ -23,6 +23,6 @@ echo "Start:   $(date)"
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 mkdir -p scripts/logs
 
-uv run --frozen python -u scripts/wagner_zeroshot.py
+uv run --frozen --project envs/lazyslide python -u scripts/wagner_zeroshot.py
 
 echo "End: $(date)"

@@ -110,6 +110,7 @@ def test_doctor_json_cli_is_valid_json(monkeypatch: pytest.MonkeyPatch):
         ],
     }
     monkeypatch.setattr("argo_deepmsi.doctor.run_doctor", lambda **_kwargs: report)
+    monkeypatch.setattr("argo_deepmsi.envs.ensure_env", lambda _name: None)
 
     result = runner.invoke(app, ["doctor", "--json"])
 

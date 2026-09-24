@@ -18,6 +18,7 @@ Aggregation Methods:
 
 import logging
 import json
+import time
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -91,6 +92,57 @@ def _model_provenance(model: str) -> dict:
         },
         "task": str(getattr(model_class, "task", "unknown")),
     }
+
+
+def _has_slide_embedding(zarr_path: Path, model: str, agg_key: str = "agg_slide") -> bool:
+    from .backends.readers import read_lazyslide_slide_embedding
+
+    try:
+        read_lazyslide_slide_embedding(zarr_path, model, agg_key)
+    except (KeyError, FileNotFoundError, OSError, ValueError):
+        return False
+    return True
+
+
+def _write_lazyslide_provenance(
+    cfg,
+    *,
+    slide_path: Path,
+    zarr_path: Path,
+    models: List[str],
+    wsi,
+    seconds: float,
+    device: str,
+    tiling: dict,
+) -> None:
+    """Write ``<store>.<model>.provenance.json`` beside the store for each model."""
+    from .backends.provenance import collect_provenance, write_provenance
+    from .backends.readers import lazyslide_provenance_path
+    from ._environment import project_root
+
+    versions = {
+        package: _package_version(package)
+        for package in ("lazyslide", "lazyslide-models", "wsidata", "torch", "timm")
+    }
+    for model in models:
+        table = wsi.tables.get(f"{model}_tiles") if hasattr(wsi, "tables") else None
+        prov = collect_provenance(
+            cfg,
+            tool_version=versions["lazyslide"],
+            env_lock=project_root() / "envs" / "lazyslide" / "uv.lock",
+            extra={
+                "slide_path": str(slide_path),
+                "store": str(zarr_path),
+                "table": f"{model}_tiles",
+                "n_tiles": int(table.n_obs) if table is not None else None,
+                "seconds": seconds,
+                "device": device,
+                "versions": versions,
+                "tiling": tiling,
+                "registry": _model_provenance(model),
+            },
+        )
+        write_provenance(lazyslide_provenance_path(zarr_path, model), prov)
 
 
 # ============================================================================
@@ -273,6 +325,9 @@ def extract_features_single_slide(
     num_workers: int = 4,
     batch_size: int = 64,
     tiling_policy: Literal["reuse", "require-current"] = "require-current",
+    out_root: Optional[Union[str, Path]] = None,
+    slide_encoder: Optional[str] = None,
+    backend_config=None,
 ) -> Optional[Path]:
     """Extract patch features from a single slide using one or more models.
 
@@ -296,9 +351,18 @@ def extract_features_single_slide(
         tiling_policy: ``require-current`` rejects an existing feature store
                        unless its manifest matches the installed tiling stack,
                        tile size, and MPP. ``reuse`` accepts legacy stores.
+        out_root: If given, write the store to ``lazyslide_store(slide, out_root)``
+                  (the slide's absolute directory mirrored under this root) instead of
+                  next to the slide. Use one root per tiling generation.
+        slide_encoder: Optional LazySlide slide encoder (e.g. ``"titan"``) applied to
+                       each requested model's tiles with ``zs.tl.feature_aggregation``.
+        backend_config: Optional :class:`~argo_deepmsi.backends.config.BackendConfig`
+                        describing the run; when given, a provenance JSON is written
+                        beside the store for each requested model
+                        (see :func:`~argo_deepmsi.backends.readers.lazyslide_provenance_path`).
 
     Returns:
-        Path to saved Zarr directory (next to original slide)
+        Path to saved Zarr directory (next to original slide, or under ``out_root``)
 
     Examples:
         # First run: extract plip and ctranspath
@@ -321,8 +385,14 @@ def extract_features_single_slide(
     if isinstance(models, str):
         models = [models]
 
-    # Zarr will be saved next to the slide
-    zarr_path = slide_path.parent / f"{slide_path.stem}.zarr"
+    from .backends.readers import lazyslide_store
+
+    # Zarr is saved next to the slide unless an out_root mirrors the layout elsewhere
+    if out_root:
+        zarr_path = lazyslide_store(slide_path, out_root)
+    else:
+        zarr_path = slide_path.parent / f"{slide_path.stem}.zarr"
+    start_time = time.monotonic()
     store_existed = zarr_path.exists()
     store_manifest = _feature_store_manifest(zarr_path)
     if tiling_policy not in {"reuse", "require-current"}:
@@ -341,6 +411,7 @@ def extract_features_single_slide(
 
     # Check which models need extraction
     models_to_extract = models.copy() if isinstance(models, list) else [models]
+    aggregate_only: List[str] = []
 
     if zarr_path.exists() and not overwrite:
         # Zarr exists - check which models are already extracted
@@ -354,8 +425,15 @@ def extract_features_single_slide(
 
         # Filter to only models we don't have yet
         models_to_extract = [m for m in models_to_extract if m not in existing_models]
+        if slide_encoder:
+            # Tables that exist but lack the slide embedding only need aggregation
+            aggregate_only = [
+                m
+                for m in models
+                if m not in models_to_extract and not _has_slide_embedding(zarr_path, m)
+            ]
 
-        if not models_to_extract:
+        if not models_to_extract and not aggregate_only:
             logger.info(
                 f"All requested models already extracted in {zarr_path.name}: "
                 f"{', '.join(existing_models)}"
@@ -372,16 +450,18 @@ def extract_features_single_slide(
         # For cached zarrs, open from the SVS path with store=parent so the reader is
         # whatever is installed locally (avoids KeyError when the recorded reader
         # — e.g. 'fastslide' — isn't available).
+        # With an out_root the explicit store path is passed (wsidata uses an existing
+        # zarr dir as-is and treats a non-existent path as the store to create).
+        if out_root:
+            zarr_path.parent.mkdir(parents=True, exist_ok=True)
+            store = str(zarr_path)
+        else:
+            store = str(slide_path.parent) if zarr_path.exists() else "auto"
         if zarr_path.exists():
-            logger.info(f"Loading existing zarr: {zarr_path.name}")
-            wsi = open_wsi(
-                str(slide_path),
-                store=str(slide_path.parent),
-                attach_thumbnail=False,
-            )
+            logger.info(f"Loading existing zarr: {zarr_path}")
         else:
             logger.info(f"Processing {slide_path.name} with models: {', '.join(models_to_extract)}")
-            wsi = open_wsi(str(slide_path), attach_thumbnail=False)
+        wsi = open_wsi(str(slide_path), store=store, attach_thumbnail=False)
 
         # Preprocess if needed (only for new slides)
         if not zarr_path.exists():
@@ -402,7 +482,14 @@ def extract_features_single_slide(
                 pbar=False,
             )
 
-        # Write ONCE → saves next to original slide
+        if slide_encoder:
+            for model in dict.fromkeys(models_to_extract + list(aggregate_only)):
+                logger.info(f"Aggregating {model} tiles with slide encoder {slide_encoder}...")
+                zs.tl.feature_aggregation(
+                    wsi, feature_key=model, encoder=slide_encoder, amp=amp, device=device
+                )
+
+        # Write ONCE → saves next to original slide (or under out_root)
         logger.info("Saving WSI with all features...")
         wsi.write()
 
@@ -430,6 +517,18 @@ def extract_features_single_slide(
                 "registry": _model_provenance(model),
             }
         write_json(zarr_path / "argo_manifest.json", store_manifest)
+
+        if backend_config is not None:
+            _write_lazyslide_provenance(
+                backend_config,
+                slide_path=slide_path,
+                zarr_path=zarr_path,
+                models=models,
+                wsi=wsi,
+                seconds=round(time.monotonic() - start_time, 3),
+                device=device,
+                tiling=store_manifest.get("tiling", {}),
+            )
 
         # Verify features were saved
         if hasattr(wsi, "tables"):
@@ -460,6 +559,9 @@ def extract_features_batch(
     num_workers: int = 4,
     batch_size: int = 64,
     tiling_policy: Literal["reuse", "require-current"] = "require-current",
+    out_root: Optional[Union[str, Path]] = None,
+    slide_encoder: Optional[str] = None,
+    backend_config=None,
 ) -> pd.DataFrame:
     """Extract features from all slides using one or more models.
 
@@ -493,6 +595,9 @@ def extract_features_batch(
             num_workers=num_workers,
             batch_size=batch_size,
             tiling_policy=tiling_policy,
+            out_root=out_root,
+            slide_encoder=slide_encoder,
+            backend_config=backend_config,
         )
         results.append(
             {

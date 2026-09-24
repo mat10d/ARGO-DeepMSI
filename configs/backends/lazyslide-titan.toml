@@ -1,0 +1,23 @@
+# TITAN via LazySlide: CONCH v1.5 patch features, then the TITAN slide encoder.
+# Upstream defaults mirrored:
+#   - TITAN README (MahmoodLab/TITAN): CONCH v1.5 patch features from 512x512 px tiles at 20x
+#     (~0.5 um/px); lazyslide_models registers TITAN as key ["titan", "conch_v1.5"] with
+#     InputConstraint(min=448), so tiles must be >= 448 px.
+#   - zs.tl.feature_extraction(model="conch_v1.5") -> <slide>.zarr/tables/conch_v1.5_tiles;
+#     zs.tl.feature_aggregation(encoder="titan") -> uns["agg_ops"]["agg_slide"]["features"]
+#   - amp=False (lazyslide settings default), batch_size=32, num_workers=0
+# NOTE: existing ARGO stores hold conch_v1.5_tiles on the 256 px grid; a 512 px grid is a new
+# tiling generation and must not be mixed with those tables in the same store.
+
+[backend]
+name = "lazyslide"
+model = "titan"
+
+[params]
+model_key = "conch_v1.5"
+slide_encoder = "titan"
+tile_px = 512
+mpp = 0.5
+amp = false
+batch_size = 32
+num_workers = 0

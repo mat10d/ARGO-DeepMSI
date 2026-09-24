@@ -1,6 +1,7 @@
 # Plan — split environments and dual extraction backends (LazySlide + Mussel)
 
-**Status:** approved by Matteo 2026-09-24, not yet implemented. Branch: `backends` (from `iris`
+**Status:** approved by Matteo 2026-09-24; implemented 2026-09-24 (results:
+[X1](experiments/X1-backend-equivalence.md)). Branch: `backends` (from `iris`
 @ `5afc448`). This file is the handoff for the implementation session; update its checklist
 as work lands.
 
@@ -145,21 +146,30 @@ Also run once with LazySlide `amp=True` (ARGO's current setting) to quantify fp1
 
 ## Implementation checklist
 
-- [ ] `envs/lazyslide` project (+ cu128 torch index), lock, sync, GPU smoke (`torch.zeros(1).cuda()`)
-- [ ] `envs/mussel` project (git pin + cu121 index), lock, sync, `tessellate_extract_features --help`
-- [ ] core pyproject slimmed; core lock; `pytest -q` passes without LazySlide
-- [ ] `argo_deepmsi/envs.py` + `argo setup` / `argo envs` + dispatch guard
-- [ ] `backends/{provenance,mussel,readers,compare}.py` + CLI `extract --backend`, `compare-backends`
-- [ ] configs/backends/*.toml; `scripts/extract_mussel.sh`
-- [ ] synthetic tests; acceptance in core and in `envs/lazyslide`
-- [ ] run equivalence study (GPU) on 8 slides; write `docs/experiments/X1-backend-equivalence.md`
-- [ ] `envs/paladin` setup script + `argo paladin` stub (clear error until a checkpoint path is configured)
-- [ ] update CLAUDE.md / AGENTS.md / README / `docs/iris-runbook.md` (four-stage status table)
+- [x] `envs/lazyslide` project (+ cu128 torch index), lock, sync, GPU smoke (`torch.zeros(1).cuda()`)
+- [x] `envs/mussel` project (git pin + cu121 index), lock, sync, `tessellate_extract_features --help`
+- [x] core pyproject slimmed; core lock; `pytest -q` passes without LazySlide
+- [x] `argo_deepmsi/envs.py` + `argo setup` / `argo envs` + dispatch guard
+- [x] `backends/{provenance,mussel,readers,compare}.py` + CLI `extract --backend`, `compare-backends`
+- [x] configs/backends/*.toml; `scripts/extract_mussel.sh`
+- [x] synthetic tests; acceptance in core and in `envs/lazyslide`
+- [x] run equivalence study (GPU) on 8 slides; write `docs/experiments/X1-backend-equivalence.md`
+- [x] `envs/paladin` setup script + `argo paladin` stub (clear error until a checkpoint path is configured)
+- [x] update CLAUDE.md / AGENTS.md / README / `docs/iris-runbook.md` (four-stage status table)
 - [ ] commit on `backends`, merge to `iris` after review
 
 ## Open questions (do not block the build)
 
 1. MSK engineering's exact Mussel parameters for Mosaic/PALADIN (seg preset, mpp,
    patch_size, overlap, min_tissue_proportion, Mussel version) — asked via Andy.
-2. Accepted `model_type` string for H-optimus-0 (`OPTIMUS` vs `HOPTIMUS0`).
+2. ~~Accepted `model_type` string for H-optimus-0~~ — resolved: `OPTIMUS` (`HOPTIMUS0` does not
+   exist). Mussel's effective H-optimus-0 tile is 224 px @ 0.5 mpp (256 is a sentinel).
 3. Cluster: CDSI is the likely home (engineering + embeddings there); IRIS pending.
+
+## Deviations from this plan (as built)
+- Tile matching uses one-to-one nearest anchors plus an origin-free `coverage_iou`; the ¼-tile
+  top-left rule under-matches because the grids differ per tissue contour. Feature-level
+  equivalence is measured by a pixel probe on identical boxes (`scripts/backends/x1_pixel_probe.py`).
+- `einops` stays in core (Wagner imports it). `argo doctor` dispatches to `envs/lazyslide`.
+- LazySlide-vs-Mussel H-optimus-0 features are not interchangeable (LazySlide's non-antialiased
+  `cv2.resize`; median cos 0.967–0.999 on identical boxes): PALADIN inputs must come from Mussel.

@@ -25,7 +25,7 @@ mkdir -p scripts/logs
 export HF_HOME="${HF_HOME:-$PWD/.huggingface_cache}"
 [ -f .env ] && { set -a; source .env; set +a; }
 
-uv run --frozen python -u scripts/qc/artifact_qc.py \
+uv run --frozen --project envs/lazyslide python -u scripts/qc/artifact_qc.py \
     --cohort results/data/cohort_clean.csv \
     --slide-table results/data/slide_table_pyramidal.csv \
     --outdir results/data/artifact_qc \

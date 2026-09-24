@@ -1,6 +1,8 @@
 """Project-local models layered on top of LazySlide's registry.
 
-Importing this package registers the Waiv patch encoders. Trainable CTransPath
+Importing this package registers the Waiv patch encoders when the LazySlide
+stack is installed (``envs/lazyslide``); in the core environment the import is
+skipped so Wagner and other core helpers stay importable. Trainable CTransPath
 and Wagner helpers remain lazy so catalog inspection does not load their model
 stacks.
 """
@@ -9,7 +11,10 @@ from __future__ import annotations
 
 from importlib import import_module
 
-from . import waiv  # noqa: F401  (import triggers @register side effects)
+try:
+    from . import waiv  # noqa: F401  (import triggers @register side effects)
+except ImportError:  # core env: no lazyslide / lazyslide-models
+    waiv = None
 
 __all__ = ["load_trainable_ctranspath", "load_wagner", "waiv"]
 

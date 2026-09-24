@@ -8,14 +8,15 @@ This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-ARGO-DeepMSI is a pipeline for MSI (Microsatellite Instability) prediction from whole slide images, built on [LazySlide](https://github.com/rendeirolab/LazySlide). Single Python environment, single CLI entry point. Nigerian colorectal cancer cohorts from UITH and OAUTHC (retrospective MSK & OAU), all imaged in Nigeria.
+ARGO-DeepMSI is a pipeline for MSI (Microsatellite Instability) prediction from whole slide images, built on [LazySlide](https://github.com/rendeirolab/LazySlide). One CLI entry point over split, locked environments: a core env (CLI, cohort, readers, analyses) plus one env per slide-encoding tool (`envs/lazyslide`, `envs/mussel`, `envs/paladin`); see `docs/backends-plan.md`. Nigerian colorectal cancer cohorts from UITH and OAUTHC (retrospective MSK & OAU), all imaged in Nigeria.
 
 ## Architecture
 
 ```
 argo_deepmsi/
 ├── __main__.py         # enables `python -m argo_deepmsi`
-├── cli.py              # Typer CLI (ingest/pyramidal/extract/qc/aggregate/visualize/train/run)
+├── cli.py              # Typer CLI (setup/envs/ingest/pyramidal/extract/qc/aggregate/visualize/train/run/compare-backends/paladin)
+├── envs.py             # env registry, `uv run --project envs/<name>` runner, LazySlide auto-dispatch
 ├── data_ingestion.py   # REDCap + Halo Link → clinical_table + slide_table
 ├── slide_prep.py       # Non-pyramidal → tiled pyramidal TIFF (via libvips)
 ├── feature_extraction.py  # LazySlide extraction + zarr aggregation + QC filter
@@ -30,15 +31,25 @@ argo_deepmsi/
 ├── bags.py             # deterministic arbitrary-encoder MIL bag builder
 ├── dask_extraction.py  # SLURM/Dask front-end to the canonical extractor
 ├── io_utils.py         # Path management
+├── backends/           # config.py, mussel.py (Mussel CLI runner), readers.py (zarr + h5/pt → TileFeatures),
+│                       # compare.py (backend divergence), provenance.py
 ├── models/             # wagner.py (canonical Wagner), ctranspath.py (trainable adapter), waiv.py
 ├── scorers/            # one lazily discovered module per scoring method (`argo scorers list`)
 └── eval/               # cohort, nested validation, metrics, screening, OOD, fairness,
                         # per-site calibration, domain shift, error anatomy, qc_comparison board
 
+envs/                   # isolated tool environments (each its own uv project + lock)
+├── lazyslide/          # argo-deepmsi (editable) + LazySlide 0.12 stack, Waiv deps, dask; torch cu128
+├── mussel/             # Mussel @ d4cfce9, torch 2.5.1+cu121; subprocess only
+└── paladin/            # setup.sh venv replaying the PALADIN README (not locked)
+
+configs/backends/       # one TOML per (backend, model): {lazyslide,mussel}-{hoptimus0,titan}.toml
+
 scripts/                # core pipeline
 ├── pyramidal.sh        # SLURM wrapper for `argo pyramidal` (CPU, one-shot)
 ├── extract_dask.py     # compatibility wrapper for `argo extract-dask`
 ├── extract_dask.sh     # SLURM wrapper so the dask driver isn't on the head node
+├── extract_mussel.sh   # SLURM array wrapper for `argo extract --backend mussel`
 ├── aggregate.sh        # auto-discovers models from zarrs; loops argo aggregate
 ├── train.sh            # auto-discovers embeddings dirs; loops argo train
 ├── wagner_zeroshot.py/.sh              # reference Wagner scores
@@ -76,15 +87,20 @@ tests/
 ## Essential Commands
 
 ```bash
-# Reproduce the locked Python 3.11 environment
-uv sync --frozen --extra dev --extra dask --extra waiv
+# Core env (no LazySlide), then every tool env from its lock
+uv sync --frozen --extra dev
+uv run argo setup            # syncs core, envs/lazyslide, envs/mussel; checks HF token, .env, data paths
+uv run argo setup --env paladin   # opt-in; PALADIN weights are MSK-internal
+uv run argo envs             # per-env status (synced, probe import, --lock-check)
 
 # CLI commands
 argo --help                  # Show all commands
 argo models                  # List models + aggregation methods
 argo ingest                  # REDCap + Halo Link → clinical_table + slide_table
 argo pyramidal <table>       # Convert non-pyramidal slides → tiled pyramidal TIFF
-argo extract <table>         # Extract features (zarr per slide, next to svs)
+argo extract <table>         # LazySlide features (zarr per slide, next to svs)
+argo extract <table> --backend mussel --model hoptimus0 --indices 0-7   # Mussel h5/pt + provenance
+argo compare-backends --slides <table> --n 8 --model hoptimus0   # LazySlide vs Mussel divergence (core; never extracts)
 argo qc <table> --model grandqc-artifact   # Filter slides by QC scores
 argo aggregate <models>      # Patch → slide embeddings (mean/max/prism/titan/...)
 argo visualize               # UMAP + slide plots
@@ -93,30 +109,40 @@ argo run <slides> <clinical> # Full pipeline for one or more models
 argo experiment <config>     # resumable, versioned experiment sweep
 argo scorers list/show/run   # inspect or execute any scorer without a wrapper
 argo extract-dask <table>    # multi-GPU extraction through the same core path
+argo paladin                 # stub until an MSK PALADIN checkpoint is configured
 
-argo doctor --strict --config configs/nigeria-v2.toml   # preflight before any expensive run
+# extract (lazyslide), extract-dask, models, aggregate, qc, visualize, run, and experiment with
+# extract/aggregate stages re-exec themselves in envs/lazyslide (ARGO_ENV loop guard;
+# ARGO_NO_DISPATCH=1 disables). doctor checks the LazySlide stack but does not dispatch:
+uv run --frozen --project envs/lazyslide argo doctor --strict --config configs/nigeria-v2.toml
 
 # Acceptance sequence before handing work off (AGENTS.md)
 uv run ruff check argo_deepmsi tests scripts/extract_dask.py
-uv run pytest -q                 # skips network/GPU/model-download/local-data integrations
+uv run pytest -q                 # core; skips lazyslide/network/GPU/model-download/local-data
+uv run --frozen --project envs/lazyslide pytest -q   # same suite with the LazySlide stack
 uv run argo self-test
-uv lock --check
+uv lock --check && uv lock --check --project envs/lazyslide && uv lock --check --project envs/mussel
 git diff --check
 
-# Opt-in markers
-pytest -m network -v             # public GTEx integration
-pytest -m gpu -v                 # GPU extraction checks
+# Opt-in markers (LazySlide ones run in envs/lazyslide)
+uv run --frozen --project envs/lazyslide pytest -m network -v   # public GTEx integration
+uv run --frozen --project envs/lazyslide pytest -m gpu -v       # GPU extraction checks
 ```
 
 ## Key Dependencies
 
-- **lazyslide / wsidata**: WSI I/O, preprocessing, feature extraction, batch aggregation (`agg_wsi`)
-- **anndata + zarr**: scverse data layer; all feature tables live in zarr
-- **scanpy + umap-learn**: UMAP / leiden on slide embeddings
-- **scikit-learn**: classifiers + `StratifiedGroupKFold`
-- **torch / transformers / fairscale / musk**: foundation models
-- **dask + distributed + dask-jobqueue**: optional, for `scripts/extract_dask.py`
+Core (`pyproject.toml`):
+- **anndata + zarr v3 / h5py / pyarrow + shapely**: read LazySlide zarr tables and Mussel h5/pt without either tool installed
+- **openslide-python + openslide-bin**: slide tasks, image stats
+- **torch (2.11+cu128) + einops**: Wagner and heads on cached features
+- **scikit-learn / inmoose / umap-learn**: classifiers + `StratifiedGroupKFold`, ComBat, slide-embedding UMAP
 - **typer / rich**: CLI
+
+`envs/lazyslide`: **lazyslide / lazyslide-models / wsidata** (WSI I/O, tiling, extraction, `agg_wsi`),
+**scanpy**, **torchstain**, **transformers 5 / fairscale / musk** (foundation + Waiv models),
+**dask + distributed + dask-jobqueue** (`argo extract-dask`); optional extras `conch`, `omiclip`.
+
+`envs/mussel`: **mussel-pathology** pinned at `d4cfce9` (transformers<4.46, numcodecs<0.16, so it cannot share the LazySlide env).
 
 ## LazySlide Usage Pattern (actual API)
 
@@ -220,17 +246,34 @@ combinations.
 ## SLURM Parallelization
 
 - **`scripts/pyramidal.sh`** — one-shot CPU job wrapping `argo pyramidal`. Run once on a new slide table; serial (the vips tile/compress step is cheap relative to extraction).
-- **`argo extract-dask` / `argo_deepmsi/dask_extraction.py`** — elastic dask-jobqueue for feature extraction. One worker per slide, auto-adapts GPU worker count between `--min-workers` and `--max-workers`. It calls the canonical extractor one model per reopen to cap RAM, preserves per-slide failure isolation, and applies `gc.collect → torch.cuda.empty_cache → malloc_trim` between models. `scripts/extract_dask.py` is only a compatibility wrapper. Requires the `dask` extra.
+- **`argo extract-dask` / `argo_deepmsi/dask_extraction.py`** — elastic dask-jobqueue for feature extraction. One worker per slide, auto-adapts GPU worker count between `--min-workers` and `--max-workers`. It calls the canonical extractor one model per reopen to cap RAM, preserves per-slide failure isolation, and applies `gc.collect → torch.cuda.empty_cache → malloc_trim` between models. `scripts/extract_dask.py` is only a compatibility wrapper. Runs in `envs/lazyslide` (dask lives there).
 - **`scripts/extract_dask.sh`** — SLURM wrapper so the dask driver itself doesn't sit on the head node.
+- **`scripts/extract_mussel.sh`** — GPU array wrapper for `argo extract --backend mussel`; shards slide-table rows, skips complete outputs on resubmission.
+
+## Extraction Backends (four-stage pipeline)
+
+| Stage | Env | Commands |
+|---|---|---|
+| 1. setup | core | `argo setup`, `argo envs` |
+| 2. slide tasks | core | `argo ingest`, `argo pyramidal`, cohort freeze |
+| 3. extract | `envs/lazyslide` (default) or `envs/mussel` | `argo extract [--backend mussel]`, `argo extract-dask` |
+| 4a. analyses | core | Wagner, heads, domain shift, slide-count audit (on LazySlide features) |
+| 4b. PALADIN | `envs/paladin` | `argo paladin` on Mussel H-optimus-0 features (stub; weights MSK-internal) |
+
+- Each tool runs exactly as documented upstream; parameters live in `configs/backends/<backend>-<model>.toml`, and anything absent from a config falls back to the tool's own default.
+- **Mussel** output sits next to the slide: `<slide_dir>/<stem>.mussel/<MODEL>.features.{h5,pt}` + `<MODEL>.provenance.json`. H-optimus-0 is `model_type=OPTIMUS` (`HOPTIMUS0` does not exist). Its effective tile is 224 px @ 0.5 mpp (the 256 default is replaced per model), so grids never match LazySlide's 256 px tiles exactly. Never use `seg_config=stain` for MIL/PALADIN: it caps output at 32 tiles/slide. Evidence: `results/analysis/backends/mussel_smoke/FINDINGS.md`.
+- **Backend equivalence:** `argo compare-backends` reads both formats in core (`backends/readers.py`) and reports tile-grid agreement and matched-tile/slide-mean similarity under `results/analysis/backends/`. The study is `docs/experiments/X1-backend-equivalence.md`. When MSK engineering confirms the Mosaic/PALADIN Mussel parameters, edit only `configs/backends/mussel-hoptimus0.toml` and rerun extraction + `compare-backends`.
 - **`scripts/aggregate.sh` / `scripts/train.sh`** — auto-discovery (no hardcoded model list). `aggregate.sh` scans the first zarr's `tables/*_tiles` dirs; `train.sh` scans `results/embeddings/*/` for anything with `embeddings.npy`/`embeddings.h5ad`. Works with 3 models or 30 — no edits between Phase 1 and Phase 2.
 
 ## Porting to IRIS
 
 The final, larger Nigerian cohort will run on an MSK cluster — CDSI (`/gpfs/cdsi_ess/`,
-account exists) or IRIS (`ssh islogin01` / `isxfer01`, `/data1/sanchezf/`, needs a TheSpot
+account exists) or IRIS (`ssh islogin01` / `isxfer01`, needs a TheSpot
 account request); the choice depends on where the Mosaic embeddings and code live. Every sbatch wrapper is now
-cluster-neutral: it `cd`s to `$SLURM_SUBMIT_DIR`, runs through `uv run --frozen`, and defaults
-`HF_HOME` to `./.huggingface_cache`. Submit from the repo root. What remains cluster-specific:
+cluster-neutral: it `cd`s to `$SLURM_SUBMIT_DIR`, runs through `uv run --frozen` (with
+`--project envs/lazyslide` when the target imports LazySlide/wsidata/transformers/torchstain/
+torchvision), and defaults `HF_HOME` to `./.huggingface_cache`. Submit from the repo root. Run
+`argo setup` once per machine. What remains cluster-specific:
 
 - **Partitions:** `#SBATCH --partition` lines use Whitehead names (`nvidia-A6000-20` for GPU,
   `20` for CPU). Override at submission (`sbatch -p <iris-partition> ...`) or edit once IRIS
@@ -242,12 +285,14 @@ cluster-neutral: it `cd`s to `$SLURM_SUBMIT_DIR`, runs through `uv run --frozen`
   than rewriting.
 - **Tracked model artifact:** `scripts/qc/tumor_tiles_apply.py` reads the tumor-tile head
   `results/analysis/c5_phase1c/tissue_head_ctranspath_nonorm.joblib` (kept on `iris`).
-- **CUDA driver vs locked torch:** the lock pins `torch==2.14.0` (PyPI, CUDA 13 build). On
-  Whitehead's CUDA 12.6 driver it fails at `.cuda()`; GPU work here still runs through the old
-  `argo` conda env (torch 2.10+cu128). Check the IRIS driver first (see `docs/iris-runbook.md` P0).
-- **Dependency pins in `pyproject.toml`:** `setuptools>=61,<81` is required because
-  spatialdata → xarray_schema still imports `pkg_resources`. Without it, a fresh install silently
+- **CUDA driver vs locked torch:** core and `envs/lazyslide` pin torch 2.11 from the cu128
+  index and `envs/mussel` torch 2.5.1+cu121; both pass a GPU smoke on Whitehead's CUDA 12.6
+  driver. Confirm the MSK driver supports them (`docs/iris-runbook.md` P0) before re-pinning.
+- **Dependency pins:** `envs/lazyslide/pyproject.toml` keeps `setuptools>=61,<81` because
+  spatialdata → xarray_schema still imports `pkg_resources`; without it a fresh install silently
   loses LazySlide. Ruff lint selection is pinned to `E4`, `E7`, `E9`, `F`.
+- **Temp dirs:** Mussel calls `tempfile.mkdtemp()`; ARGO sets `TMPDIR` for it so nothing lands
+  in `/tmp`.
 
 ## Canonical Experiment Plan
 
@@ -296,6 +341,7 @@ The Python process itself gets `Killed` by the OOM killer, so the exception hand
 
 ## Testing
 
+- The core suite passes without LazySlide: tests marked `lazyslide` skip cleanly in core; run them with `uv run --frozen --project envs/lazyslide pytest -q`. Backend/env tests (`test_backends.py`, `test_cli_backends.py`, `test_envs.py`) are synthetic and run in core.
 - `tests/conftest.py` shares a session-scoped GTEx slide fixture downloaded from `rendeirolab/lazyslide-data` on HuggingFace. All tests are CPU-only unless marked `@pytest.mark.gpu`.
 - `tests/test_lazyslide_api.py` (Operon) — 19 tests that lock the LazySlide API surface we rely on: `open_wsi`, `find_tissues`, `tile_tissues`, `feature_extraction(num_workers/batch_size)`, `feature_aggregation`, `agg_wsi`, `zs.pl.tissue/tiles`, zarr direct read, incremental extraction.
 - `tests/test_argo_pipeline.py` — 12 tests exercising our wiring end-to-end on the same GTEx slide with `resnet50`: `extract_features_single_slide` (fresh + incremental), `aggregate_simple_pooling` (with h5ad + numeric sanity), `load_training_data` (h5ad preference, row-count guard), `compare_classifiers` (requires groups, runs StratifiedGroupKFold), `filter_slides_by_qc`, `_open_cached`.

@@ -1,0 +1,32 @@
+# H-optimus-0 via Mussel `tessellate_extract_features` (mussel-pathology @ d4cfce9, 2026-08-21).
+# Only model_type is set; every other parameter is left at Mussel's documented default
+# (README + TessellateExtractFeaturesConfig / SegConfig at the pin):
+#   seg_config=default (classic HSV, full-slide mask), seg_config.mpp=0.5, overlap=0,
+#   min_tissue_proportion=0.0,
+#   tissue_area_threshold=100, hole_area_threshold=16, batch_size=64, num_workers=4,
+#   embedding_precision=float32.
+# Effective tile size is 224 px, not SegConfig's 256: when seg_config.patch_size equals
+# SegConfig.DEFAULT_PATCH_SIZE (256), tessellate_extract_features replaces it with
+# MODEL_PATCH_SIZES[model_type] (OPTIMUS -> 224). Setting patch_size=256 explicitly is
+# indistinguishable from the default and is also replaced; LazySlide's grid is 256 px.
+# model_type: README patch-encoder table and ModelType enum both list H-Optimus-0 as OPTIMUS
+# (hf-hub:bioptimus/H-optimus-0).
+#
+# TODO(MSK engineering): put the Mosaic/PALADIN extraction parameters here once confirmed
+# (seg preset, mpp, patch_size, overlap, min_tissue_proportion, Mussel version), then rerun
+# the backend comparison. Do NOT use seg_config=stain: that preset caps output at 32 tiles.
+
+[backend]
+name = "mussel"
+model = "hoptimus0"
+
+[params]
+model_type = "OPTIMUS"
+# seg_config = "default"
+# "seg_config.mpp" = 0.5
+# "seg_config.patch_size" = 224
+# "seg_config.overlap" = 0
+# "seg_config.min_tissue_proportion" = 0.0
+# batch_size = 64
+# num_workers = 4
+# embedding_precision = "float32"

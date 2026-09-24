@@ -53,11 +53,20 @@ are stated explicitly.
 ## Canonical commands
 
 ```bash
-uv sync --frozen --extra dev --extra dask --extra waiv
-uv run argo doctor --config configs/nigeria-v2.toml
+uv sync --frozen --extra dev          # core env (no LazySlide)
+uv run argo setup                     # sync envs/lazyslide + envs/mussel; check HF token, .env, data
+uv run argo envs
+uv run --frozen --project envs/lazyslide argo doctor --config configs/nigeria-v2.toml
 uv run argo experiment configs/nigeria-v2.toml --dry-run
 uv run argo experiment configs/nigeria-v2.toml
 ```
+
+Slide encoding runs in its own locked environment (`envs/lazyslide` by default,
+`envs/mussel` via `argo extract --backend mussel`; PALADIN in `envs/paladin`).
+LazySlide commands re-execute themselves in `envs/lazyslide`; everything else,
+including `argo compare-backends`, runs in core. Tool parameters live in
+`configs/backends/*.toml` and follow each tool's documented defaults; never fork
+or reimplement a tool to change a parameter.
 
 Discover capabilities instead of guessing names or parameters:
 
@@ -102,10 +111,18 @@ Run this acceptance sequence before handing work off:
 ```bash
 uv run ruff check argo_deepmsi tests scripts/extract_dask.py
 uv run pytest -q
+uv run --frozen --project envs/lazyslide pytest -q
 uv run argo self-test
 uv lock --check
+uv lock --check --project envs/lazyslide
+uv lock --check --project envs/mussel
 git diff --check
 ```
+
+The core suite must pass without LazySlide installed (tests marked `lazyslide`
+skip there); the second pytest run exercises them. Wrapper scripts whose target
+imports LazySlide, wsidata, transformers, torchstain, or torchvision run through
+`uv run --frozen --project envs/lazyslide`.
 
 Network, GPU, gated-model, and large integration tests are opt-in pytest markers.
 Run the relevant marker explicitly when changing that boundary. The synthetic
@@ -119,6 +136,11 @@ scoring, comparison, provenance, and budget code are the production paths.
 - `argo_deepmsi/experiment_schema.py`: strategy vocabulary, strict TOML keys,
   semantic validation, and generated JSON Schema.
 - `argo_deepmsi/doctor.py`: read-only machine/environment/data preflight.
+- `argo_deepmsi/envs.py`: environment registry, setup, and LazySlide dispatch.
+- `argo_deepmsi/backends/`: backend configs, Mussel runner, zarr/h5 readers,
+  provenance, and backend comparison.
+- `envs/`: one locked project per tool (`lazyslide`, `mussel`) plus the
+  `paladin` setup script.
 - `argo_deepmsi/feature_extraction.py`: canonical tiling, extraction, manifests,
   and aggregation.
 - `argo_deepmsi/bags.py`: deterministic arbitrary-encoder tile bags.

@@ -39,7 +39,7 @@ tiles — and holds validation fixed.
 
 | Step | Done when |
 |---|---|
-| `uv sync --frozen --extra dev --extra dask --extra waiv` on IRIS; `argo doctor`, `pytest -q`, `argo self-test` green | acceptance sequence passes on IRIS |
+| `uv run argo setup` (core + `envs/lazyslide` + `envs/mussel`); `argo doctor`, `pytest -q`, `argo self-test` green | acceptance sequence passes on IRIS |
 | Transfer SVS/TIFF + existing zarrs via the transfer node into lab storage; checksum manifest | every slide in `slide_table.csv` has a matching checksum |
 | Re-run `argo ingest` on IRIS paths (slide tables store absolute paths) | tables regenerated, row counts unchanged |
 | Reproduce Wagner on the 803 slides | max/√n 0.717 ± 0.005 and patient-mean 0.659, identical patient set |

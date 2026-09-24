@@ -9,7 +9,7 @@
 
 set -euo pipefail
 cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
-uv run --frozen python - <<'PY'
+uv run --frozen --project envs/lazyslide python - <<'PY'
 import torch
 import argo_deepmsi.models  # registers phaet + mascaret into LazySlide MODEL_REGISTRY
 from lazyslide.models._model_registry import MODEL_REGISTRY
